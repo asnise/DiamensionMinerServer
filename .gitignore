@@ -1,0 +1,52 @@
+# ============================================================
+# Dimensional Miner — repo ที่คัดเฉพาะส่วนที่ต้องการ
+# Allowlist: เก็บเท่านั้น  plugin / web / docs / README
+# ============================================================
+
+# ---- Root: ignore everything, re-include allowed paths ----
+/*
+!/docs/
+!/web/
+!/dimensional-miner/
+!/README.md
+!/.gitignore
+
+# ---- web (re-include เฉพาะไฟล์แอป + public; ทิ้ง node_modules/logs) ----
+/web/*
+!/web/server.js
+!/web/package.json
+!/web/package-lock.json
+!/web/start.ps1
+!/web/test.mjs
+!/web/seed.sql
+!/web/public/
+/web/public/*
+!/web/public/style.css
+
+# ---- plugin (เฉพาะ DimensionalMinerCore ใต้ Plugin Project) ----
+/dimensional-miner/*
+!/dimensional-miner/Plugin Project/
+/dimensional-miner/Plugin Project/*
+!/dimensional-miner/Plugin Project/DimensionalMinerCore/
+/dimensional-miner/Plugin Project/DimensionalMinerCore/*
+!/dimensional-miner/Plugin Project/DimensionalMinerCore/build.gradle.kts
+!/dimensional-miner/Plugin Project/DimensionalMinerCore/settings.gradle.kts
+!/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle.properties
+!/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/
+!/dimensional-miner/Plugin Project/DimensionalMinerCore/src/
+/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/*
+!/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/wrapper/
+/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/wrapper/*
+!/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/wrapper/gradle-wrapper.properties
+
+# ============================================================
+# Safety net (เผื่อมีไฟล์หลุดมาในโฟลเดอร์ที่ include)
+# ============================================================
+**/.gradle/
+**/build/
+**/.idea/
+*.class
+*.jar
+*.log
+node_modules/
+.env
