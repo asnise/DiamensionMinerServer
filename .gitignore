@@ -1,52 +1,64 @@
 # ============================================================
-# Dimensional Miner — repo ที่คัดเฉพาะส่วนที่ต้องการ
-# Allowlist: เก็บเท่านั้น  plugin / web / docs / README
+# Dimensional Miner - .gitignore
 # ============================================================
 
-# ---- Root: ignore everything, re-include allowed paths ----
-/*
-!/docs/
-!/web/
-!/dimensional-miner/
-!/README.md
-!/.gitignore
-
-# ---- web (re-include เฉพาะไฟล์แอป + public; ทิ้ง node_modules/logs) ----
-/web/*
-!/web/server.js
-!/web/package.json
-!/web/package-lock.json
-!/web/start.ps1
-!/web/test.mjs
-!/web/seed.sql
-!/web/public/
-/web/public/*
-!/web/public/style.css
-
-# ---- plugin (เฉพาะ DimensionalMinerCore ใต้ Plugin Project) ----
-/dimensional-miner/*
-!/dimensional-miner/Plugin Project/
-/dimensional-miner/Plugin Project/*
-!/dimensional-miner/Plugin Project/DimensionalMinerCore/
-/dimensional-miner/Plugin Project/DimensionalMinerCore/*
-!/dimensional-miner/Plugin Project/DimensionalMinerCore/build.gradle.kts
-!/dimensional-miner/Plugin Project/DimensionalMinerCore/settings.gradle.kts
-!/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle.properties
-!/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/
-!/dimensional-miner/Plugin Project/DimensionalMinerCore/src/
-/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/*
-!/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/wrapper/
-/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/wrapper/*
-!/dimensional-miner/Plugin Project/DimensionalMinerCore/gradle/wrapper/gradle-wrapper.properties
-
-# ============================================================
-# Safety net (เผื่อมีไฟล์หลุดมาในโฟลเดอร์ที่ include)
-# ============================================================
-**/.gradle/
-**/build/
-**/.idea/
-*.class
-*.jar
-*.log
-node_modules/
+# General
 .env
+.env.local
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+*.swp
+
+# IDEs & Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ------------------------------------------------------------
+# web-console (Next.js & Node)
+# ------------------------------------------------------------
+node_modules/
+.next/
+out/
+build/
+coverage/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+
+# ------------------------------------------------------------
+# plugin (Java / Gradle)
+# ------------------------------------------------------------
+.gradle/
+plugin/build/
+!plugin/gradle/wrapper/gradle-wrapper.jar
+*.class
+
+# ------------------------------------------------------------
+# server (PaperMC Server)
+# ------------------------------------------------------------
+server/server.jar
+server/world/
+server/world_nether/
+server/world_the_end/
+server/logs/
+server/crash-reports/
+server/plugins/*
+!server/plugins/.gitkeep
+server/cache/
+server/libraries/
+server/versions/
+server/usercache.json
+server/banned-ips.json
+server/banned-players.json
+server/ops.json
+server/whitelist.json
