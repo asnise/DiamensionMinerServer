@@ -161,6 +161,15 @@ CREATE TABLE workspace_acl (
  permission text NOT NULL CHECK(permission IN ('VISIT','USE_STATION','STORAGE')),
  PRIMARY KEY(workspace_id,player_id,permission)
 );
+CREATE TABLE workspace_generators (
+ generator_id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES workspaces,
+ definition_id text NOT NULL, definition_version integer NOT NULL,
+ placed_x integer NOT NULL, placed_y integer NOT NULL, placed_z integer NOT NULL,
+ last_collected_at timestamptz NOT NULL DEFAULT now(),
+ accumulated_amount bigint NOT NULL DEFAULT 0,
+ is_active boolean NOT NULL DEFAULT true,
+ FOREIGN KEY(definition_id,definition_version) REFERENCES content_definitions
+);
 CREATE TABLE processing_jobs (
  job_id uuid PRIMARY KEY, player_id uuid NOT NULL REFERENCES players, workspace_id uuid NOT NULL REFERENCES workspaces,
  recipe_id text NOT NULL, recipe_version integer NOT NULL, operation_id uuid NOT NULL UNIQUE REFERENCES operations,
@@ -198,4 +207,10 @@ CREATE TABLE audit_log (
  action text NOT NULL, target_id text NOT NULL, reason text NOT NULL, before_state jsonb, after_state jsonb,
  created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE web_login_keys (
+ key_code text PRIMARY KEY, player_id uuid NOT NULL REFERENCES players ON DELETE CASCADE,
+ created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL,
+ used_at timestamptz
+);
+CREATE INDEX idx_web_keys_player ON web_login_keys(player_id, expires_at);
 COMMIT;

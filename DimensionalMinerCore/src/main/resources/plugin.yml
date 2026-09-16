@@ -1,0 +1,30 @@
+name: DimensionalMinerCore
+version: '1.0-SNAPSHOT'
+main: com.dimensionalminer.core.dimensionalMinerCore.DimensionalMinerCore
+api-version: '26.2'
+load: POSTWORLD
+
+libraries:
+  - com.zaxxer:HikariCP:5.1.0
+  - org.postgresql:postgresql:42.7.2
+
+commands:
+  profile:
+    description: Open player profile dashboard
+    usage: /profile
+  balance:
+    description: Show your COIN / ENERGY
+    usage: /balance
+    aliases: [bal, money]
+  grants:
+    description: Claim pending reward grants from your mailbox
+    usage: /grants
+    aliases: [mailbox, claim]
+  shop:
+    description: Open the online web shop for your account
+    usage: /shop
+    aliases: [webshop, store]
+  weblogin:
+    description: Get a secure web key to log in to the web console
+    usage: /weblogin
+    aliases: [web, login, auth, webauth]
