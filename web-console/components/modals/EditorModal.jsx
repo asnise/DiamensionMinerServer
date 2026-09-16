@@ -1,71 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Modal from "@/components/Modal";
 import { useToast } from "@/components/Toast";
+import { Layout, Code } from "lucide-react";
 
-const SCHEMA_MAP = {
-  ItemBase: [
-    { key: "name", label: "Name", type: "text" },
-    { key: "rarity", label: "Rarity", type: "select", options: ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] },
-    { key: "model_path", label: "Model Path", type: "text" },
-    { key: "category", label: "Category", type: "select", options: ["WEAPON", "ARMOR", "MATERIAL", "CONSUMABLE"] },
-    { key: "base_stats", label: "Base Stats (JSON)", type: "json" },
-  ],
-  PassiveGenerator: [
-    { key: "name", label: "Name", type: "text" },
-    { key: "production_rate_per_hour", label: "Production Rate / Hour", type: "number" },
-    { key: "max_capacity", label: "Max Capacity", type: "number" },
-    { key: "output_currency", label: "Output Currency", type: "select", options: ["COIN", "ENERGY"] },
-  ],
-  UpgradeTree: [
-    { key: "name", label: "Name", type: "text" },
-    { key: "max_level", label: "Max Level", type: "number" },
-    { key: "cost_scaling_formula", label: "Cost Formula (e.g. level * 100)", type: "text" },
-  ],
-  Recipe: [
-    { key: "name", label: "Recipe Name", type: "text" },
-    { key: "duration_seconds", label: "Duration (Seconds)", type: "number" },
-    { key: "inputs", label: "Inputs (JSON Array)", type: "json" },
-    { key: "outputs", label: "Outputs (JSON Array)", type: "json" },
-  ],
-  LootTable: [
-    { key: "name", label: "Loot Table Name", type: "text" },
-    { key: "pools", label: "Pools (JSON Array)", type: "json" },
-  ],
-};
+import ItemEditor from "./editors/ItemEditor";
+import GeneratorEditor from "./editors/GeneratorEditor";
+import UpgradeEditor from "./editors/UpgradeEditor";
+import RecipeEditor from "./editors/RecipeEditor";
+import LootTableEditor from "./editors/LootTableEditor";
+import GenericEditor from "./editors/GenericEditor";
 
-export default function EditorModal({ kind, initialData, onClose }) {
+export default function EditorModal({ kind = "ItemBase", initialData, onClose }) {
   const isEditing = !!initialData;
   const toast = useToast();
-  const [formData, setFormData] = useState(initialData ? initialData : { id: "", payload: {} });
+
+  const [activeTab, setActiveTab] = useState("form"); // "form" | "json"
+  const [definitionId, setDefinitionId] = useState(initialData?.id || "");
+  const [payload, setPayload] = useState(initialData?.payload || {});
+  const [rawJsonText, setRawJsonText] = useState(
+    JSON.stringify(initialData?.payload || {}, null, 2)
+  );
+  const [jsonParseError, setJsonParseError] = useState(null);
+
+  // Called whenever child editor updates payload
+  const handlePayloadChange = useCallback((newPayload) => {
+    setPayload(newPayload);
+    setRawJsonText(JSON.stringify(newPayload, null, 2));
+  }, []);
+
+  const handleSwitchTab = (tab) => {
+    if (tab === "json") {
+      setRawJsonText(JSON.stringify(payload, null, 2));
+      setJsonParseError(null);
+    } else if (tab === "form") {
+      try {
+        const parsed = JSON.parse(rawJsonText);
+        setJsonParseError(null);
+        setPayload(parsed);
+      } catch (err) {
+        setJsonParseError("Invalid JSON syntax. Fix syntax before switching to Visual Form.");
+        return;
+      }
+    }
+    setActiveTab(tab);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!definitionId.trim()) {
+      toast.warning("Definition ID is required", "Missing ID");
+      return;
+    }
+
+    let finalPayload = payload;
+    if (activeTab === "json") {
+      try {
+        finalPayload = JSON.parse(rawJsonText);
+      } catch (err) {
+        toast.error("Invalid JSON syntax: " + err.message, "Validation Error");
+        return;
+      }
+    }
+
     try {
       const res = await fetch(`/api/content/${kind}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ definition_id: formData.id, payload: formData.payload }),
+        body: JSON.stringify({
+          definition_id: definitionId.trim(),
+          payload: finalPayload,
+        }),
       });
+
+      const data = await res.json();
       if (res.ok) {
-        toast.success(`${kind} "${formData.id}" saved successfully`, "Changes Saved");
+        toast.success(`${kind} "${definitionId}" saved successfully`, "Changes Saved");
         onClose(true);
       } else {
-        toast.error("Failed to save content definition", "Save Error");
+        toast.error(data.error || "Failed to save content definition", "Save Error");
       }
     } catch (err) {
       toast.error(err.message, "Network Error");
     }
   };
 
-  const schema = SCHEMA_MAP[kind] || [{ key: "raw", label: "Raw Payload (JSON)", type: "json_full" }];
-
-  const updatePayload = (key, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      payload: { ...prev.payload, [key]: value },
-    }));
+  const renderSpecificEditor = () => {
+    if (kind === "ItemBase" || kind === "MATERIAL" || kind === "ITEM") {
+      return <ItemEditor payload={payload} onChange={handlePayloadChange} />;
+    }
+    if (kind === "PassiveGenerator") {
+      return <GeneratorEditor payload={payload} onChange={handlePayloadChange} />;
+    }
+    if (kind === "UpgradeTree") {
+      return <UpgradeEditor payload={payload} onChange={handlePayloadChange} />;
+    }
+    if (kind === "Recipe") {
+      return <RecipeEditor payload={payload} onChange={handlePayloadChange} />;
+    }
+    if (kind === "LootTable") {
+      return <LootTableEditor payload={payload} onChange={handlePayloadChange} />;
+    }
+    return <GenericEditor payload={payload} onChange={handlePayloadChange} />;
   };
 
   return (
@@ -73,153 +111,186 @@ export default function EditorModal({ kind, initialData, onClose }) {
       isOpen={true}
       onClose={() => onClose(false)}
       title={isEditing ? `Edit ${kind}` : `Create New ${kind}`}
-      size="lg"
+      size="xl"
       footer={
-        <>
-          <button type="button" className="btn-secondary" onClick={() => onClose(false)}>
-            Cancel
-          </button>
-          <button type="submit" form="editor-form" className="btn-primary">
-            Save Changes
-          </button>
-        </>
+        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            Kind: <strong style={{ color: "var(--text)" }}>{kind}</strong> · Mode:{" "}
+            <span style={{ textTransform: "capitalize" }}>{activeTab}</span>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button type="button" className="page-btn" onClick={() => onClose(false)}>
+              Cancel
+            </button>
+            <button type="submit" form="editor-form" className="page-btn primary">
+              Save {kind}
+            </button>
+          </div>
+        </div>
       }
     >
+      {/* Mode Switcher Tabs */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: "1px solid var(--border)",
+          paddingBottom: 12,
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => handleSwitchTab("form")}
+            className="page-btn"
+            style={{
+              padding: "6px 14px",
+              fontSize: 13,
+              fontWeight: activeTab === "form" ? 600 : 400,
+              background: activeTab === "form" ? "var(--accent)" : "transparent",
+              color: activeTab === "form" ? "#fff" : "var(--text-secondary)",
+              border: activeTab === "form" ? "1px solid var(--accent)" : "1px solid var(--border)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Layout size={14} /> Visual Form
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSwitchTab("json")}
+            className="page-btn"
+            style={{
+              padding: "6px 14px",
+              fontSize: 13,
+              fontWeight: activeTab === "json" ? 600 : 400,
+              background: activeTab === "json" ? "var(--accent)" : "transparent",
+              color: activeTab === "json" ? "#fff" : "var(--text-secondary)",
+              border: activeTab === "json" ? "1px solid var(--accent)" : "1px solid var(--border)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Code size={14} /> Raw JSON
+          </button>
+        </div>
+
+        <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+          Real-time sync between Form and JSON
+        </span>
+      </div>
+
       <form id="editor-form" onSubmit={handleSubmit}>
-        <div className="form-group" style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>ID</label>
+        {/* Definition ID Field */}
+        <div
+          style={{
+            background: "var(--surface-muted)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            padding: 16,
+            marginBottom: 20,
+          }}
+        >
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontSize: 12,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Definition Identifier (ID) *
+          </label>
           <input
             type="text"
-            value={formData.id}
-            onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+            value={definitionId}
+            onChange={(e) => setDefinitionId(e.target.value.toLowerCase().replace(/\s+/g, "_"))}
             disabled={isEditing}
             required
-            placeholder="e.g. item_iron_sword"
+            placeholder="e.g. netherite_pickaxe, solar_panel_t1"
             style={{
               width: "100%",
-              padding: "8px 12px",
+              padding: "9px 12px",
               borderRadius: "var(--radius-sm)",
               border: "1px solid var(--border-strong)",
               background: isEditing ? "var(--surface-muted)" : "var(--surface)",
               color: "var(--text)",
+              fontFamily: "ui-monospace, monospace",
               fontSize: 13.5,
+              fontWeight: 600,
             }}
           />
+          <span style={{ fontSize: 11.5, color: "var(--text-tertiary)", marginTop: 4, display: "block" }}>
+            Unique database key (snake_case format recommended).
+          </span>
         </div>
 
-        {schema.map((field) => {
-          if (field.type === "json_full") {
-            return (
-              <div className="form-group" key={field.key} style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
-                  {field.label}
-                </label>
-                <textarea
-                  rows={10}
-                  value={JSON.stringify(formData.payload, null, 2)}
-                  onChange={(e) => {
-                    try {
-                      setFormData({ ...formData, payload: JSON.parse(e.target.value) });
-                    } catch {}
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--border-strong)",
-                    fontFamily: "ui-monospace, monospace",
-                    fontSize: 12.5,
-                  }}
-                />
-              </div>
-            );
-          }
-
-          const val = formData.payload[field.key];
-
-          if (field.type === "select") {
-            return (
-              <div className="form-group" key={field.key} style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
-                  {field.label}
-                </label>
-                <select
-                  value={val || ""}
-                  onChange={(e) => updatePayload(field.key, e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--border-strong)",
-                    background: "var(--surface)",
-                    color: "var(--text)",
-                    fontSize: 13.5,
-                  }}
-                >
-                  <option value="" disabled>
-                    Select {field.label}
-                  </option>
-                  {field.options.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            );
-          }
-
-          if (field.type === "json") {
-            return (
-              <div className="form-group" key={field.key} style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
-                  {field.label}
-                </label>
-                <textarea
-                  rows={4}
-                  value={val ? JSON.stringify(val, null, 2) : ""}
-                  onChange={(e) => {
-                    try {
-                      updatePayload(field.key, JSON.parse(e.target.value));
-                    } catch {}
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid var(--border-strong)",
-                    fontFamily: "ui-monospace, monospace",
-                    fontSize: 12.5,
-                  }}
-                />
-              </div>
-            );
-          }
-
-          return (
-            <div className="form-group" key={field.key} style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
-                {field.label}
-              </label>
-              <input
-                type={field.type === "number" ? "number" : "text"}
-                value={val !== undefined ? val : ""}
-                onChange={(e) =>
-                  updatePayload(field.key, field.type === "number" ? Number(e.target.value) : e.target.value)
-                }
+        {/* RAW JSON VIEW */}
+        {activeTab === "json" ? (
+          <div>
+            {jsonParseError && (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "8px 12px",
+                  padding: "10px 14px",
                   borderRadius: "var(--radius-sm)",
-                  border: "1px solid var(--border-strong)",
-                  background: "var(--surface)",
-                  color: "var(--text)",
-                  fontSize: 13.5,
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid rgba(239, 68, 68, 0.25)",
+                  color: "var(--danger)",
+                  fontSize: 13,
+                  marginBottom: 12,
                 }}
-              />
-            </div>
-          );
-        })}
+              >
+                {jsonParseError}
+              </div>
+            )}
+            <label
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Payload Object (JSON)
+            </label>
+            <textarea
+              rows={16}
+              value={rawJsonText}
+              onChange={(e) => {
+                setRawJsonText(e.target.value);
+                try {
+                  const p = JSON.parse(e.target.value);
+                  setJsonParseError(null);
+                  setPayload(p);
+                } catch (err) {
+                  setJsonParseError(err.message);
+                }
+              }}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid var(--border-strong)",
+                background: "var(--surface)",
+                color: "var(--text)",
+                fontFamily: "ui-monospace, monospace",
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            />
+          </div>
+        ) : (
+          /* DELEGATED MODULAR FORM */
+          renderSpecificEditor()
+        )}
       </form>
     </Modal>
   );

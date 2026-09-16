@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import pool from '@/lib/db';
 
 export async function listDefinitions(kind, { limit, offset }) {
@@ -22,11 +23,13 @@ export async function listDefinitions(kind, { limit, offset }) {
 }
 
 export async function upsertDefinition(definitionId, kind, payload) {
+  const checksum = crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
   return pool.query(
-    `INSERT INTO content_definitions (definition_id, version, kind, payload)
-     VALUES ($1, 1, $2, $3)
-     ON CONFLICT (definition_id, version) DO UPDATE SET payload = EXCLUDED.payload`,
-    [definitionId, kind, payload]
+    `INSERT INTO content_definitions (definition_id, version, kind, payload, checksum)
+     VALUES ($1, 1, $2, $3, $4)
+     ON CONFLICT (definition_id, version) DO UPDATE 
+     SET payload = EXCLUDED.payload, checksum = EXCLUDED.checksum, published_at = now()`,
+    [definitionId, kind, payload, checksum]
   );
 }
 
