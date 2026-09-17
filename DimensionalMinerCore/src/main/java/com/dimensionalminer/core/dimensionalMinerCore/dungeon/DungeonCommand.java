@@ -152,6 +152,17 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (sub.equals("leave")) {
+            if (!(sender instanceof Player player)) return true;
+            if (!instanceManager.isInDungeon(player)) {
+                player.sendMessage(ChatColor.RED + "You are not currently inside a dungeon.");
+                return true;
+            }
+            player.sendMessage(ChatColor.YELLOW + "[Dungeon] Leaving instance and returning to town...");
+            instanceManager.evacuateToPublicWorld(player);
+            return true;
+        }
+
         if (sub.equals("destroy")) {
             if (!sender.isOp()) {
                 sender.sendMessage(ChatColor.RED + "Administrative command requires OP permissions.");
@@ -172,7 +183,7 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> subs = new ArrayList<>(Arrays.asList("list", "create", "enter", "join"));
+            List<String> subs = new ArrayList<>(Arrays.asList("list", "create", "enter", "join", "leave"));
             if (sender.isOp()) subs.add("destroy");
             return subs.stream().filter(s -> s.startsWith(args[0].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
         }

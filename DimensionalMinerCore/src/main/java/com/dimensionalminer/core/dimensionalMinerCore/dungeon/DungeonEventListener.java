@@ -75,6 +75,29 @@ public class DungeonEventListener implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerSpawnLocation(org.spigotmc.event.player.PlayerSpawnLocationEvent event) {
+        org.bukkit.Location loc = event.getSpawnLocation();
+        org.bukkit.World world = loc.getWorld();
+        if (world == null || instanceManager.isDungeonWorld(world.getName())) {
+            org.bukkit.World hub = org.bukkit.Bukkit.getWorld("overworld_t0");
+            if (hub != null) {
+                event.setSpawnLocation(hub.getSpawnLocation());
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerQuit(org.bukkit.event.player.PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        if (instanceManager.isInDungeon(player)) {
+            org.bukkit.World hub = org.bukkit.Bukkit.getWorld("overworld_t0");
+            if (hub != null) {
+                player.teleport(hub.getSpawnLocation());
+            }
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
@@ -82,8 +105,12 @@ public class DungeonEventListener implements Listener {
 
         if (sessionOpt.isPresent() && !sessionOpt.get().isCompleted()) {
             DungeonInstanceSession session = sessionOpt.get();
-            player.teleportAsync(session.getWorld().getSpawnLocation());
-            player.sendMessage("§a[Dungeon] Reconnected to active dungeon session: " + session.getRuntimeWorldName());
+            org.bukkit.Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    player.teleportAsync(session.getWorld().getSpawnLocation());
+                    player.sendMessage("§a[Dungeon] Reconnected to active dungeon session: " + session.getRuntimeWorldName());
+                }
+            }, 5L);
         } else {
             if (instanceManager.isInDungeon(player)) {
                 instanceManager.evacuateToPublicWorld(player);

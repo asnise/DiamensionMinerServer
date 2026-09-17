@@ -43,16 +43,18 @@ public class DungeonInstanceManager {
         String runtimeWorldName = templateName + "_" + sessionId;
 
         File templateDir = new File(Bukkit.getWorldContainer(), templateName);
-        File runtimeDir = new File(Bukkit.getWorldContainer(), runtimeWorldName);
+        File rootRuntimeDir = new File(Bukkit.getWorldContainer(), runtimeWorldName);
+        File dimensionsBaseDir = new File(new File(Bukkit.getWorldContainer(), "overworld_t0"), "dimensions/minecraft");
+        File dimensionRuntimeDir = new File(dimensionsBaseDir, runtimeWorldName);
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 if (templateDir.exists() && templateDir.isDirectory()) {
-                    copyDirectory(templateDir.toPath(), runtimeDir.toPath());
-                    File uidFile = new File(runtimeDir, "uid.dat");
-                    if (uidFile.exists()) uidFile.delete();
-                    File lockFile = new File(runtimeDir, "session.lock");
-                    if (lockFile.exists()) lockFile.delete();
+                    copyDirectory(templateDir.toPath(), dimensionRuntimeDir.toPath());
+                    cleanLocksAndUids(dimensionRuntimeDir);
+
+                    copyDirectory(templateDir.toPath(), rootRuntimeDir.toPath());
+                    cleanLocksAndUids(rootRuntimeDir);
                 }
 
                 Bukkit.getScheduler().runTask(plugin, () -> {
@@ -141,15 +143,28 @@ public class DungeonInstanceManager {
             Bukkit.unloadWorld(world, false);
         }
 
-        File runtimeDir = new File(Bukkit.getWorldContainer(), session.getRuntimeWorldName());
+        File rootRuntimeDir = new File(Bukkit.getWorldContainer(), session.getRuntimeWorldName());
+        File dimensionsBaseDir = new File(new File(Bukkit.getWorldContainer(), "overworld_t0"), "dimensions/minecraft");
+        File dimensionRuntimeDir = new File(dimensionsBaseDir, session.getRuntimeWorldName());
+
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                deleteDirectory(runtimeDir.toPath());
+                deleteDirectory(rootRuntimeDir.toPath());
+            } catch (Exception ignored) {}
+            try {
+                deleteDirectory(dimensionRuntimeDir.toPath());
             } catch (Exception ignored) {}
             future.complete(true);
         });
 
         return future;
+    }
+
+    private static void cleanLocksAndUids(File dir) {
+        File uidFile = new File(dir, "uid.dat");
+        if (uidFile.exists()) uidFile.delete();
+        File lockFile = new File(dir, "session.lock");
+        if (lockFile.exists()) lockFile.delete();
     }
 
     public void evacuateToPublicWorld(Player player) {
