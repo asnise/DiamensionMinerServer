@@ -9,6 +9,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -46,7 +47,7 @@ public final class InventorySync implements Listener {
     private final String nodeId;
     private final Map<UUID, long[]> lastState = new ConcurrentHashMap<>();
 
-    private record SlotItem(int index, String container, int slot, ItemStack stack) {}
+    private record SlotItem(int index, String container, int slot, String defId, int quantity, boolean empty) {}
 
     public InventorySync(DimensionalMinerCore plugin) {
         this.plugin = plugin;
@@ -65,6 +66,14 @@ public final class InventorySync implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         snapshotAndMaybeSave(event.getPlayer());
+    }
+
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
+    public void onDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
+        event.setKeepInventory(true);
+        event.getDrops().clear();
+        event.setKeepLevel(true);
+        event.setDroppedExp(0);
     }
 
     // ---------- lifecycle ----------
@@ -136,7 +145,21 @@ public final class InventorySync implements Listener {
             if (previous != null && previous[i] == current[i]) continue;
             ItemStack stack = player.getInventory().getItem(i);
             String container = containerKey(i);
-            out.add(new SlotItem(i, container, container.equals("inv") ? i : 0, stack));
+            int slot = container.equals("inv") ? i : 0;
+            if (stack == null || stack.getType() == Material.AIR) {
+                out.add(new SlotItem(i, container, slot, null, 0, true));
+            } else {
+                String defId = null;
+                ItemMeta meta = stack.getItemMeta();
+                if (meta != null && plugin.getContentRegistryManager() != null) {
+                    defId = meta.getPersistentDataContainer().get(plugin.getContentRegistryManager().getDefIdKey(), PersistentDataType.STRING);
+                }
+                if (defId == null || defId.isBlank()) {
+                    defId = stack.getType().name().toLowerCase(Locale.ROOT);
+                }
+                int quantity = stack.getAmount();
+                out.add(new SlotItem(i, container, slot, defId, quantity, false));
+            }
         }
         return out;
     }
@@ -156,28 +179,26 @@ public final class InventorySync implements Listener {
 
     private Map<Integer, ItemStack> loadInventory(UUID playerId) throws SQLException {
         Map<Integer, ItemStack> out = new HashMap<>();
-        String sql = "SELECT l.kind, l.container_key, l.slot, ms.quantity, cd.definition_id, cd.payload"
+        UUID ownerId = plugin.getDatabaseManager().getAccountId(playerId);
+        String sql = "SELECT l.kind, l.container_key, l.slot, ms.quantity, ms.definition_id"
                 + " FROM asset_locations l"
                 + " JOIN material_stacks ms ON ms.location_id = l.location_id"
-                + " JOIN content_definitions cd ON cd.definition_id = ms.definition_id AND cd.version = ms.definition_version"
                 + " WHERE l.owner_id = ? AND l.kind IN ('INVENTORY','EQUIPPED')";
 
         try (Connection conn = plugin.getDatabaseManager().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, playerId);
+            stmt.setObject(1, ownerId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     int amount = rs.getInt("quantity");
                     String defId = rs.getString("definition_id");
-                    Material mat = Material.matchMaterial(defId.toUpperCase(Locale.ROOT));
-                    if (mat == null) mat = Material.STONE;
-                    ItemStack stack = new ItemStack(mat, Math.max(1, Math.min(amount, mat.getMaxStackSize())));
-                    String payload = rs.getString("payload");
-                    String display = displayFromPayload(payload, defId);
-                    ItemMeta meta = stack.getItemMeta();
-                    if (meta != null && display != null) {
-                        meta.setDisplayName(display);
-                        stack.setItemMeta(meta);
+                    ItemStack stack;
+                    if (plugin.getContentRegistryManager() != null && plugin.getContentRegistryManager().hasItem(defId)) {
+                        stack = plugin.getContentRegistryManager().createItemStack(defId, amount);
+                    } else {
+                        Material mat = Material.matchMaterial(defId.toUpperCase(Locale.ROOT));
+                        if (mat == null) mat = Material.STONE;
+                        stack = new ItemStack(mat, Math.max(1, Math.min(amount, mat.getMaxStackSize())));
                     }
                     String kind = rs.getString("kind");
                     String container = rs.getString("container_key");
@@ -217,23 +238,24 @@ public final class InventorySync implements Listener {
     private int saveBatch(UUID playerId, List<SlotItem> changed) throws SQLException {
         if (changed.isEmpty()) return 0;
         int written = 0;
+        UUID ownerId = plugin.getDatabaseManager().getAccountId(playerId);
 
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             conn.setAutoCommit(false);
             try {
                 ensureNode(conn);
-                long epoch = bumpSession(conn, playerId);
+                long epoch = bumpSession(conn, ownerId);
 
                 UUID opId = UUID.randomUUID();
-                String idemKey = "invsync/" + playerId + "/" + epoch;
-                insertOperation(conn, opId, playerId, idemKey);
+                String idemKey = "invsync/" + ownerId + "/" + epoch;
+                insertOperation(conn, opId, ownerId, idemKey);
 
                 for (SlotItem item : changed) {
                     String kind = item.container().equals("inv") ? "INVENTORY" : "EQUIPPED";
-                    written += writeSlot(conn, playerId, kind, item.container(), item.slot(), item.stack());
+                    written += writeSlot(conn, ownerId, kind, item.container(), item.slot(), item.defId(), item.quantity(), item.empty());
                 }
 
-                insertOutbox(conn, opId, playerId, written);
+                insertOutbox(conn, opId, ownerId, written);
                 conn.commit();
             } catch (SQLException e) {
                 conn.rollback();
@@ -300,7 +322,7 @@ public final class InventorySync implements Listener {
     }
 
     /** Returns 1 when the slot was written (insert or update), 0 when the slot is empty/skipped. */
-    private int writeSlot(Connection conn, UUID ownerId, String kind, String container, int slot, ItemStack stack) throws SQLException {
+    private int writeSlot(Connection conn, UUID ownerId, String kind, String container, int slot, String defId, int quantity, boolean empty) throws SQLException {
         UUID locationId = null;
         try (PreparedStatement sel = conn.prepareStatement(
                 "SELECT location_id FROM asset_locations WHERE owner_id = ? AND kind = ? AND container_key = ? AND slot = ? FOR UPDATE")) {
@@ -313,8 +335,7 @@ public final class InventorySync implements Listener {
             }
         }
 
-        boolean has = stack != null && stack.getType() != Material.AIR;
-        if (!has) {
+        if (empty) {
             if (locationId != null) {
                 try (PreparedStatement stmt = conn.prepareStatement(
                         "DELETE FROM material_stacks WHERE location_id = ?")) {
@@ -329,10 +350,6 @@ public final class InventorySync implements Listener {
             }
             return 0;
         }
-
-        String defId = stack.getType().name().toLowerCase(Locale.ROOT);
-        ensureDefinition(conn, stack, defId);
-        int quantity = stack.getAmount();
 
         if (locationId != null) {
             try (PreparedStatement stmt = conn.prepareStatement(
@@ -365,29 +382,6 @@ public final class InventorySync implements Listener {
             }
         }
         return 1;
-    }
-
-    private void ensureDefinition(Connection conn, ItemStack stack, String defId) throws SQLException {
-        Material mat = stack.getType();
-        String friendly;
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null && meta.hasDisplayName()) {
-            friendly = meta.getDisplayName();
-        } else {
-            friendly = mat.name().toLowerCase(Locale.ROOT).replace('_', ' ');
-        }
-        String payload = "{\"display\":\"" + jsonEscape(friendly) + "\",\"icon\":\"" + mat.name().toLowerCase(Locale.ROOT)
-                + "\",\"stack\":" + mat.getMaxStackSize() + "}";
-        String checksum = "sha256-" + Integer.toHexString(payload.hashCode());
-
-        try (PreparedStatement stmt = conn.prepareStatement(
-                "INSERT INTO content_definitions (definition_id, version, kind, payload, checksum)"
-                        + " VALUES (?, 1, 'MATERIAL', ?::jsonb, ?) ON CONFLICT (definition_id, version) DO NOTHING")) {
-            stmt.setString(1, defId);
-            stmt.setString(2, payload);
-            stmt.setString(3, checksum);
-            stmt.executeUpdate();
-        }
     }
 
     private void insertOutbox(Connection conn, UUID opId, UUID playerId, int changed) throws SQLException {

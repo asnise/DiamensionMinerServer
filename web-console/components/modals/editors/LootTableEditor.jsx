@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Gift, Plus, Trash2 } from "lucide-react";
+import ItemSelect from "@/components/ItemSelect";
 
 export default function LootTableEditor({ payload = {}, onChange }) {
   const rawPools = Array.isArray(payload.pools)
@@ -102,18 +103,18 @@ export default function LootTableEditor({ payload = {}, onChange }) {
         </div>
         {form.pools.map((p, idx) => (
           <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <input
-              type="text"
-              placeholder="Item ID (e.g. netherite_scrap)"
-              value={p.item}
-              onChange={(e) => {
-                const next = [...form.pools];
-                next[idx].item = e.target.value;
-                setForm({ ...form, pools: next });
-                notifyParent({ ...form, pools: next });
-              }}
-              style={{ ...inputStyle, flex: 2 }}
-            />
+            <div style={{ flex: 2 }}>
+              <ItemSelect
+                value={p.item}
+                placeholder="Item ID (e.g. netherite_scrap)"
+                onChange={(val) => {
+                  const next = [...form.pools];
+                  next[idx].item = val;
+                  setForm({ ...form, pools: next });
+                  notifyParent({ ...form, pools: next });
+                }}
+              />
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>Weight:</span>
               <input

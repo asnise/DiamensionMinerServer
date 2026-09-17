@@ -5,10 +5,11 @@ import { useSearchParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import Skeleton from "@/components/Skeleton";
 import Link from "next/link";
-import { ArrowLeft, Package, Database, User, LogOut, Lock } from "lucide-react";
+import { ArrowLeft, Package, Database, User, LogOut, Lock, Table, LayoutGrid, History, Sparkles, TrendingUp, TrendingDown } from "lucide-react";
 import { formatCompactNumber, nf } from "@/lib/format";
 import { useToast } from "@/components/Toast";
 import { usePlayerSession, isUuid } from "@/lib/session";
+import Pagination from "@/components/Pagination";
 
 function slotLabel(kind, container, slot) {
   if (container && container !== "inv") {
@@ -40,7 +41,11 @@ export default function ProfileView() {
 
   const [profile, setProfile] = useState(null);
   const [inventory, setInventory] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [viewMode, setViewMode] = useState("table"); // "table" | "grid"
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10); // max 10 rows
 
   const loading = Boolean(activePlayerId && !errorMsg && profile?.player?.player_id !== activePlayerId);
 
@@ -52,8 +57,9 @@ export default function ProfileView() {
     Promise.all([
       fetch(`/api/player/${activePlayerId}`).then((r) => r.json()),
       fetch(`/api/player/${activePlayerId}/items`).then((r) => r.json()),
+      fetch(`/api/player/${activePlayerId}/transactions`).then((r) => r.json()),
     ])
-      .then(([prof, inv]) => {
+      .then(([prof, inv, tx]) => {
         if (cancelled) return;
         if (prof.error) {
           setErrorMsg(prof.error);
@@ -61,6 +67,7 @@ export default function ProfileView() {
         } else {
           setProfile(prof);
           setInventory(inv.data || []);
+          setTransactions(tx.data || []);
         }
       })
       .catch((err) => {
@@ -332,66 +339,449 @@ export default function ProfileView() {
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div className="card-header-row">
-          <h3 style={{ margin: 0, fontSize: 15 }}>
-            <Package size={16} style={{ verticalAlign: -2, marginRight: 8 }} />
-            Inventory
-          </h3>
-          <span className="page-indicator">
-            {totalStacks} stacks · {totalItems} items
-          </span>
+        <div className="card-header-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <h3 style={{ margin: 0, fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}>
+              <Package size={16} />
+              Inventory Assets
+            </h3>
+            <span className="page-indicator">
+              {totalStacks} stacks · {totalItems} items
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                background: "var(--surface-hover)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                padding: 2,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 10px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: "var(--radius-sm)",
+                  cursor: "pointer",
+                  background: viewMode === "table" ? "var(--accent)" : "transparent",
+                  color: viewMode === "table" ? "#fff" : "var(--text-secondary)",
+                  transition: "all 0.15s",
+                }}
+              >
+                <Table size={14} />
+                Table View
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "4px 10px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: "var(--radius-sm)",
+                  cursor: "pointer",
+                  background: viewMode === "grid" ? "var(--accent)" : "transparent",
+                  color: viewMode === "grid" ? "#fff" : "var(--text-secondary)",
+                  transition: "all 0.15s",
+                }}
+              >
+                <LayoutGrid size={14} />
+                Minecraft Grid
+              </button>
+            </div>
+          </div>
         </div>
+
+        {viewMode === "table" ? (
+          <>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Slot</th>
+                  <th>Name</th>
+                  <th>Kind</th>
+                  <th>Qty / Rarity</th>
+                  <th>Binding</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventory.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: "center", color: "var(--text-tertiary)", padding: 32 }}>
+                      Inventory is empty.
+                    </td>
+                  </tr>
+                ) : (
+                  inventory.slice((page - 1) * limit, page * limit).map((row, idx) => {
+                    const isStack = row.asset_kind === "STACK";
+                    const label = slotLabel(row.kind, row.container_key, row.slot);
+                    const name = payloadName(row.payload, row.definition_id);
+                    return (
+                      <tr key={row.location_id ? `${row.location_id}-${idx}` : `inv-${idx}`}>
+                        <td>
+                          <span className="slot-badge">{label}</span>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 500, textTransform: "capitalize" }}>{name}</div>
+                          {row.payload?.description && (
+                            <div style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>
+                              {row.payload.description}
+                            </div>
+                          )}
+                          {!isStack && (
+                            <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}>
+                              <span style={{ fontFamily: "monospace", opacity: 0.7 }}>
+                                {row.item_id ? `#${row.item_id.slice(0, 8)}` : ""}
+                              </span>
+                              {row.origin_source && (
+                                <span style={{ background: "var(--surface-hover)", padding: "1px 5px", borderRadius: 3, fontSize: 10 }}>
+                                  Origin: {row.origin_source}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`asset-kind-badge ${isStack ? "stack" : "item"}`}>
+                            {row.asset_kind}
+                          </span>
+                        </td>
+                        <td>
+                          {isStack ? (
+                            <span style={{ fontWeight: 600 }}>×{nf(row.quantity || 1)}</span>
+                          ) : (
+                            <span className={`rarity-badge ${String(row.rarity || "").toLowerCase()}`}>
+                              {row.rarity || "COMMON"}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="binding-text">{row.binding || "UNBOUND"}</span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+
+            {inventory.length > 0 && (
+              <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px" }}>
+                <Pagination
+                  total={inventory.length}
+                  page={page}
+                  limit={limit}
+                  setPage={setPage}
+                  setLimit={setLimit}
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ padding: 20, background: "var(--surface-subtle)" }}>
+            {/* Minecraft Style 9x4 Inventory Grid */}
+            <div style={{ maxWidth: 640, margin: "0 auto" }}>
+              <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase" }}>
+                Main Inventory
+              </div>
+
+              {/* Grid 9 Columns x 4 Rows */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(9, minmax(48px, 1fr))",
+                  gap: 6,
+                  background: "var(--surface)",
+                  border: "2px solid var(--border)",
+                  borderRadius: "var(--radius)",
+                  padding: 12,
+                }}
+              >
+                {(() => {
+                  // Build lookup map for slots 0 to 35
+                  // In Minecraft standard: slots 9..35 are main storage (top 3 rows), 0..8 are hotbar (bottom row)
+                  const slotMap = new Map();
+                  inventory.forEach((row) => {
+                    const cont = String(row.container_key || "").toLowerCase();
+                    if (cont === "inv" && typeof row.slot === "number") {
+                      slotMap.set(row.slot, row);
+                    }
+                  });
+
+                  // We display Rows:
+                  // Row 1: slots 9..17
+                  // Row 2: slots 18..26
+                  // Row 3: slots 27..35
+                  // Row 4: slots 0..8 (Hotbar)
+                  const gridSlots = [
+                    ...Array.from({ length: 9 }, (_, i) => i + 9),
+                    ...Array.from({ length: 9 }, (_, i) => i + 18),
+                    ...Array.from({ length: 9 }, (_, i) => i + 27),
+                    ...Array.from({ length: 9 }, (_, i) => i),
+                  ];
+
+                  return gridSlots.map((slotIndex, gridPos) => {
+                    const item = slotMap.get(slotIndex);
+                    const isHotbar = gridPos >= 27;
+                    const isStack = item?.asset_kind === "STACK";
+                    const displayName = item ? payloadName(item.payload, item.definition_id) : "";
+                    const qty = item?.quantity || 1;
+
+                    return (
+                      <div
+                        key={slotIndex}
+                        title={
+                          item
+                            ? `${displayName} (${item.definition_id})\nSlot: ${slotIndex}${isHotbar ? " [Hotbar]" : ""}\n${isStack ? `Qty: ${qty}` : `Rarity: ${item.rarity || "COMMON"}`}`
+                            : `Empty Slot ${slotIndex}${isHotbar ? " [Hotbar]" : ""}`
+                        }
+                        style={{
+                          aspectRatio: "1 / 1",
+                          background: item ? "var(--surface-hover)" : "var(--surface-subtle)",
+                          border: `1px solid ${item ? "var(--border-strong)" : "var(--border)"}`,
+                          borderRadius: 4,
+                          position: "relative",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: item ? "pointer" : "default",
+                          transition: "all 0.15s",
+                          boxShadow: isHotbar ? "inset 0 0 0 1px rgba(99, 102, 241, 0.2)" : "none",
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            left: 4,
+                            fontSize: 9,
+                            color: "var(--text-tertiary)",
+                            fontFamily: "monospace",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          {slotIndex}
+                        </span>
+
+                        {item ? (
+                          <>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                textAlign: "center",
+                                padding: "0 4px",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                width: "100%",
+                                color: "var(--text)",
+                              }}
+                            >
+                              {displayName.slice(0, 7)}
+                            </div>
+
+                            {isStack ? (
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  bottom: 2,
+                                  right: 4,
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  color: "var(--accent)",
+                                }}
+                              >
+                                {qty}
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  bottom: 2,
+                                  right: 4,
+                                  fontSize: 8.5,
+                                  fontWeight: 700,
+                                  color: "var(--text-secondary)",
+                                }}
+                              >
+                                {String(item.rarity || "C").charAt(0)}
+                              </span>
+                            )}
+                          </>
+                        ) : null}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Equipped Armor & Offhand Row */}
+              <div style={{ marginTop: 16 }}>
+                <div style={{ marginBottom: 6, fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase" }}>
+                  Equipped Gear & Offhand
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {["HELMET", "CHESTPLATE", "LEGGINGS", "BOOTS", "OFFHAND"].map((gearKey) => {
+                    const gearItem = inventory.find(
+                      (r) => String(r.container_key || "").toUpperCase() === gearKey
+                    );
+                    const name = gearItem ? payloadName(gearItem.payload, gearItem.definition_id) : "";
+
+                    return (
+                      <div
+                        key={gearKey}
+                        title={
+                          gearItem
+                            ? `${name} (${gearKey})\nRarity: ${gearItem.rarity || "COMMON"}`
+                            : `Empty ${gearKey}`
+                        }
+                        style={{
+                          flex: 1,
+                          padding: "8px 10px",
+                          background: gearItem ? "var(--surface-hover)" : "var(--surface)",
+                          border: `1px solid ${gearItem ? "var(--accent)" : "var(--border)"}`,
+                          borderRadius: "var(--radius-sm)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", fontWeight: 600 }}>
+                            {gearKey}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: gearItem ? "var(--text)" : "var(--text-tertiary)" }}>
+                            {name || "None"}
+                          </div>
+                        </div>
+                        {gearItem && (
+                          <span className={`rarity-badge ${String(gearItem.rarity || "").toLowerCase()}`} style={{ fontSize: 10 }}>
+                            {gearItem.rarity || "COMMON"}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ----------------- Transaction Audit Log / Ledger ----------------- */}
+      <div className="card" style={{ padding: 0, overflow: "hidden", marginTop: 24 }}>
+        <div className="card-header-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <History size={16} />
+            <h3 style={{ margin: 0, fontSize: 15 }}>Ledger Transaction History</h3>
+          </div>
+          <span className="page-indicator">{transactions.length} recorded operations</span>
+        </div>
+
         <table className="data-table">
           <thead>
             <tr>
-              <th>Slot</th>
-              <th>Name</th>
-              <th>Kind</th>
-              <th>Qty / Rarity</th>
-              <th>Binding</th>
+              <th>Timestamp</th>
+              <th>Reason / Source</th>
+              <th>Command Type</th>
+              <th>Amount / Delta</th>
+              <th>Idempotency Reference</th>
             </tr>
           </thead>
           <tbody>
-            {inventory.length === 0 ? (
+            {transactions.length === 0 ? (
               <tr>
                 <td colSpan={5} style={{ textAlign: "center", color: "var(--text-tertiary)", padding: 32 }}>
-                  Inventory is empty.
+                  No transaction ledger records found.
                 </td>
               </tr>
             ) : (
-              inventory.map((row, idx) => {
-                const isStack = row.asset_kind === "STACK";
-                const label = slotLabel(row.kind, row.container_key, row.slot);
-                const name = payloadName(row.payload, row.definition_id);
+              transactions.map((tx) => {
+                const deltaNum = Number(tx.delta);
+                const isPositive = deltaNum > 0;
                 return (
-                  <tr key={row.location_id ? `${row.location_id}-${idx}` : `inv-${idx}`}>
-                    <td>
-                      <span className="slot-badge">{label}</span>
+                  <tr key={tx.entry_id}>
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                      {new Date(tx.created_at).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
                     </td>
+
                     <td>
-                      <div style={{ fontWeight: 500, textTransform: "capitalize" }}>{name}</div>
-                      {row.payload?.description && (
-                        <div style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>
-                          {row.payload.description}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`asset-kind-badge ${isStack ? "stack" : "item"}`}>
-                        {row.asset_kind}
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          fontSize: 12.5,
+                          background: "var(--surface-hover)",
+                          padding: "3px 8px",
+                          borderRadius: 4,
+                          border: "1px solid var(--border)",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {tx.reason}
                       </span>
                     </td>
-                    <td>
-                      {isStack ? (
-                        <span style={{ fontWeight: 600 }}>×{nf(row.quantity || 1)}</span>
-                      ) : (
-                        <span className={`rarity-badge ${String(row.rarity || "").toLowerCase()}`}>
-                          {row.rarity || "COMMON"}
-                        </span>
-                      )}
+
+                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                      {tx.command_type || "SYSTEM"}
                     </td>
+
                     <td>
-                      <span className="binding-text">{row.binding || "UNBOUND"}</span>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontWeight: 700,
+                          fontSize: 13,
+                          color: isPositive ? "var(--success, #16a34a)" : "var(--danger, #dc2626)",
+                        }}
+                      >
+                        {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                        {isPositive ? `+${nf(deltaNum)}` : nf(deltaNum)} {tx.currency}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontFamily: "ui-monospace, monospace",
+                          color: "var(--text-tertiary)",
+                          maxWidth: 240,
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={tx.idempotency_key}
+                      >
+                        {tx.idempotency_key || tx.entry_id}
+                      </span>
                     </td>
                   </tr>
                 );

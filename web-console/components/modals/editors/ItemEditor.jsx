@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Package, Layers, Shield } from "lucide-react";
+import ItemSelect from "@/components/ItemSelect";
 
 export default function ItemEditor({ payload = {}, onChange }) {
   const [form, setForm] = useState(() => {
@@ -92,12 +93,10 @@ export default function ItemEditor({ payload = {}, onChange }) {
           </div>
           <div>
             <label style={labelStyle}>Minecraft Material / Icon</label>
-            <input
-              type="text"
+            <ItemSelect
               value={form.icon}
-              onChange={(e) => updateField("icon", e.target.value.toLowerCase())}
+              onChange={(val) => updateField("icon", val)}
               placeholder="e.g. netherite_pickaxe"
-              style={inputStyle}
             />
           </div>
           <div>

@@ -9,8 +9,13 @@ import {
   Hammer,
   Gift,
   Download,
+  ShoppingBag,
+  ShieldCheck,
+  Castle,
 } from "lucide-react";
 import DataTable from "@/components/DataTable";
+import ShopManager from "@/components/ShopManager";
+import AuditLogs from "@/components/AuditLogs";
 
 const TABS = [
   { id: "ItemBase", label: "Items & Gear", icon: Sword },
@@ -18,6 +23,7 @@ const TABS = [
   { id: "UpgradeTree", label: "Upgrades & Skills", icon: Pickaxe },
   { id: "Recipe", label: "Crafting Recipes", icon: Hammer },
   { id: "LootTable", label: "Loot Tables", icon: Gift },
+  { id: "Dungeon", label: "Dungeons & Raids", icon: Castle },
 ];
 
 export default function Home() {
@@ -69,6 +75,23 @@ export default function Home() {
           );
         })}
 
+        <div className="section-label" style={{ marginTop: 12 }}>Store & Economy</div>
+        <div
+          className={`nav-item ${activeTab === "Shop" ? "active" : ""}`}
+          onClick={() => setActiveTab("Shop")}
+        >
+          <ShoppingBag size={18} strokeWidth={2} />
+          Shop Products
+        </div>
+
+        <div
+          className={`nav-item ${activeTab === "AuditLogs" ? "active" : ""}`}
+          onClick={() => setActiveTab("AuditLogs")}
+        >
+          <ShieldCheck size={18} strokeWidth={2} />
+          Audit & Provenance
+        </div>
+
         <div style={{ flex: 1 }} />
         <button className="export-btn" onClick={handleExport}>
           <Download size={16} strokeWidth={2} />
@@ -77,13 +100,37 @@ export default function Home() {
       </aside>
 
       <div className="main-content">
-        <div className="page-header">
-          <h2>Content Registry</h2>
-          <p className="page-subtitle">
-            {active.label} · definitions stored in PostgreSQL
-          </p>
-        </div>
-        <DataTable kind={activeTab} />
+        {activeTab === "Shop" ? (
+          <>
+            <div className="page-header">
+              <h2>Shop Management</h2>
+              <p className="page-subtitle">
+                Manage web store packages, draft database items, and live releases
+              </p>
+            </div>
+            <ShopManager />
+          </>
+        ) : activeTab === "AuditLogs" ? (
+          <>
+            <div className="page-header">
+              <h2>Audit & Provenance Logs</h2>
+              <p className="page-subtitle">
+                Real-time double-entry ledger tracking and item lifecycle provenance
+              </p>
+            </div>
+            <AuditLogs />
+          </>
+        ) : (
+          <>
+            <div className="page-header">
+              <h2>Content Registry</h2>
+              <p className="page-subtitle">
+                {active?.label} · definitions stored in PostgreSQL
+              </p>
+            </div>
+            <DataTable kind={activeTab} />
+          </>
+        )}
       </div>
     </div>
   );

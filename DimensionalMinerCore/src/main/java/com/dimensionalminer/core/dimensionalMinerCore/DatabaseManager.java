@@ -30,7 +30,7 @@ public class DatabaseManager {
         }
 
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:postgresql://localhost:5432/dimensional_miner");
+        config.setJdbcUrl("jdbc:postgresql://localhost:5432/dimensional_game");
         config.setUsername("postgres");
         config.setPassword("123456");
 
@@ -40,7 +40,7 @@ public class DatabaseManager {
 
         try {
             dataSource = new HikariDataSource(config);
-            plugin.getLogger().info("HikariDataSource initialized successfully!");
+            plugin.getLogger().info("HikariDataSource initialized successfully (dimensional_game)!");
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to initialize HikariDataSource: " + e.getMessage());
             e.printStackTrace();
@@ -50,7 +50,7 @@ public class DatabaseManager {
 
     public void testConnection() {
         if (dataSource == null) {
-            plugin.getLogger().severe("❌ DataSource is null, cannot test connection!");
+            plugin.getLogger().severe("[ERROR] DataSource is null, cannot test connection!");
             return;
         }
 
@@ -59,24 +59,78 @@ public class DatabaseManager {
              ResultSet rs = stmt.executeQuery()) {
 
             if (rs.next()) {
-                plugin.getLogger().info("✅ Database Connected Successfully via HikariCP!");
+                plugin.getLogger().info("[OK] Connected to dimensional_game Successfully via HikariCP!");
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("❌ Failed to connect to the database! Reason: " + e.getMessage());
+            plugin.getLogger().severe("[ERROR] Failed to connect to dimensional_game! Reason: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    private final java.util.Map<java.util.UUID, java.util.UUID> accountCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public java.util.UUID getAccountId(java.util.UUID minecraftUuid) {
+        if (minecraftUuid == null) return null;
+        java.util.UUID cached = accountCache.get(minecraftUuid);
+        if (cached != null) return cached;
+
+        if (dataSource == null) return minecraftUuid;
+
+        String query = "SELECT account_id FROM player_identities WHERE provider = 'MINECRAFT' AND identifier = ? LIMIT 1;";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, minecraftUuid.toString());
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    java.util.UUID accId = (java.util.UUID) rs.getObject("account_id");
+                    accountCache.put(minecraftUuid, accId);
+                    return accId;
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Could not lookup account_id for " + minecraftUuid + ": " + e.getMessage());
+        }
+
+        // Default fallback to minecraftUuid
+        return minecraftUuid;
+    }
+
     public void upsertPlayer(Player player) {
         if (dataSource == null) return;
-        String sql = "INSERT INTO players (player_id, username) VALUES (?, ?) ON CONFLICT (player_id) DO UPDATE SET username = EXCLUDED.username;";
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, player.getUniqueId());
-            stmt.setString(2, player.getName());
-            stmt.executeUpdate();
+        java.util.UUID uuid = player.getUniqueId();
+        String name = player.getName();
+
+        try (Connection conn = dataSource.getConnection()) {
+            java.util.UUID accountId = getAccountId(uuid);
+            if (accountId == null || accountId.equals(uuid)) {
+                accountId = uuid;
+            }
+
+            // 1. Ensure user_accounts
+            String upsertAccount = "INSERT INTO user_accounts (account_id, username, status) VALUES (?, ?, 'ACTIVE') "
+                    + "ON CONFLICT (account_id) DO UPDATE SET username = EXCLUDED.username;";
+            try (PreparedStatement stmt = conn.prepareStatement(upsertAccount)) {
+                stmt.setObject(1, accountId);
+                stmt.setString(2, name);
+                stmt.executeUpdate();
+            }
+
+            // 2. Ensure player_identities
+            String upsertIdentity = "INSERT INTO player_identities (identity_id, account_id, provider, identifier, display_name) "
+                    + "VALUES (?, ?, 'MINECRAFT', ?, ?) "
+                    + "ON CONFLICT (provider, identifier) DO UPDATE SET display_name = EXCLUDED.display_name;";
+            try (PreparedStatement stmt = conn.prepareStatement(upsertIdentity)) {
+                stmt.setObject(1, java.util.UUID.randomUUID());
+                stmt.setObject(2, accountId);
+                stmt.setString(3, uuid.toString());
+                stmt.setString(4, name);
+                stmt.executeUpdate();
+            }
+
+            accountCache.put(uuid, accountId);
+            ensureAccounts(accountId);
         } catch (SQLException e) {
-            plugin.getLogger().severe("Failed to upsert player: " + e.getMessage());
+            plugin.getLogger().severe("Failed to upsert player/identity: " + e.getMessage());
         }
     }
 
@@ -100,10 +154,11 @@ public class DatabaseManager {
 
     public java.util.Map<String, Long> getBalances(java.util.UUID ownerId) {
         java.util.Map<String, Long> out = new java.util.HashMap<>();
+        java.util.UUID accId = getAccountId(ownerId);
         String sql = "SELECT currency, balance FROM accounts WHERE owner_id = ?;";
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, ownerId);
+            stmt.setObject(1, accId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) out.put(rs.getString("currency"), rs.getLong("balance"));
             }

@@ -41,8 +41,7 @@ public class GrantsCommand implements CommandExecutor {
             return true;
         }
 
-        player.sendMessage(ChatColor.YELLOW + "[Mailbox] Checking for pending grants...");
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> processGrants(player));
+        GrantsMenu.open(plugin, player);
         return true;
     }
 
@@ -123,12 +122,20 @@ public class GrantsCommand implements CommandExecutor {
                 for (JsonElement el : arr) {
                     if (!el.isJsonObject()) continue;
                     JsonObject itemObj = el.getAsJsonObject();
-                    String matName = itemObj.has("material") ? itemObj.get("material").getAsString() : null;
+                    String itemId = itemObj.has("item_id") ? itemObj.get("item_id").getAsString()
+                            : itemObj.has("definition_id") ? itemObj.get("definition_id").getAsString()
+                            : itemObj.has("id") ? itemObj.get("id").getAsString()
+                            : itemObj.has("material") ? itemObj.get("material").getAsString()
+                            : null;
                     int amount = itemObj.has("amount") ? itemObj.get("amount").getAsInt() : 1;
-                    if (matName != null) {
-                        Material mat = Material.matchMaterial(matName);
-                        if (mat != null) {
-                            list.add(new ItemStack(mat, Math.max(1, amount)));
+                    if (itemId != null) {
+                        if (plugin.getContentRegistryManager() != null && plugin.getContentRegistryManager().hasItem(itemId)) {
+                            list.add(plugin.getContentRegistryManager().createItemStack(itemId, amount));
+                        } else {
+                            Material mat = Material.matchMaterial(itemId.toUpperCase(java.util.Locale.ROOT));
+                            if (mat != null) {
+                                list.add(new ItemStack(mat, Math.max(1, amount)));
+                            }
                         }
                     }
                 }

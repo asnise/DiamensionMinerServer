@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import pool from '@/lib/db';
+import { contentPool as pool } from '@/lib/db';
 
 export async function listDefinitions(kind, { limit, offset }) {
   const dataRes = await pool.query(

@@ -1,11 +1,24 @@
 import { Pool } from 'pg';
 
-const pool = new Pool({
-  user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || '123456',
-  host: process.env.PGHOST || 'localhost',
-  port: process.env.PGPORT || 5432,
-  database: process.env.PGDATABASE || 'dimensional_miner',
+const host = process.env.PGHOST || 'localhost';
+const port = parseInt(process.env.PGPORT || '5432', 10);
+const user = process.env.PGUSER || 'postgres';
+const password = process.env.PGPASSWORD || '123456';
+
+export const gamePool = new Pool({
+  host,
+  port,
+  user,
+  password,
+  database: process.env.PGDATABASE_GAME || 'dimensional_game',
 });
 
-export default pool;
+export const contentPool = new Pool({
+  host,
+  port,
+  user,
+  password,
+  database: process.env.PGDATABASE_CONTENT || 'dimensional_content',
+});
+
+export default gamePool;

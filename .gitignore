@@ -1,8 +1,9 @@
 # ============================================================
 # Dimensional Miner - .gitignore
+# Only tracking: DimensionalMinerCore, database, docs, web-console
 # ============================================================
 
-# General
+# Environment & OS
 .env
 .env.local
 .DS_Store
@@ -11,6 +12,8 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+*.lock
+session.lock
 
 # IDEs & Editors
 .idea/
@@ -22,43 +25,30 @@ Thumbs.db
 *.sw?
 
 # ------------------------------------------------------------
-# web-console (Next.js & Node)
+# Local Paper Server & Maps (Excluded from repository)
 # ------------------------------------------------------------
-node_modules/
-.next/
-out/
-build/
-coverage/
-.npm/
+server/
+Map/
+
+# ------------------------------------------------------------
+# DimensionalMinerCore (Java / Gradle Build Artifacts)
+# ------------------------------------------------------------
+.gradle/
+DimensionalMinerCore/.gradle/
+DimensionalMinerCore/build/
+!DimensionalMinerCore/gradle/wrapper/gradle-wrapper.jar
+*.class
+
+# ------------------------------------------------------------
+# web-console (Next.js & Node Dependencies / Build)
+# ------------------------------------------------------------
+web-console/node_modules/
+web-console/.next/
+web-console/out/
+web-console/build/
+web-console/coverage/
+web-console/.npm/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnp.*
-
-# ------------------------------------------------------------
-# plugin (Java / Gradle)
-# ------------------------------------------------------------
-.gradle/
-plugin/build/
-!plugin/gradle/wrapper/gradle-wrapper.jar
-*.class
-
-# ------------------------------------------------------------
-# server (PaperMC Server)
-# ------------------------------------------------------------
-server/server.jar
-server/world/
-server/world_nether/
-server/world_the_end/
-server/logs/
-server/crash-reports/
-server/plugins/*
-!server/plugins/.gitkeep
-server/cache/
-server/libraries/
-server/versions/
-server/usercache.json
-server/banned-ips.json
-server/banned-players.json
-server/ops.json
-server/whitelist.json

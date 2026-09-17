@@ -46,7 +46,7 @@ public class WebLoginCommand implements CommandExecutor {
                 .append(Component.text(res.key()).color(NamedTextColor.AQUA).decorate(TextDecoration.BOLD))
                 .append(Component.text(" (" + (res.isNew() ? "Valid for 10m" : "Cooldown: " + timeStr + " remaining") + ")").color(NamedTextColor.DARK_GRAY)));
 
-        Component linkComp = Component.text("👉 Click here to Login automatically 👈")
+        Component linkComp = Component.text("[Click here to Login automatically]")
                 .color(NamedTextColor.GREEN)
                 .decorate(TextDecoration.BOLD, TextDecoration.UNDERLINED)
                 .hoverEvent(HoverEvent.showText(Component.text("Click to open web console and log in automatically").color(NamedTextColor.YELLOW)))

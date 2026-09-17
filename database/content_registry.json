@@ -1,0 +1,175 @@
+{
+  "Dungeon": [
+    {
+      "definition_id": "dungeon_ancient_ruins_t0",
+      "version": 1,
+      "kind": "Dungeon",
+      "payload": {
+        "steps": [
+          {
+            "goal": {
+              "type": "INTERACT_DUMMY",
+              "dummy_id": "crystal_switch_1",
+              "display_text": "Slay Void Crawlers",
+              "target_count": 5,
+              "target_mob_id": "void_crawler",
+              "duration_seconds": 0
+            },
+            "name": "Clear the Outer Gate",
+            "on_end": [],
+            "step_id": "step_1_clear_guards",
+            "on_start": [
+              {
+                "name": "SwitchA",
+                "action": "SPAWN_DUMMY",
+                "amount": 3,
+                "center": {
+                  "x": 0,
+                  "y": 64,
+                  "z": 0
+                },
+                "mob_id": "void_crawler",
+                "radius": 5,
+                "dummy_id": "crystal_switch_1",
+                "vanilla_type": "ZOMBIE"
+              }
+            ],
+            "on_current": null
+          },
+          {
+            "goal": {
+              "type": "KILL_BOSS",
+              "boss_id": "void_overseer_boss",
+              "display_text": "Defeat the Void Overseer"
+            },
+            "name": "Defeat the Void Overseer",
+            "on_end": [],
+            "step_id": "step_2_boss_battle",
+            "on_start": [],
+            "on_current": null
+          }
+        ],
+        "description": "Forgotten underground ruins guarded by void creatures.",
+        "max_players": 4,
+        "display_name": "Ancient Void Ruins",
+        "template_map": "ind_t0",
+        "final_rewards": {
+          "guaranteed": [
+            {
+              "qty": 2,
+              "item": "prim_metal"
+            },
+            {
+              "amount": 1000,
+              "currency": "COIN"
+            }
+          ]
+        },
+        "required_level": 1,
+        "time_limit_seconds": 900
+      }
+    }
+  ],
+  "ItemBase": [
+    {
+      "definition_id": "prim_metal",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "icon": "iron_ingot",
+        "name": "Prim Metal",
+        "stack": 64,
+        "rarity": "COMMON",
+        "binding": "UNBOUND",
+        "display": "Prim Metal",
+        "category": "MATERIAL",
+        "description": "Prim Metal Next Of Iron ore"
+      }
+    },
+    {
+      "definition_id": "thing_sword",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "icon": "iron_sword",
+        "name": "Thing Sword",
+        "stack": 1,
+        "rarity": "COMMON",
+        "binding": "UNBOUND",
+        "display": "Thing Sword",
+        "category": "WEAPON",
+        "base_stats": {
+          "luck": 0,
+          "defense": 0,
+          "crit_chance": 2,
+          "attack_speed": 1,
+          "mining_speed": 0,
+          "attack_damage": 5
+        },
+        "description": "\"Thing Sword\" Yup something like a sword"
+      }
+    }
+  ],
+  "LootTable": [
+    {
+      "definition_id": "worker_drop",
+      "version": 1,
+      "kind": "LootTable",
+      "payload": {
+        "name": "Worker",
+        "pools": [
+          {
+            "item": "coal",
+            "weight": 50,
+            "max_qty": 1,
+            "min_qty": 1
+          },
+          {
+            "item": "iron_ingot",
+            "weight": 25,
+            "max_qty": 2,
+            "min_qty": 1
+          },
+          {
+            "item": "iron_nugget",
+            "weight": 25,
+            "max_qty": 3,
+            "min_qty": 1
+          }
+        ],
+        "max_rolls": 3,
+        "min_rolls": 1
+      }
+    }
+  ],
+  "Recipe": [
+    {
+      "definition_id": "prim_metal_recipe",
+      "version": 1,
+      "kind": "Recipe",
+      "payload": {
+        "name": "Prim Metal Recipe",
+        "inputs": [
+          {
+            "qty": 1,
+            "item": "prim_metal"
+          },
+          {
+            "qty": 5,
+            "item": "iron_ingot"
+          }
+        ],
+        "outputs": [
+          {
+            "qty": 1,
+            "item": "thing_sword",
+            "chance": 100
+          }
+        ],
+        "station": "CRAFTING_TABLE",
+        "required_level": 1,
+        "duration_seconds": 5
+      }
+    }
+  ]
+}

@@ -287,12 +287,21 @@ export default function ShopPage() {
         {!loading &&
           products.map((product) => {
             const items = Array.isArray(product.items) ? product.items : [];
-            const canAfford = player && playerCoin >= product.price_coin;
+            const canAfford = !player || playerCoin >= product.price_coin;
             const isBuyingThis = buyingId === product.product_id;
             const timeBadge = formatRemainingTime(product.time_limited_until);
+            const isLowBalance = player && !canAfford;
 
             return (
-              <div className="product-card" key={product.product_id}>
+              <div
+                className="product-card"
+                key={product.product_id}
+                style={{
+                  opacity: isLowBalance ? 0.72 : 1,
+                  filter: isLowBalance ? "grayscale(0.35)" : "none",
+                  transition: "opacity 0.2s, filter 0.2s",
+                }}
+              >
                 <div className="product-card-header">
                   <h4 className="product-card-title">{product.name}</h4>
                   {timeBadge ? (
@@ -339,15 +348,20 @@ export default function ShopPage() {
 
                   <button
                     className="btn-primary"
-                    style={{ padding: "8px 16px", fontSize: 13 }}
-                    disabled={!player || !canAfford || isBuyingThis}
+                    style={{
+                      padding: "8px 16px",
+                      fontSize: 13,
+                      background: isLowBalance
+                        ? "var(--border-strong)"
+                        : "var(--accent)",
+                      color: isLowBalance ? "var(--text-tertiary)" : "#fff",
+                      cursor: isLowBalance ? "not-allowed" : "pointer",
+                      boxShadow: isLowBalance ? "none" : undefined,
+                    }}
+                    disabled={!player || isLowBalance || isBuyingThis}
                     onClick={() => setConfirmProduct(product)}
                   >
-                    {!player
-                      ? "Login to Buy"
-                      : canAfford
-                      ? "Purchase"
-                      : "Low Balance"}
+                    {!player ? "Login to Buy" : "Purchase"}
                   </button>
                 </div>
               </div>

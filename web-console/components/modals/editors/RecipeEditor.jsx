@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Hammer, Plus, Trash2 } from "lucide-react";
+import ItemSelect from "@/components/ItemSelect";
 
 export default function RecipeEditor({ payload = {}, onChange }) {
   const rawInputs = Array.isArray(payload.inputs)
@@ -116,17 +117,16 @@ export default function RecipeEditor({ payload = {}, onChange }) {
         </div>
         {form.inputs.map((inp, idx) => (
           <div key={idx} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
-            <input
-              type="text"
-              placeholder="Item ID (e.g. iron_ingot)"
+            <ItemSelect
+              placeholder="Ingredient ID (e.g. iron_ingot)..."
               value={inp.item}
-              onChange={(e) => {
+              onChange={(val) => {
                 const next = [...form.inputs];
-                next[idx].item = e.target.value;
+                next[idx].item = val;
                 setForm({ ...form, inputs: next });
                 notifyParent({ ...form, inputs: next });
               }}
-              style={{ ...inputStyle, flex: 2 }}
+              style={{ flex: 2 }}
             />
             <input
               type="number"
@@ -183,17 +183,16 @@ export default function RecipeEditor({ payload = {}, onChange }) {
         </div>
         {form.outputs.map((out, idx) => (
           <div key={idx} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
-            <input
-              type="text"
-              placeholder="Item ID (e.g. refined_steel)"
+            <ItemSelect
+              placeholder="Output Item ID (e.g. refined_steel)..."
               value={out.item}
-              onChange={(e) => {
+              onChange={(val) => {
                 const next = [...form.outputs];
-                next[idx].item = e.target.value;
+                next[idx].item = val;
                 setForm({ ...form, outputs: next });
                 notifyParent({ ...form, outputs: next });
               }}
-              style={{ ...inputStyle, flex: 2 }}
+              style={{ flex: 2 }}
             />
             <input
               type="number"
