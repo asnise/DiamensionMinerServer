@@ -165,6 +165,8 @@ public class DungeonInstanceManager {
         if (uidFile.exists()) uidFile.delete();
         File lockFile = new File(dir, "session.lock");
         if (lockFile.exists()) lockFile.delete();
+        File paperMeta = new File(dir, "data/paper/metadata.dat");
+        if (paperMeta.exists()) paperMeta.delete();
     }
 
     public void evacuateToPublicWorld(Player player) {
@@ -219,8 +221,11 @@ public class DungeonInstanceManager {
     private static void copyDirectory(Path src, Path dest) throws IOException {
         Files.walk(src).forEach(source -> {
             try {
-                if (source.getFileName() != null && source.getFileName().toString().equalsIgnoreCase("session.lock")) {
-                    return;
+                if (source.getFileName() != null) {
+                    String fn = source.getFileName().toString();
+                    if (fn.equalsIgnoreCase("session.lock") || fn.equalsIgnoreCase("uid.dat") || fn.equalsIgnoreCase("metadata.dat")) {
+                        return;
+                    }
                 }
                 Path destination = dest.resolve(src.relativize(source));
                 if (Files.isDirectory(source)) {
