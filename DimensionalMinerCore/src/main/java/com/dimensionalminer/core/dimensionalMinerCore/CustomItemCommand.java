@@ -62,9 +62,13 @@ public class CustomItemCommand implements CommandExecutor, TabCompleter {
         if (sub.equals("reload")) {
             sender.sendMessage(ChatColor.YELLOW + "[ContentRegistry] Reloading item definitions...");
             Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                plugin.getContentRegistryManager().loadAll();
-                sender.sendMessage(ChatColor.GREEN + "[ContentRegistry] Successfully reloaded "
-                        + plugin.getContentRegistryManager().getAllItems().size() + " item definitions!");
+                boolean ok = plugin.getContentRegistryManager().loadAll();
+                int items = plugin.getContentRegistryManager().getAllItems().size();
+                int dungeons = plugin.getContentRegistryManager().getAllDungeons().size();
+                Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage(ok
+                        ? ChatColor.GREEN + "[ContentRegistry] Reloaded " + items + " items, " + dungeons + " dungeons."
+                        : ChatColor.RED + "[ContentRegistry] Reload failed, still using the previous registry ("
+                                + items + " items, " + dungeons + " dungeons). See console."));
             });
             return true;
         }
@@ -107,7 +111,7 @@ public class CustomItemCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GOLD + "=== [ Dimensional Miner Content Commands ] ===");
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " list " + ChatColor.GRAY + "- List all custom items in server");
         sender.sendMessage(ChatColor.YELLOW + "/" + label + " give <player> <item_id> [amount] " + ChatColor.GRAY + "- Give custom item");
-        sender.sendMessage(ChatColor.YELLOW + "/" + label + " reload " + ChatColor.GRAY + "- Reload items from DB and JSON");
+        sender.sendMessage(ChatColor.YELLOW + "/" + label + " reload " + ChatColor.GRAY + "- Reload items and dungeons from content_registry.json");
     }
 
     @Override

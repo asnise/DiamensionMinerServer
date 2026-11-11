@@ -49,9 +49,11 @@ import net.kyori.adventure.text.Component;
  *   <li>{@link #shutdown()} flushes and waits for every pending write before the pool closes.</li>
  * </ul>
  *
- * Not covered yet: only definition id + amount are stored (no enchants/durability/NBT), and
- * player_sessions.epoch is bumped but not checked, so two servers writing the same player is
- * not fenced (see Task.md R16, 10.2).
+ * Each slot stores the full serialized ItemStack in material_stacks.item_data (enchants,
+ * durability, name, lore, PDC), plus definition_id/quantity for the web console.
+ *
+ * Not covered yet: player_sessions.epoch is bumped but not checked, so two servers writing the
+ * same player is not fenced (see Task.md 10.2).
  */
 public final class InventorySync implements Listener {
 
@@ -72,7 +74,11 @@ public final class InventorySync implements Listener {
         return t;
     });
 
-    private record SlotItem(int index, String container, int slot, String defId, int quantity, boolean empty) {}
+    /** A changed slot captured on the main thread. {@code data} is the full serialized ItemStack. */
+    private record SlotItem(int index, String container, int slot, String defId, int quantity, byte[] data, boolean empty) {}
+
+    /** A slot read from the DB (IO thread); turned into an ItemStack on the main thread. */
+    private record StoredSlot(String defId, int quantity, byte[] data) {}
 
     public InventorySync(DimensionalMinerCore plugin) {
         this.plugin = plugin;
@@ -107,7 +113,7 @@ public final class InventorySync implements Listener {
     public void loadAsync(Player player) {
         final UUID playerId = player.getUniqueId();
         enqueue(playerId, () -> {
-            Map<Integer, ItemStack> fromDb;
+            Map<Integer, StoredSlot> fromDb;
             try {
                 plugin.getDatabaseManager().upsertPlayer(player);
                 fromDb = loadInventory(playerId);
@@ -124,9 +130,11 @@ public final class InventorySync implements Listener {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (!player.isOnline()) return;
                 player.getInventory().clear();
-                for (Map.Entry<Integer, ItemStack> e : fromDb.entrySet()) {
+                for (Map.Entry<Integer, StoredSlot> e : fromDb.entrySet()) {
                     int idx = e.getKey();
-                    if (idx >= 0 && idx <= SLOT_OFFHAND) player.getInventory().setItem(idx, e.getValue());
+                    if (idx < 0 || idx > SLOT_OFFHAND) continue;
+                    ItemStack stack = toItemStack(e.getValue(), player.getName(), idx);
+                    if (stack != null) player.getInventory().setItem(idx, stack);
                 }
                 lastState.put(playerId, hashes(player));
                 loaded.add(playerId);
@@ -204,13 +212,11 @@ public final class InventorySync implements Listener {
         return h;
     }
 
+    /** Covers type, amount and the whole item meta (enchants, damage, name, lore, PDC). 0 = empty slot. */
     private long hashItem(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR) return 0L;
-        long v = item.getType().ordinal();
-        v = v * 31 + item.getAmount();
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null && meta.hasDisplayName()) v = v * 31 + meta.getDisplayName().hashCode();
-        return v;
+        if (item == null || item.getType().isAir()) return 0L;
+        long h = item.hashCode();
+        return h == 0L ? 1L : h;
     }
 
     private List<SlotItem> collectChanged(Player player, long[] previous, long[] current) {
@@ -220,8 +226,8 @@ public final class InventorySync implements Listener {
             ItemStack stack = player.getInventory().getItem(i);
             String container = containerKey(i);
             int slot = container.equals("inv") ? i : 0;
-            if (stack == null || stack.getType() == Material.AIR) {
-                out.add(new SlotItem(i, container, slot, null, 0, true));
+            if (stack == null || stack.getType().isAir()) {
+                out.add(new SlotItem(i, container, slot, null, 0, null, true));
             } else {
                 String defId = null;
                 ItemMeta meta = stack.getItemMeta();
@@ -232,7 +238,8 @@ public final class InventorySync implements Listener {
                     defId = stack.getType().name().toLowerCase(Locale.ROOT);
                 }
                 int quantity = stack.getAmount();
-                out.add(new SlotItem(i, container, slot, defId, quantity, false));
+                // definition_id + quantity stay for the web console; item_data is what the game restores.
+                out.add(new SlotItem(i, container, slot, defId, quantity, stack.serializeAsBytes(), false));
             }
         }
         return out;
@@ -251,10 +258,11 @@ public final class InventorySync implements Listener {
 
     // ---------- database: load ----------
 
-    private Map<Integer, ItemStack> loadInventory(UUID playerId) throws SQLException {
-        Map<Integer, ItemStack> out = new HashMap<>();
+    /** IO thread: reads raw slot rows only; ItemStacks are built on the main thread by {@link #toItemStack}. */
+    private Map<Integer, StoredSlot> loadInventory(UUID playerId) throws SQLException {
+        Map<Integer, StoredSlot> out = new HashMap<>();
         UUID ownerId = plugin.getDatabaseManager().getAccountId(playerId);
-        String sql = "SELECT l.kind, l.container_key, l.slot, ms.quantity, ms.definition_id"
+        String sql = "SELECT l.kind, l.container_key, l.slot, ms.quantity, ms.definition_id, ms.item_data"
                 + " FROM asset_locations l"
                 + " JOIN material_stacks ms ON ms.location_id = l.location_id"
                 + " WHERE l.owner_id = ? AND l.kind IN ('INVENTORY','EQUIPPED')";
@@ -264,24 +272,40 @@ public final class InventorySync implements Listener {
             stmt.setObject(1, ownerId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    int amount = rs.getInt("quantity");
-                    String defId = rs.getString("definition_id");
-                    ItemStack stack;
-                    if (plugin.getContentRegistryManager() != null && plugin.getContentRegistryManager().hasItem(defId)) {
-                        stack = plugin.getContentRegistryManager().createItemStack(defId, amount);
-                    } else {
-                        Material mat = Material.matchMaterial(defId.toUpperCase(Locale.ROOT));
-                        if (mat == null) mat = Material.STONE;
-                        stack = new ItemStack(mat, Math.max(1, Math.min(amount, mat.getMaxStackSize())));
-                    }
-                    String kind = rs.getString("kind");
-                    String container = rs.getString("container_key");
-                    int slot = rs.getInt("slot");
-                    out.put(indexOf(kind, container, slot), stack);
+                    StoredSlot stored = new StoredSlot(rs.getString("definition_id"), rs.getInt("quantity"), rs.getBytes("item_data"));
+                    out.put(indexOf(rs.getString("kind"), rs.getString("container_key"), rs.getInt("slot")), stored);
                 }
             }
         }
         return out;
+    }
+
+    /**
+     * Main thread. Restores the exact item from item_data when present. Rows saved before item_data
+     * existed are rebuilt from definition_id + quantity (enchants etc. were never stored for those).
+     * Returns null for an unknown legacy id instead of guessing; the DB row is left untouched until
+     * the player puts something else in that slot.
+     */
+    private ItemStack toItemStack(StoredSlot s, String playerName, int index) {
+        if (s.data() != null && s.data().length > 0) {
+            try {
+                return ItemStack.deserializeBytes(s.data());
+            } catch (Exception e) {
+                plugin.getLogger().warning("Could not deserialize item in slot " + index + " for " + playerName
+                        + " (" + s.defId() + "), falling back to its definition: " + e.getMessage());
+            }
+        }
+        String defId = s.defId();
+        int amount = Math.max(1, s.quantity());
+        if (plugin.getContentRegistryManager() != null && plugin.getContentRegistryManager().hasItem(defId)) {
+            return plugin.getContentRegistryManager().createItemStack(defId, amount);
+        }
+        Material mat = defId == null ? null : Material.matchMaterial(defId.toUpperCase(Locale.ROOT));
+        if (mat == null || !mat.isItem() || mat.isAir()) {
+            plugin.getLogger().warning("Unknown item '" + defId + "' in slot " + index + " for " + playerName + "; slot left empty.");
+            return null;
+        }
+        return new ItemStack(mat, Math.min(amount, mat.getMaxStackSize()));
     }
 
     private static int indexOf(String kind, String container, int slot) {
@@ -294,17 +318,6 @@ public final class InventorySync implements Listener {
             case "OFFHAND": return SLOT_OFFHAND;
             default: return slot;
         }
-    }
-
-    private static String displayFromPayload(String payload, String defId) {
-        if (payload != null && payload.indexOf("\"display\"") >= 0) {
-            int a = payload.indexOf("\"display\"");
-            int b = payload.indexOf(':', a) + 1;
-            int c = payload.indexOf('"', b);
-            int d = payload.indexOf('"', c + 1);
-            if (c >= 0 && d > c) return payload.substring(c + 1, d);
-        }
-        return null;
     }
 
     // ---------- database: batch save (one transaction) ----------
@@ -326,7 +339,7 @@ public final class InventorySync implements Listener {
 
                 for (SlotItem item : changed) {
                     String kind = item.container().equals("inv") ? "INVENTORY" : "EQUIPPED";
-                    written += writeSlot(conn, ownerId, kind, item.container(), item.slot(), item.defId(), item.quantity(), item.empty());
+                    written += writeSlot(conn, ownerId, kind, item.container(), item.slot(), item.defId(), item.quantity(), item.data(), item.empty());
                 }
 
                 insertOutbox(conn, opId, ownerId, written);
@@ -396,7 +409,7 @@ public final class InventorySync implements Listener {
     }
 
     /** Returns 1 when the slot was written (insert or update), 0 when the slot is empty/skipped. */
-    private int writeSlot(Connection conn, UUID ownerId, String kind, String container, int slot, String defId, int quantity, boolean empty) throws SQLException {
+    private int writeSlot(Connection conn, UUID ownerId, String kind, String container, int slot, String defId, int quantity, byte[] data, boolean empty) throws SQLException {
         UUID locationId = null;
         try (PreparedStatement sel = conn.prepareStatement(
                 "SELECT location_id FROM asset_locations WHERE owner_id = ? AND kind = ? AND container_key = ? AND slot = ? FOR UPDATE")) {
@@ -427,10 +440,11 @@ public final class InventorySync implements Listener {
 
         if (locationId != null) {
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "UPDATE material_stacks SET quantity = ?, definition_id = ?, definition_version = 1 WHERE location_id = ?")) {
+                    "UPDATE material_stacks SET quantity = ?, definition_id = ?, definition_version = 1, item_data = ? WHERE location_id = ?")) {
                 stmt.setInt(1, quantity);
                 stmt.setString(2, defId);
-                stmt.setObject(3, locationId);
+                stmt.setBytes(3, data);
+                stmt.setObject(4, locationId);
                 stmt.executeUpdate();
             }
         } else {
@@ -446,12 +460,13 @@ public final class InventorySync implements Listener {
                 stmt.executeUpdate();
             }
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO material_stacks (stack_id, location_id, definition_id, definition_version, quantity, binding)"
-                            + " VALUES (?, ?, ?, 1, ?, 'UNBOUND')")) {
+                    "INSERT INTO material_stacks (stack_id, location_id, definition_id, definition_version, quantity, binding, item_data)"
+                            + " VALUES (?, ?, ?, 1, ?, 'UNBOUND', ?)")) {
                 stmt.setObject(1, UUID.randomUUID());
                 stmt.setObject(2, autoLocationId);
                 stmt.setString(3, defId);
                 stmt.setInt(4, quantity);
+                stmt.setBytes(5, data);
                 stmt.executeUpdate();
             }
         }
@@ -469,9 +484,5 @@ public final class InventorySync implements Listener {
             stmt.setString(4, payload);
             stmt.executeUpdate();
         }
-    }
-
-    private static String jsonEscape(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
     }
 }

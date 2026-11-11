@@ -55,6 +55,7 @@ public class DungeonInstanceSession {
     private boolean advancing = false;
     private BukkitTask currentGoalTask;
     private int stepHoldProgress = 0;
+    private final long startedAtMillis;
 
     // Constructors
     public DungeonInstanceSession(DimensionalMinerCore plugin, String sessionId,
@@ -67,7 +68,11 @@ public class DungeonInstanceSession {
         this.world = world;
         this.partyId = partyId;
         this.leaderId = leaderId;
-        this.members = members;
+        // Own copy of the roster: changes to the party after the start must not add or remove
+        // people from this run (the live party set used to leak in here).
+        this.members = ConcurrentHashMap.newKeySet();
+        this.members.addAll(members);
+        this.startedAtMillis = System.currentTimeMillis();
     }
 
     // Public Methods
@@ -249,20 +254,63 @@ public class DungeonInstanceSession {
         if (currentIntervalTask != null) currentIntervalTask.cancel();
         if (currentGoalTask != null) currentGoalTask.cancel();
 
-        broadcastTitle("§a§lVICTORY!", "§6Dungeon Cleared Successfully!");
-        broadcastParty(ChatColor.GOLD + "========================================");
-        broadcastParty(ChatColor.GREEN + "[Dungeon] Cleared: " + definition.getDisplayName());
-        broadcastParty(ChatColor.YELLOW + "Final rewards have been delivered to your /grants mailbox!");
-        broadcastParty(ChatColor.GOLD + "========================================");
-
-        // Distribute final rewards to PostgreSQL reward_grants
-        distributeFinalRewards();
+        // Rewards are committed to the DB first; the victory screen and the "delivered" message
+        // are shown only after that, per member, with the real outcome (design: record before celebrating).
+        final Set<UUID> rewarded = Set.copyOf(members);
+        broadcastParty(ChatColor.GRAY + "[Dungeon] Goal complete. Recording rewards...");
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            java.util.Map<UUID, String> results = new java.util.HashMap<>();
+            for (UUID mId : rewarded) {
+                results.put(mId, grantFinalRewards(mId));
+            }
+            Bukkit.getScheduler().runTask(plugin, () -> announceVictory(results));
+        });
 
         // 30s auto evacuation
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             plugin.getDungeonInstanceManager().destroyInstance(sessionId);
         }, 20L * 30);
     }
+
+    /** Main thread. results: member -> null on success, or an error text. */
+    private void announceVictory(java.util.Map<UUID, String> results) {
+        broadcastTitle("§a§lVICTORY!", "§6Dungeon Cleared Successfully!");
+        String summary = describeRewards();
+        for (java.util.Map.Entry<UUID, String> r : results.entrySet()) {
+            Player p = Bukkit.getPlayer(r.getKey());
+            if (p == null || !p.isOnline()) continue;
+            p.sendMessage(ChatColor.GOLD + "========================================");
+            p.sendMessage(ChatColor.GREEN + "[Dungeon] Cleared: " + definition.getDisplayName());
+            if (r.getValue() == null) {
+                p.sendMessage(ChatColor.YELLOW + "Rewards recorded: " + ChatColor.WHITE + summary);
+                p.sendMessage(ChatColor.YELLOW + "Items are in your " + ChatColor.AQUA + "/grants" + ChatColor.YELLOW + " mailbox.");
+            } else {
+                p.sendMessage(ChatColor.RED + "Your rewards could not be recorded (" + r.getValue() + "). Please report this to an admin.");
+            }
+            p.sendMessage(ChatColor.GOLD + "========================================");
+        }
+    }
+
+    // Removes a player from this run (left via /exitdungeon). They get no final rewards.
+    public void removeMember(UUID playerId) {
+        members.remove(playerId);
+        if (activeBossBar != null) {
+            Player p = Bukkit.getPlayer(playerId);
+            if (p != null) p.hideBossBar(activeBossBar);
+        }
+    }
+
+    // Adds a party member who joins the run late (/dungeon join).
+    public void addMember(UUID playerId) {
+        members.add(playerId);
+        if (activeBossBar != null) {
+            Player p = Bukkit.getPlayer(playerId);
+            if (p != null) p.showBossBar(activeBossBar);
+        }
+    }
+
+    public long getStartedAtMillis() { return startedAtMillis; }
+    public UUID getPartyId() { return partyId; }
 
     public void cleanup() {
         // Pending delayed work (next step, delayed actions) checks this flag and stops.
@@ -458,38 +506,152 @@ public class DungeonInstanceSession {
         }
     }
 
-    private void distributeFinalRewards() {
-        JsonObject rewardsObj = definition.getFinalRewards();
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            for (UUID mId : members) {
-                try {
-                    UUID accountId = plugin.getDatabaseManager().getAccountId(mId);
-                    String grantSql = "INSERT INTO reward_grants (grant_id, player_id, source_key, payload, state) VALUES (?, ?, ?, ?::jsonb, 'AVAILABLE');";
-                    try (Connection conn = plugin.getDatabaseManager().getConnection();
-                         PreparedStatement stmt = conn.prepareStatement(grantSql)) {
-                        stmt.setObject(1, UUID.randomUUID());
-                        stmt.setObject(2, accountId);
-                        stmt.setString(3, "dungeon_reward:" + sessionId + ":" + mId);
+    private static final Set<String> CURRENCIES = Set.of("COIN", "ENERGY", "SERVER_XP");
+    private static final String REWARD_SYSTEM_ACCOUNT = "DUNGEON_REWARDS";
 
-                        // Build payload
-                        JsonObject payload = new JsonObject();
-                        JsonArray itemsArr = new JsonArray();
-                        if (rewardsObj.has("guaranteed") && rewardsObj.get("guaranteed").isJsonArray()) {
-                            for (JsonElement el : rewardsObj.getAsJsonArray("guaranteed")) {
-                                if (el.isJsonObject() && el.getAsJsonObject().has("item")) {
-                                    itemsArr.add(el.getAsJsonObject());
-                                }
-                            }
-                        }
-                        payload.add("items", itemsArr);
-                        stmt.setString(4, payload.toString());
-                        stmt.executeUpdate();
-                    }
-                } catch (SQLException e) {
-                    plugin.getLogger().warning("Failed to grant dungeon rewards: " + e.getMessage());
+    /** Human-readable list of the final rewards, e.g. "2x prim_metal, 1000 COIN". */
+    private String describeRewards() {
+        List<String> parts = new ArrayList<>();
+        JsonObject rewards = definition.getFinalRewards();
+        if (rewards.has("guaranteed") && rewards.get("guaranteed").isJsonArray()) {
+            for (JsonElement el : rewards.getAsJsonArray("guaranteed")) {
+                if (!el.isJsonObject()) continue;
+                JsonObject o = el.getAsJsonObject();
+                if (o.has("item")) parts.add((o.has("qty") ? o.get("qty").getAsInt() : 1) + "x " + o.get("item").getAsString());
+                else if (o.has("currency")) parts.add((o.has("amount") ? o.get("amount").getAsLong() : 0) + " " + o.get("currency").getAsString());
+            }
+        }
+        return parts.isEmpty() ? "none" : String.join(", ", parts);
+    }
+
+    /**
+     * Async thread. Records one member's final rewards in a single transaction:
+     * <ul>
+     *   <li>an operation keyed "dungeon_reward/&lt;sessionId&gt;" (UNIQUE per account, so a retry or a
+     *       second call can never pay twice),</li>
+     *   <li>one reward_grants row with the item rewards (claimed in-game via /grants),</li>
+     *   <li>currency rewards credited to the wallet with a double-entry ledger: +amount to the player,
+     *       -amount to the DUNGEON_REWARDS system account.</li>
+     * </ul>
+     * @return null on success (or if already rewarded), otherwise the error text
+     */
+    private String grantFinalRewards(UUID minecraftId) {
+        JsonObject rewards = definition.getFinalRewards();
+        JsonArray items = new JsonArray();
+        java.util.Map<String, Long> currencies = new java.util.LinkedHashMap<>();
+        if (rewards.has("guaranteed") && rewards.get("guaranteed").isJsonArray()) {
+            for (JsonElement el : rewards.getAsJsonArray("guaranteed")) {
+                if (!el.isJsonObject()) continue;
+                JsonObject o = el.getAsJsonObject();
+                if (o.has("item")) {
+                    items.add(o);
+                } else if (o.has("currency")) {
+                    String cur = o.get("currency").getAsString().toUpperCase(Locale.ROOT);
+                    long amount = o.has("amount") ? o.get("amount").getAsLong() : 0;
+                    if (CURRENCIES.contains(cur) && amount > 0) currencies.merge(cur, amount, Long::sum);
+                    else plugin.getLogger().warning("[Dungeon] Ignoring invalid currency reward in " + definition.getDefinitionId() + ": " + o);
                 }
             }
-        });
+        }
+        if (items.isEmpty() && currencies.isEmpty()) return null;
+
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            UUID accountId = plugin.getDatabaseManager().getAccountId(minecraftId);
+            conn.setAutoCommit(false);
+            try {
+                UUID opId = UUID.randomUUID();
+                try (PreparedStatement op = conn.prepareStatement(
+                        "INSERT INTO operations (operation_id, actor_id, idempotency_key, request_hash, command_type, state, response, completed_at)"
+                                + " VALUES (?, ?, ?, ?, 'DUNGEON_REWARD', 'SUCCEEDED', '{}', now())"
+                                + " ON CONFLICT (actor_id, idempotency_key) DO NOTHING")) {
+                    op.setObject(1, opId);
+                    op.setObject(2, accountId);
+                    op.setString(3, "dungeon_reward/" + sessionId);
+                    op.setString(4, definition.getDefinitionId());
+                    if (op.executeUpdate() == 0) {
+                        conn.rollback();
+                        return null; // already rewarded for this run
+                    }
+                }
+
+                if (!items.isEmpty()) {
+                    JsonObject payload = new JsonObject();
+                    payload.addProperty("type", "DUNGEON_REWARD");
+                    payload.addProperty("dungeon_id", definition.getDefinitionId());
+                    payload.add("items", items);
+                    try (PreparedStatement g = conn.prepareStatement(
+                            "INSERT INTO reward_grants (grant_id, player_id, source_key, payload, state)"
+                                    + " VALUES (?, ?, ?, ?::jsonb, 'AVAILABLE')")) {
+                        g.setObject(1, UUID.randomUUID());
+                        g.setObject(2, accountId);
+                        g.setString(3, "dungeon_reward:" + sessionId + ":" + accountId);
+                        g.setString(4, payload.toString());
+                        g.executeUpdate();
+                    }
+                }
+
+                for (java.util.Map.Entry<String, Long> c : currencies.entrySet()) {
+                    UUID playerWallet = ensureWallet(conn, accountId, null, c.getKey());
+                    UUID systemWallet = ensureWallet(conn, null, REWARD_SYSTEM_ACCOUNT, c.getKey());
+                    applyDelta(conn, opId, playerWallet, c.getValue(), "DUNGEON_REWARD");
+                    applyDelta(conn, opId, systemWallet, -c.getValue(), "DUNGEON_REWARD");
+                }
+
+                conn.commit();
+                return null;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("[Dungeon] Failed to record rewards of " + definition.getDefinitionId()
+                    + " (session " + sessionId + ") for " + minecraftId + ": " + e.getMessage());
+            return "database error";
+        }
+    }
+
+    /** Returns the wallet id for (owner or system code, currency), creating it if missing. */
+    private static UUID ensureWallet(Connection conn, UUID ownerId, String systemCode, String currency) throws SQLException {
+        try (PreparedStatement ins = conn.prepareStatement(
+                ownerId != null
+                        ? "INSERT INTO accounts (account_id, owner_id, currency, balance) VALUES (?, ?, ?, 0) ON CONFLICT (owner_id, currency) DO NOTHING"
+                        : "INSERT INTO accounts (account_id, system_code, currency, balance) VALUES (?, ?, ?, 0) ON CONFLICT (system_code, currency) DO NOTHING")) {
+            ins.setObject(1, UUID.randomUUID());
+            if (ownerId != null) ins.setObject(2, ownerId); else ins.setString(2, systemCode);
+            ins.setString(3, currency);
+            ins.executeUpdate();
+        }
+        try (PreparedStatement sel = conn.prepareStatement(
+                ownerId != null
+                        ? "SELECT account_id FROM accounts WHERE owner_id = ? AND currency = ? FOR UPDATE"
+                        : "SELECT account_id FROM accounts WHERE system_code = ? AND currency = ? FOR UPDATE")) {
+            if (ownerId != null) sel.setObject(1, ownerId); else sel.setString(1, systemCode);
+            sel.setString(2, currency);
+            try (java.sql.ResultSet rs = sel.executeQuery()) {
+                if (!rs.next()) throw new SQLException("wallet not found after insert: " + currency);
+                return (UUID) rs.getObject(1);
+            }
+        }
+    }
+
+    private static void applyDelta(Connection conn, UUID opId, UUID walletId, long delta, String reason) throws SQLException {
+        try (PreparedStatement upd = conn.prepareStatement(
+                "UPDATE accounts SET balance = balance + ?, version = version + 1 WHERE account_id = ?")) {
+            upd.setLong(1, delta);
+            upd.setObject(2, walletId);
+            upd.executeUpdate();
+        }
+        try (PreparedStatement led = conn.prepareStatement(
+                "INSERT INTO ledger_entries (entry_id, operation_id, account_id, delta, reason) VALUES (?, ?, ?, ?, ?)")) {
+            led.setObject(1, UUID.randomUUID());
+            led.setObject(2, opId);
+            led.setObject(3, walletId);
+            led.setLong(4, delta);
+            led.setString(5, reason);
+            led.executeUpdate();
+        }
     }
 
     private void broadcastParty(String msg) {

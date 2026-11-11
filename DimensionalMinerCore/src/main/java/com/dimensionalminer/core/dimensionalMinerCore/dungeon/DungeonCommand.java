@@ -39,12 +39,7 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
 
         if (name.equals("exitdungeon")) {
             if (!(sender instanceof Player player)) return true;
-            if (!instanceManager.isInDungeon(player)) {
-                player.sendMessage(ChatColor.RED + "You are not currently inside a dungeon.");
-                return true;
-            }
-            player.sendMessage(ChatColor.YELLOW + "[Dungeon] Leaving instance and returning to town...");
-            instanceManager.evacuateToPublicWorld(player);
+            exitDungeon(player);
             return true;
         }
 
@@ -105,6 +100,11 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
+            if (instanceManager.getSessionByPlayer(player.getUniqueId()).isPresent()) {
+                player.sendMessage(ChatColor.RED + "You are already in a dungeon. Use /exitdungeon first.");
+                return true;
+            }
+
             PartySession party;
             Optional<PartySession> partyOpt = plugin.getPartyManager().getPartyByPlayer(player.getUniqueId());
             if (partyOpt.isEmpty()) {
@@ -130,7 +130,9 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
                         player.sendMessage(ChatColor.AQUA + "Others can join using: " + ChatColor.YELLOW + "/dungeon join " + session.getSessionId());
                     })
                     .exceptionally(ex -> {
-                        player.sendMessage(ChatColor.RED + "[Dungeon] Failed to create instance: " + ex.getMessage());
+                        Throwable cause = ex instanceof java.util.concurrent.CompletionException && ex.getCause() != null ? ex.getCause() : ex;
+                        org.bukkit.Bukkit.getScheduler().runTask(plugin, () ->
+                                player.sendMessage(ChatColor.RED + "[Dungeon] Could not start: " + cause.getMessage()));
                         return null;
                     });
             return true;
@@ -154,12 +156,7 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
 
         if (sub.equals("leave")) {
             if (!(sender instanceof Player player)) return true;
-            if (!instanceManager.isInDungeon(player)) {
-                player.sendMessage(ChatColor.RED + "You are not currently inside a dungeon.");
-                return true;
-            }
-            player.sendMessage(ChatColor.YELLOW + "[Dungeon] Leaving instance and returning to town...");
-            instanceManager.evacuateToPublicWorld(player);
+            exitDungeon(player);
             return true;
         }
 
@@ -178,6 +175,17 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
         }
 
         return true;
+    }
+
+    /** /exitdungeon and /dungeon leave: leaves the run for good (no final rewards). */
+    private void exitDungeon(Player player) {
+        boolean inRun = instanceManager.getSessionByPlayer(player.getUniqueId()).isPresent();
+        if (!inRun && !instanceManager.isInDungeon(player)) {
+            player.sendMessage(ChatColor.RED + "You are not currently inside a dungeon.");
+            return;
+        }
+        player.sendMessage(ChatColor.YELLOW + "[Dungeon] Leaving instance and returning to town. You will not receive this run's final rewards.");
+        instanceManager.leaveInstance(player);
     }
 
     @Override

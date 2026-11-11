@@ -45,6 +45,11 @@ cd web-console; node --env-file=.env.local scripts/load_content_file.mjs ../data
 # Switch DB target for server config + web-console .env.local
 .\switch-db.ps1 local   # or: cloud ; no arg toggles
 
+# Multiplayer testing alone: Mineflayer bots that auto-accept party invites (see tools/party-bots/README.md).
+# Needs the server in offline mode (+ ViaVersion/ViaBackwards while Mineflayer lags the server version):
+.\switch-online-mode.ps1 offline   # or: online ; restart the server after switching
+cd tools\party-bots; npm install; node bots.mjs --count 2
+
 # EXea model export from Blockbench file
 node EXeaEntityCore\tools\exea_exporter.js "<path>.bbmodel" <entity_id>
 ```

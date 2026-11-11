@@ -165,8 +165,13 @@ CREATE TABLE IF NOT EXISTS material_stacks (
     definition_id TEXT NOT NULL,
     definition_version INTEGER NOT NULL DEFAULT 1,
     quantity BIGINT NOT NULL CHECK(quantity > 0),
-    binding TEXT NOT NULL CHECK(binding IN ('UNBOUND','ACCOUNT_BOUND'))
+    binding TEXT NOT NULL CHECK(binding IN ('UNBOUND','ACCOUNT_BOUND')),
+    -- Full Paper ItemStack (ItemStack#serializeAsBytes): enchants, durability, name, lore, PDC.
+    -- NULL for rows written before 2026-11 (only definition_id + quantity were stored then).
+    item_data BYTEA
 );
+-- Migration for databases created before item_data existed (safe to re-run).
+ALTER TABLE material_stacks ADD COLUMN IF NOT EXISTS item_data BYTEA;
 
 CREATE TABLE IF NOT EXISTS item_transactions (
     transaction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

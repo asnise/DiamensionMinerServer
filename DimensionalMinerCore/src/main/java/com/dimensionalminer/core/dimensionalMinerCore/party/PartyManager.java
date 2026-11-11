@@ -70,6 +70,10 @@ public class PartyManager {
             leader.sendMessage(ChatColor.RED + "Only the party leader can invite players.");
             return;
         }
+        if (isLockedByDungeon(partyId)) {
+            leader.sendMessage(ChatColor.RED + "[Party Lock] Your party is in a dungeon run. Finish or leave it first.");
+            return;
+        }
 
         if (session.getMembers().size() >= 4) {
             leader.sendMessage(ChatColor.RED + "Your party is already full (Max 4 players).");
@@ -98,10 +102,20 @@ public class PartyManager {
             return;
         }
 
+        // A player belongs to at most one party (they may have created their own after being invited).
+        if (playerToParty.containsKey(playerId)) {
+            player.sendMessage(ChatColor.RED + "[Party] You are already in a party. Leave it before accepting another invite.");
+            return;
+        }
+
         UUID partyId = invite.partyId();
         PartySession session = partyById.get(partyId);
         if (session == null || session.getMembers().size() >= 4) {
             player.sendMessage(ChatColor.RED + "[Party] The party is no longer available or is full.");
+            return;
+        }
+        if (isLockedByDungeon(partyId)) {
+            player.sendMessage(ChatColor.RED + "[Party Lock] That party is in a dungeon run right now. Try again after it ends.");
             return;
         }
 
@@ -121,6 +135,22 @@ public class PartyManager {
 
     public void leaveParty(Player player) {
         UUID playerId = player.getUniqueId();
+        UUID current = playerToParty.get(playerId);
+        if (current != null && isLockedByDungeon(current)) {
+            // Party is frozen while it has a run (spec 6.2), for every command alias. Someone who
+            // already left the run with /exitdungeon may leave the party, except the leader
+            // (leaving would disband the party the run belongs to).
+            boolean inRun = plugin.getDungeonInstanceManager().getSessionByPlayer(playerId).isPresent();
+            PartySession ps = partyById.get(current);
+            boolean isLeader = ps != null && ps.getLeaderId().equals(playerId);
+            if (inRun || isLeader) {
+                player.sendMessage(ChatColor.RED + "[Party Lock] You cannot leave or disband your party during a dungeon run.");
+                player.sendMessage(ChatColor.YELLOW + (inRun
+                        ? "Use /exitdungeon first, or wait until the run ends."
+                        : "Wait until the run ends."));
+                return;
+            }
+        }
         UUID partyId = playerToParty.remove(playerId);
         if (partyId == null) {
             player.sendMessage(ChatColor.RED + "You are not in a party.");
@@ -175,6 +205,12 @@ public class PartyManager {
         }
     }
 
+    /** True while the party has a dungeon run going or being created. */
+    public boolean isLockedByDungeon(UUID partyId) {
+        var dungeons = plugin.getDungeonInstanceManager();
+        return dungeons != null && dungeons.isPartyBusy(partyId);
+    }
+
     public Optional<PartySession> getParty(UUID partyId) {
         return Optional.ofNullable(partyById.get(partyId));
     }
@@ -223,11 +259,17 @@ public class PartyManager {
     }
 
     private void disbandPartyDb(UUID partyId) throws SQLException {
-        String update = "UPDATE parties SET state = 'DISBANDED' WHERE party_id = ?;";
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(update)) {
-            stmt.setObject(1, partyId);
-            stmt.executeUpdate();
+        // party_members has UNIQUE(player_id): rows must go, or these players can never be
+        // recorded in a later party (the insert silently hit ON CONFLICT DO NOTHING).
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            try (PreparedStatement del = conn.prepareStatement("DELETE FROM party_members WHERE party_id = ?;")) {
+                del.setObject(1, partyId);
+                del.executeUpdate();
+            }
+            try (PreparedStatement upd = conn.prepareStatement("UPDATE parties SET state = 'DISBANDED' WHERE party_id = ?;")) {
+                upd.setObject(1, partyId);
+                upd.executeUpdate();
+            }
         }
     }
 

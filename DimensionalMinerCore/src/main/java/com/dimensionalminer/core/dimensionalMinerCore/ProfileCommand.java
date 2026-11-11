@@ -8,14 +8,13 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.UUID;
-
+/**
+ * /profile: sends the web profile link. No DB work here; the account is created on join.
+ * The URL must stay http://localhost:3000/profile?id=<uuid> (see CLAUDE.md "Profile URL coupling").
+ */
 public class ProfileCommand implements CommandExecutor {
 
-    private final DimensionalMinerCore plugin;
-
     public ProfileCommand(DimensionalMinerCore plugin) {
-        this.plugin = plugin;
     }
 
     @Override
@@ -25,18 +24,14 @@ public class ProfileCommand implements CommandExecutor {
             return true;
         }
 
-        plugin.getDatabaseManager().upsertPlayer(player);
-
         String webUrl = "http://localhost:3000/profile?id=" + player.getUniqueId();
 
-        Component message = Component.text("[DimensionalMiner] ")
+        player.sendMessage(Component.text("[DimensionalMiner] ")
                 .color(NamedTextColor.GOLD)
                 .append(Component.text("Click here to view your profile: ").color(NamedTextColor.GRAY))
                 .append(Component.text(webUrl)
                         .color(NamedTextColor.GREEN)
-                        .clickEvent(ClickEvent.openUrl(webUrl)));
-
-        player.sendMessage(message);
+                        .clickEvent(ClickEvent.openUrl(webUrl))));
         return true;
     }
 }

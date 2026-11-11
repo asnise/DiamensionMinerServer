@@ -1,0 +1,12 @@
+{
+  "name": "party-bots",
+  "private": true,
+  "description": "Mineflayer test bots for solo-testing party/dungeon features on the local dev server",
+  "type": "module",
+  "scripts": {
+    "start": "node bots.mjs"
+  },
+  "dependencies": {
+    "mineflayer": "4.39.0"
+  }
+}

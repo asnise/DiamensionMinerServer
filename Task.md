@@ -31,15 +31,15 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | 3 | อุปกรณ์และสเตตัส | 4 | 1 | 0 | 0 |
 | 4 | Crafting & ตีบวก | 5 | 0 | 0 | 0 |
 | 5 | ต่อสู้และความตาย | 3 | 1 | 0 | 0 |
-| 6 | Instance Dungeon | 0 | 4 | 0 | 0 |
+| 6 | Instance Dungeon | 0 | 3 | 0 | 1 |
 | 7 | World Boss | 4 | 0 | 0 | 0 |
 | 8 | Workspace & Market | 4 | 0 | 0 | 0 |
 | 9 | Mailbox & EXP/Energy | 1 | 1 | 0 | 2 |
 | 10 | Server Transfer | 3 | 0 | 0 | 0 |
 | 11 | Web Console | 2 | 0 | 1 | 0 |
 | 12 | Resource Pack & 3D | 2 | 1 | 0 | 0 |
-| 0 | ระบบพื้นฐานที่มีอยู่แล้ว | 0 | 6 | 1 | 0 |
-| R | แก้งานเก่าจากการรีวิว (P0 15 · P1 15 · P2 8) | 18 | 2 | 3 | 15 |
+| 0 | ระบบพื้นฐานที่มีอยู่แล้ว | 0 | 3 | 1 | 3 |
+| R | แก้งานเก่าจากการรีวิว (P0 15 · P1 15 · P2 8) | 7 | 1 | 3 | 27 |
 
 ---
 
@@ -77,18 +77,18 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | ID | ปัญหา | สถานะ | ไฟล์ | สิ่งที่เกิดได้ → วิธีแก้ |
 |---|---|---|---|---|
-| R16 | เก็บแค่ `defId` + จำนวน ไม่เก็บ enchant/durability/NBT, ID ที่ไม่รู้จักกลายเป็น STONE, ไม่มี handler ตอนปิด inventory (ทั้งที่ javadoc บอกว่ามี) | ⬜ | `core/InventorySync.java:133-211,355-363` | enchant/ความทนทานหายทุกครั้งที่ reload → serialize ItemStack ทั้งชิ้น แล้ว hash จากรูปที่ serialize |
-| R17 | ใช้ Minecraft UUID ในจุดที่ schema ต้องการ `account_id` | ⬜ | `GrantsMenu.java:89`, `DatabaseManager.java:111,189`, `Balance/Shop/WebLoginCommand` | พอผูก identity แล้ว grant จะไม่ขึ้นและ `/weblogin` FK fail → resolve ผ่าน `getAccountId` ทุกที่ และอย่า fallback |
-| R18 | DB I/O บน main thread | ⬜ | `InventorySync.onJoin:62`, `Balance/Shop/WebLogin/ProfileCommand` | ใช้ Neon แล้วเซิร์ฟกระตุก 100ms ขึ้นไปต่อคำสั่ง → ย้ายไป async |
-| R19 | ต่อ DB ไม่ได้แต่ปลั๊กอินยังเปิดทำงาน (exception ถูกกลืน) | ⬜ | `core/DimensionalMinerCore.java:22-30`, `DatabaseManager` | NPE กระจายทุกที่ → ให้ throw แล้ว disable ปลั๊กอิน |
-| R20 | `/dm reload` เคลียร์ registry ก่อนแล้วค่อยเติมใหม่ (ว่างชั่วคราว) + `loadFromDatabase` query ตารางที่ไม่มีใน game DB | ⬜ | `core/ContentRegistryManager.java:45-51` | ไอเทมกลายเป็น STONE ช่วง reload → สร้าง map ใหม่แล้ว swap ทีเดียว, ตัด DB path ทิ้ง |
-| R21 | `members` ของ session เป็น view สดของ party | ⬜ | `dungeon/DungeonCommand.java:127`, `DungeonInstanceSession.java:68` | คนเข้าปาร์ตี้กลางรอบได้รางวัล / คนที่ออกไม่ถูกวาร์ปออก → `Set.copyOf` ตอนสร้าง session |
-| R22 | `/dungeon join` ใครก็เข้าได้ และ `/dungeon enter` ซ้ำได้ | ⬜ | `DungeonInstanceManager.java:104-116`, `DungeonCommand.java:90-136` | instance ซ้อน, คนแปลกหน้าเข้ามาในดันเจี้ยน → เช็คสมาชิกปาร์ตี้ + กันการเข้าซ้ำ |
-| R23 | ดันเจี้ยนที่ไม่มีคนอยู่ไม่มีวันจบ: ไม่บังคับ time limit, ไม่ cleanup ตอน `onDisable`, โฟลเดอร์ orphan | ⬜ | `DungeonInstanceManager`, `DimensionalMinerCore.onDisable` | world และ task ค้างจนรีสตาร์ท, โฟลเดอร์ `ind_t0_*` สะสม → watchdog + destroy ตอน disable + sweep ตอน enable |
+| R16 | เก็บแค่ `defId` + จำนวน ไม่เก็บ enchant/durability/NBT, ID ที่ไม่รู้จักกลายเป็น STONE, ไม่มี handler ตอนปิด inventory (ทั้งที่ javadoc บอกว่ามี) | ✅ | `core/InventorySync.java` (`collectChanged`, `writeSlot`, `loadInventory`, `toItemStack`, `hashItem`), `database/schema_game.sql` (คอลัมน์ `material_stacks.item_data`) | **แก้แล้ว:** เก็บ ItemStack ทั้งชิ้น (`serializeAsBytes`) ลงคอลัมน์ใหม่ `item_data` (เพิ่มใน Neon แล้ว) · ตอนโหลดคืนของแบบเป๊ะ · แถวเก่าที่ไม่มี `item_data` ใช้วิธีเดิม · ID ที่ไม่รู้จักไม่กลายเป็น STONE แล้ว (ปล่อยช่องว่าง + log เตือน แถวใน DB ไม่ถูกลบ) · hash ครอบคลุม meta ทั้งหมด จึงเปลี่ยนแค่ enchant/durability ก็ save · **วิธีตรวจ:** ถือดาบ แล้ว enchant (`/enchant`) + ตีมอนให้ดาบสึก + ตั้งชื่อด้วย anvil → ออกแล้วเข้าเกมใหม่ ต้องอยู่ครบทุกอย่าง · ถือของเกิน stack ปกติไม่ได้หายไป · **หมายเหตุ:** ของที่ save ก่อนอัปเดตนี้จะยังไม่มี enchant (ข้อมูลเก่าไม่ได้เก็บไว้) แต่จะถูกเก็บครบตั้งแต่ save ครั้งถัดไป |
+| R17 | ใช้ Minecraft UUID ในจุดที่ schema ต้องการ `account_id` | ✅ | `DatabaseManager.java` (`getAccountId`, `findAccountId`, `upsertPlayer`, `getBalances`, `createWebLoginKey`), `BalanceCommand`, `WebLoginCommand` | **แก้แล้ว:** `getAccountId` ไม่ fallback เป็น Minecraft UUID แล้ว (หาไม่เจอหรือ DB error → throw ให้ผู้เรียกจัดการ ซึ่งทุกจุดมี catch อยู่แล้ว) · `/weblogin` และ `/balance` ใช้ account_id · `upsertPlayer` คืน account_id และ throw เมื่อพัง (ตอน join → kick แทนเล่นต่อแบบไม่มีบัญชี) · `ensureAccounts` กลายเป็น private ใช้ภายใน `upsertPlayer` · **วิธีตรวจ:** `/weblogin` → ล็อกอินเว็บได้ · `/balance` ขึ้นยอดตรงกับเว็บ · `/grants` ยังเห็นของ |
+| R18 | DB I/O บน main thread | ✅ | `BalanceCommand`, `WebLoginCommand` (async), `ShopCommand`, `ProfileCommand` (ไม่แตะ DB แล้ว), `InventorySync` (upsert ตอน join อยู่บนคิว IO ตั้งแต่ R6) | **แก้แล้ว:** ไม่มีคำสั่งไหนแตะ DB บน main thread แล้ว · `/shop` กับ `/profile` แค่ส่งลิงก์ เพราะบัญชีและกระเป๋าเงินถูกสร้างตอน join อยู่แล้ว · **วิธีตรวจ:** พิมพ์ `/balance`, `/weblogin`, `/shop`, `/profile` รัวๆ → เซิร์ฟไม่กระตุก (ดู TPS ด้วย `/tps` หรือ `/mspt`) และทุกคำสั่งตอบปกติ |
+| R19 | ต่อ DB ไม่ได้แต่ปลั๊กอินยังเปิดทำงาน (exception ถูกกลืน) | ✅ | `DatabaseManager` (`connect`, `testConnection`, `getConnection`), `DimensionalMinerCore.onEnable` | **แก้แล้ว:** `connect()`/`testConnection()` throw แทนการกลืน error → `onEnable` ปิดปลั๊กอินพร้อมข้อความชัดเจนใน console · ไม่มีรหัส/URL default ฝังในโค้ดแล้ว (config ไม่ครบ → error บอกว่าขาดอะไร) · ถ้ารหัสยังเป็น `CHANGE_ME` จะบอกตรงๆ · **วิธีตรวจ:** แก้ `password:` ใน `server/plugins/DimensionalMinerCore/config.yml` ให้ผิด → เปิดเซิร์ฟ → console ต้องขึ้น "DimensionalMinerCore is DISABLED" และ `/plugins` แสดงเป็นสีแดง → ใส่รหัสกลับแล้วเปิดใหม่ต้องใช้ได้ |
+| R20 | `/dm reload` เคลียร์ registry ก่อนแล้วค่อยเติมใหม่ (ว่างชั่วคราว) + `loadFromDatabase` query ตารางที่ไม่มีใน game DB | ✅ | `core/ContentRegistryManager.java` (`loadAll`, `loadFromFile`), `CustomItemCommand.java` (`/dm reload`) | **แก้แล้ว:** โหลดไฟล์ลง map ใหม่แล้วสลับทีเดียว (ไม่มีช่วงที่ registry ว่าง) · ไฟล์เสียหรือหาไม่เจอ → ใช้ registry เดิมต่อ และ `/dm reload` แจ้งสีแดง · definition เสียตัวเดียวถูกข้าม (log เตือน) ไม่ทำให้ทั้งไฟล์พัง · ตัด `loadFromDatabase` ทิ้ง (ปลั๊กอินไม่มีตาราง content_definitions) · **วิธีตรวจ:** `/dm reload` → ขึ้น "Reloaded N items, M dungeons" · ลองทำให้ `server/plugins/DimensionalMinerCore/content_registry.json` เสีย (ลบ `}` ตัวท้าย) แล้ว `/dm reload` → ขึ้นสีแดงว่า reload ไม่สำเร็จ แต่ `/dm list` ยังเห็นของเดิม → แก้ไฟล์คืน |
+| R21 | `members` ของ session เป็น view สดของ party | ✅ | `dungeon/DungeonCommand.java:127`, `DungeonInstanceSession.java:68` | **แก้แล้ว:** session ทำสำเนารายชื่อตอนเริ่ม (`DungeonInstanceSession` constructor) คนที่เข้าปาร์ตี้ทีหลังไม่ได้อยู่ใน run · รางวัลให้เฉพาะคนที่อยู่ในรายชื่อตอนจบ · **วิธีตรวจ:** เริ่ม run คนเดียว → ให้เพื่อนรับ invite ระหว่าง run ต้องโดนปฏิเสธ (party lock) และไม่ได้รางวัล |
+| R22 | `/dungeon join` ใครก็เข้าได้ และ `/dungeon enter` ซ้ำได้ | ✅ | `DungeonInstanceManager.java:104-116`, `DungeonCommand.java:90-136` | **แก้แล้ว:** `/dungeon join` รับเฉพาะสมาชิกปาร์ตี้เจ้าของ run · เช็ค `max_players` · คนที่อยู่ run อื่นเข้าไม่ได้ · `/dungeon enter` ซ้ำ หรือสมาชิกคนไหนอยู่ใน run อยู่แล้ว → ปฏิเสธพร้อมเหตุผล (`isPartyBusy`, `provisioningParties`) · **วิธีตรวจ:** พิมพ์ `/dungeon enter dungeon_test_training` 2 ครั้งติด → ครั้งที่ 2 ขึ้น "already in a dungeon" · ผู้เล่นนอกปาร์ตี้ `/dungeon join <id>` → ขึ้น "only join a dungeon started by your own party" |
+| R23 | ดันเจี้ยนที่ไม่มีคนอยู่ไม่มีวันจบ: ไม่บังคับ time limit, ไม่ cleanup ตอน `onDisable`, โฟลเดอร์ orphan | ✅ | `DungeonInstanceManager`, `DimensionalMinerCore.onDisable` | **แก้แล้ว:** watchdog ทุก 5 วิ: เกิน `time_limit_seconds` → ปิด · ไม่มีใครจาก run อยู่ใน instance เกิน 60 วิ → ปิด · `onDisable` ปิดทุก instance (`shutdownAll`) · ตอนเปิดเซิร์ฟลบโฟลเดอร์ `<template>_<8hex>` ที่ค้างจาก crash (`sweepOrphanInstanceFolders`) · **วิธีตรวจ:** เข้า run แล้ว `/exitdungeon` → ภายใน ~65 วิ console ขึ้น "Closing empty instance" และโฟลเดอร์หาย · เปิดเซิร์ฟใหม่ → โฟลเดอร์ `ind_t0_08290480` / `ind_t0_2d7b22b7` ที่ค้างอยู่ต้องถูกลบ (log "Removing leftover instance folder") |
 | R24 | `/dungeon destroy` ไม่ cancel task ที่รออยู่ | ✅ | `DungeonInstanceSession.java` (`cleanup`, `runStep`) | **แก้แล้ว (พร้อม R14):** `cleanup()` ตั้ง `completed=true` แล้ว step ที่รออยู่กับ action ที่หน่วงเวลาจะเช็ค flag นี้และหยุด ส่วน interval/goal timer ถูก cancel อยู่แล้ว · **วิธีตรวจ:** ใน `dungeon_test_training` พอข้อความ `Step 2 on_end ran` ขึ้น ให้พิมพ์ `/dungeon destroy <sessionId>` ทันที (มีเวลา 2 วิ) → Test Boss ต้องไม่เกิด และไม่มี error ใน log |
-| R25 | ประกาศว่าแจกรางวัลแล้วก่อนเขียนลง DB จริง และถ้าเขียนไม่สำเร็จก็ไม่มีใครรู้ (= งาน 6.3) | ⬜ | `DungeonInstanceSession.java:240-247,447-479` | → เขียนให้เสร็จใน transaction เดียวก่อน แล้วค่อยประกาศ, กำหนดเกณฑ์ว่าใครมีสิทธิ์ได้รางวัล · **พบเพิ่ม:** `distributeFinalRewards` กรองรางวัล `currency` (เช่น COIN 1000) ทิ้ง ผู้เล่นไม่เคยได้เงินจากดันเจี้ยน |
-| R26 | ไม่มี template แล้วระบบสร้างโลกสุ่มขึ้นมาแทน | ⬜ | `DungeonInstanceManager.java:52-63` | → ให้ future fail |
-| R27 | Party: เข้าได้ 2 ปาร์ตี้, ออกปาร์ตี้ระหว่างอยู่ในดันเจี้ยนได้ (lock โดนเลี่ยงได้ด้วย `/dimensionalminercore:party`), `party_members` ใน DB ไม่ตรงกับ memory | ⬜ | `party/PartyManager.java:93-110,225-231`, `DungeonEventListener.java:64` | → เช็คใน `acceptInvite`, lock ในตัว manager, ลบแถว DB |
+| R25 | ประกาศว่าแจกรางวัลแล้วก่อนเขียนลง DB จริง และถ้าเขียนไม่สำเร็จก็ไม่มีใครรู้ (= งาน 6.3) | ✅ | `DungeonInstanceSession.java:240-247,447-479` | **แก้แล้ว:** บันทึกรางวัลใน transaction ต่อคนก่อน แล้วค่อยขึ้น VICTORY + ข้อความผลจริง (บันทึกไม่ได้ → แจ้งสีแดง + log) · กันจ่ายซ้ำด้วย operation `dungeon_reward/<sessionId>` · **รางวัลเงิน (COIN/ENERGY/SERVER_XP) จ่ายเข้ากระเป๋าแล้ว** แบบ double-entry (+ผู้เล่น / − บัญชีระบบ `DUNGEON_REWARDS`) · คนที่ `/exitdungeon` ไปแล้วไม่ได้รางวัล · **วิธีตรวจ:** จบ `dungeon_test_training` → ข้อความ "Rewards recorded: 2x prim_metal, 3x bread" ขึ้นหลัง VICTORY · `/grants` มีของ · (ถ้าแก้ `dungeon_ancient_ruins_t0` ให้จบได้ COIN 1000 ต้องเข้า `/balance`) |
+| R26 | ไม่มี template แล้วระบบสร้างโลกสุ่มขึ้นมาแทน | ✅ | `DungeonInstanceManager.java:52-63` | **แก้แล้ว:** ไม่มีโฟลเดอร์ template → ปฏิเสธพร้อมข้อความ ไม่สร้างโลกสุ่ม · copy พังกลางทาง → ลบโฟลเดอร์ครึ่งๆ ทิ้ง · **วิธีตรวจ:** แก้ `template_map` ของดันเจี้ยนทดสอบเป็นชื่อที่ไม่มี → `/dm reload` → `/dungeon enter` ต้องขึ้น "Template map ... was not found" |
+| R27 | Party: เข้าได้ 2 ปาร์ตี้, ออกปาร์ตี้ระหว่างอยู่ในดันเจี้ยนได้ (lock โดนเลี่ยงได้ด้วย `/dimensionalminercore:party`), `party_members` ใน DB ไม่ตรงกับ memory | ✅ | `party/PartyManager.java:93-110,225-231`, `DungeonEventListener.java:64` | **แก้แล้ว:** `acceptInvite` ปฏิเสธถ้าอยู่ปาร์ตี้อื่นอยู่แล้ว · ระหว่าง run ห้าม invite/accept/leave/disband (เช็คใน `PartyManager` จึงเลี่ยงด้วย alias ไม่ได้ ลบตัวดัก command เดิมออก) · คนที่ `/exitdungeon` แล้ว (ที่ไม่ใช่หัวหน้า) ออกปาร์ตี้ได้ · disband ลบแถว `party_members` ด้วย · **วิธีตรวจ:** ระหว่าง run พิมพ์ `/party leave` และ `/dimensionalminercore:party leave` → โดน "[Party Lock]" ทั้งคู่ |
 | R28 | Ledger ซื้อของบันทึกฝั่งเดียว (ไม่ใช่ double-entry), idempotency key ใช้ `Date.now()` | ⬜ | `app/api/shop/buy/route.js:58,79-83`, `scripts/grant_coin.mjs`, `schema_game.sql:85-107` | ยอดรวม ledger ไม่สมดุล, retry แล้วซื้อซ้ำ → ลงบัญชีระบบฝั่งตรงข้าม + key จาก client + constraint ใน schema |
 | R29 | EXea: chunk ticket ไม่นับ reference, cleanup ลบ entity ที่ชื่อมี "Void Overseer" หรือ CMD 1001-1022 ของปลั๊กอินอื่นด้วย, ฉากตายไม่เคยเล่น | ⬜ | `EXActiveEntity.java:527-556`, `EntityManager.java:62,193-219`, `EXeaEntityPlugin.java:107` | → นับ reference ของ ticket, ใช้ PDC tag ของตัวเอง, ทำ death sequence ก่อน cull |
 | R30 | Web ส่ง `err.message` ของ Postgres กลับไปให้ client | 🔍 | `web-console/lib/api.js` (`fail`), `login-key/route.js` | **แก้แล้ว (พร้อม R8–R11):** error 5xx จะ log ฝั่ง server แล้วตอบ `Internal server error` ส่วน 4xx ยังส่งข้อความให้ผู้ใช้ตามเดิม |
@@ -98,8 +98,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | ID | ปัญหา | สถานะ | ไฟล์ |
 |---|---|---|---|
 | R31 | Channel clone dimension บน main thread ตอน constructor, heuristic "<5 region" ทำให้ clone ใหม่ทุกครั้งที่บูต, `/reload` อาจลบ world ที่โหลดอยู่ | ⬜ | `channel/ChannelManager.java:33-63` |
-| R32 | `Files.walk` ไม่ปิด stream, copy template ไปไว้ 2 ที่, copy พังกลางทางแล้วเหลือโฟลเดอร์ครึ่งๆ | 🟡 | `DungeonInstanceManager` ปิด stream แล้ว และ delete จะรายงานเมื่อลบไม่หมด · ยังเหลือ: copy ไป 2 ที่, โฟลเดอร์ครึ่งๆ ตอน copy พัง, `ChannelManager` |
-| R33 | `/exitdungeon` ไม่เอาผู้เล่นออกจาก session (rejoin แล้วถูกวาร์ปกลับเข้าไป), ตายในดันเจี้ยนไม่มี handler, ถ้า content ไม่มี `display_text` จะ NPE จน step ค้าง | 🟡 | NPE ของ `display_text` แก้แล้ว (ถ้าไม่มีจะใช้ "Defeat <mob>") · ยังเหลือ: `/exitdungeon` และการตายในดันเจี้ยน |
+| R32 | `Files.walk` ไม่ปิด stream, copy template ไปไว้ 2 ที่, copy พังกลางทางแล้วเหลือโฟลเดอร์ครึ่งๆ | 🟡 | แก้แล้ว: ปิด stream, delete รายงาน error, copy พังกลางทางลบโฟลเดอร์ครึ่งๆ · ยังเหลือ: copy template ไป 2 ที่, `ChannelManager` |
+| R33 | `/exitdungeon` ไม่เอาผู้เล่นออกจาก session (rejoin แล้วถูกวาร์ปกลับเข้าไป), ตายในดันเจี้ยนไม่มี handler, ถ้า content ไม่มี `display_text` จะ NPE จน step ค้าง | ✅ | **แก้แล้ว:** `/exitdungeon` เอาออกจาก run จริง (ไม่ถูกวาร์ปกลับตอน rejoin, ไม่ได้รางวัล) · ตายใน run → เกิดใหม่ที่จุดเกิดของ instance (`onPlayerRespawn`) · `display_text` ไม่มีก็ไม่ค้าง · **วิธีตรวจ:** ตายใน run → เกิดในดันเจี้ยน · `/exitdungeon` แล้วออก-เข้าเกม → ต้องอยู่ที่ hub |
 | R34 | GrantsMenu ลงทะเบียน listener ใหม่ทุกครั้งที่เปิดเมนู ทำให้ listener รั่ว | 🔍 | **แก้แล้ว (พร้อม R2–R4):** `GrantsMenu.MenuListener` ตัวเดียว ลงทะเบียนครั้งเดียวใน `onEnable` |
 | R35 | EXea: per-tick สร้าง Matrix/Quaternion ใหม่ทุก bone, teleport ทีละ bone, โมเดลเอียงตาม pitch หัว, ลำดับ Euler XYZ (Blockbench ใช้ ZYX), slerp 0→360° ไม่หมุน | ⬜ | `AnimationController.java`, `KeyframeTimeline.java`, `DisplayRenderer.java`, `ModelLoader.java:129` |
 | R36 | Schema: ขาด index (`ledger_entries.operation_id` ฯลฯ), `item_transactions` ON DELETE CASCADE, item กับ stack อยู่ slot เดียวกันได้, login key เก็บเป็น plaintext | ⬜ | `database/schema_game.sql` |
@@ -113,10 +113,10 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | ID | งาน | สถานะ | หลักฐาน | วิธีตรวจ / หมายเหตุ |
 |---|---|---|---|---|
 | 0.1 | Dual Database (content / game) + bootstrap | 🔍 | `database/schema_*.sql`, `web-console/scripts/init_databases.mjs`, `init_neon.mjs` | รัน init แล้วเช็คว่ามีตารางครบ (ข้อจำกัดของ schema ดู R36) |
-| 0.2 | Content Editor + Export `content_registry.json` | 🟡 | `web-console/app/admin/editor`, `lib/content.js`, `core/ContentRegistryManager.java` | ต้องแก้ R8, R20 |
-| 0.3 | Inventory Sync กับ DB | 🟡 | `core/InventorySync.java` | ต้องแก้ R5, R6, R7, R16 |
-| 0.4 | Party (create/invite/accept/leave/disband) | 🟡 | `core/party/` | ต้องแก้ R27 |
-| 0.5 | Web Login OTP (`/weblogin`) | 🟡 | `core/WebLoginCommand.java`, `app/api/auth/login-key` | R9, R11 แก้แล้ว · เหลือ R17 |
+| 0.2 | Content Editor + Export `content_registry.json` | ✅ | `web-console/app/admin/editor`, `lib/content.js`, `core/ContentRegistryManager.java` | R8 ✅ · R20 รอตรวจ |
+| 0.3 | Inventory Sync กับ DB | 🟡 | `core/InventorySync.java` | R5–R7, R16 ✅ · ยังเหลือ fencing ข้ามเซิร์ฟ (10.2) |
+| 0.4 | Party (create/invite/accept/leave/disband) | ✅ | `core/party/` | R27 แก้แล้ว รอตรวจ |
+| 0.5 | Web Login OTP (`/weblogin`) | ✅ | `core/WebLoginCommand.java`, `app/api/auth/login-key` | R9, R11 ✅ · R17 รอตรวจ |
 | 0.6 | Web Shop → Mailbox | 🟡 | `app/shop`, `app/api/shop/buy`, `core/ShopCommand.java` | R8, R9 แก้แล้ว · เหลือ R28 |
 | 0.7 | EXeaEntityCore (3D entity engine แยกปลั๊กอิน) | 🟡 | `EXeaEntityCore/` | ต้นแบบสำหรับโมเดลเดียว ต้องแก้ R15, R29, R35, R38 |
 
@@ -174,8 +174,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | ID | งาน | สถานะ | หลักฐาน | ที่ยังขาด / วิธีตรวจ |
 |---|---|---|---|---|
 | 6.1 | วงจรชีวิต Instance (Requested → Reserved → … → Closed) | 🟡 | `core/dungeon/runtime/DungeonInstanceManager.java`, `DungeonInstanceSession.java` | สถานะเก็บแค่ใน memory ยังไม่ได้บันทึก `instance_slots` / `instance_runs` ลง DB ตามสเปก |
-| 6.2 | กุญแจและปาร์ตี้ (ตัดกุญแจเมื่อเริ่ม, แช่แข็งปาร์ตี้) | 🟡 | `core/dungeon/DungeonCommand.java` (สร้าง Solo Party อัตโนมัติ) | ยังไม่มีระบบกุญแจ และยังไม่แช่แข็งปาร์ตี้ (ดู 0.4) |
-| 6.3 | แจกรางวัลลง DB **ก่อน** เล่น Animation ชนะ | 🟡 | `DungeonInstanceSession.java` ~บรรทัด 240 | ตอนนี้ขึ้น title VICTORY ก่อน แล้วค่อยเขียน `reward_grants` แบบ async (ลำดับกลับกันกับสเปก) |
+| 6.2 | กุญแจและปาร์ตี้ (ตัดกุญแจเมื่อเริ่ม, แช่แข็งปาร์ตี้) | 🟡 | `core/dungeon/DungeonCommand.java`, `party/PartyManager.java` | แช่แข็งปาร์ตี้ระหว่าง run แล้ว (R27) · ยังไม่มีระบบกุญแจ |
+| 6.3 | แจกรางวัลลง DB **ก่อน** เล่น Animation ชนะ | ✅ | `DungeonInstanceSession.java` (`finishDungeon`, `grantFinalRewards`, `announceVictory`) | ทำแล้วพร้อม R25 |
 | 6.4 | จัดการ World/Template แบบ Async | 🟡 | `DungeonInstanceManager.java` | copy async แล้ว และ R13 (unload/ลบ) แก้แล้ว · ยังเหลือ R23, R26, R32 |
 
 ## 7. ระบบ World Boss
@@ -232,12 +232,41 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 ---
 
+## ทดสอบ Party / Dungeon แบบหลายคนด้วยบอท (R21, R22, R27)
+
+ใช้บอทแทนเพื่อน ดูวิธีติดตั้งที่ [tools/party-bots/README.md](tools/party-bots/README.md) (ต้องมี ViaVersion + ViaBackwards และสลับเป็น offline mode ก่อน)
+
+| # | ทดสอบ | ทำอะไร | ผลที่ต้องได้ |
+|---|---|---|---|
+| B1 | สร้างปาร์ตี้ 3 คน | `/party create` → `/party invite TestBot1` → `/party invite TestBot2` | บอทรับเอง · `/party list` เห็น 3 คน |
+| B2 | R27 อยู่ 2 ปาร์ตี้ไม่ได้ | `TestBot2 /party leave` → `TestBot2 /party create` → `/party invite TestBot2` | terminal ขึ้น "already in a party" · TestBot2 ไม่เข้าปาร์ตี้เรา |
+| B3 | R21 รายชื่อ run คงที่ | ปาร์ตี้มี TestBot1 → `TestBot1 quit` (ให้ออฟไลน์) → `/dungeon enter dungeon_test_training` | run เริ่ม · TestBot1 อยู่ในรายชื่อ (ออฟไลน์) |
+| B4 | R22 เข้าทีหลังได้เฉพาะคนในปาร์ตี้ | รันบอทใหม่ (`node bots.mjs --count 1`) → `TestBot1 /dungeon join <id>` | TestBot1 เข้า run ได้ |
+| B5 | R22 คนนอกเข้าไม่ได้ | รันบอทชื่ออื่น (`node bots.mjs --count 1 --prefix Stranger`) → `Stranger1 /dungeon join <id>` | ขึ้น "only join a dungeon started by your own party" |
+| B6 | R27 ล็อกปาร์ตี้ระหว่าง run | `TestBot1 /party leave` และ `TestBot1 /dimensionalminercore:party leave` · `/party invite Stranger1` | โดน "[Party Lock]" ทุกคำสั่ง |
+| B7 | R27 ออกจาก run แล้วออกปาร์ตี้ได้ | `TestBot1 /exitdungeon` → `TestBot1 /party leave` | ออกได้ (ไม่ใช่หัวหน้า) |
+| B8 | R21/R25 รางวัลเฉพาะคนที่อยู่ถึงจบ | เล่น run จนจบ (TestBot1 ออกไปแล้วใน B7) | คุณได้รางวัลใน `/grants` · TestBot1 ไม่ได้ข้อความ "Rewards recorded" |
+
+ทดสอบเสร็จ: `.\switch-online-mode.ps1 online` แล้วรีสตาร์ทเซิร์ฟ
+
+---
+
 ## Handoff Log
 
 บันทึกใหม่ไว้บนสุด ระบุวันที่, ID งาน, สิ่งที่ทำ และสิ่งที่ค้าง
 
 | วันที่ | ID | สิ่งที่ทำ | ค้าง / ข้อควรระวัง |
 |---|---|---|---|
+| 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ R23 (ปิด instance ว่าง + ลบโฟลเดอร์ค้าง), R26 (ไม่มี template ไม่สร้างโลก), R33 (ตายแล้วเกิดในดันเจี้ยน, /exitdungeon ไม่ถูกดึงกลับ) | — |
+| 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ ทดสอบด้วยบอท B1–B8 ผ่านทั้งหมด → R21, R22, R25, R27, 0.4, 6.3 · สลับเซิร์ฟกลับเป็น online แล้ว | R23 (watchdog/ลบโฟลเดอร์ค้าง), R26 (ไม่มี template), R33 (ตายแล้วเกิดในดันเจี้ยน) ยังไม่ได้ยืนยันแยก |
+| 2026-11-12 | เครื่องมือทดสอบหลายคน | `tools/party-bots/` (Mineflayer 4.39: บอทรับ party invite เอง, สั่งงานได้จาก terminal หรือแชท `!<bot> ...`) · `switch-online-mode.ps1` สลับ online/offline · ตาราง B1–B8 ในหัวข้อ "ทดสอบ Party / Dungeon แบบหลายคนด้วยบอท" · ทดสอบแล้วว่าสคริปต์รันได้และแจ้ง error ถูกเมื่อเซิร์ฟปิด | ลง `ViaVersion-5.12.2.jar` + `ViaBackwards-5.12.2.jar` (GitHub ทางการ, ขนาดตรง) ใน `server/plugins/` แล้ว เพื่อให้บอท 26.1 เข้าเซิร์ฟ 26.2 ได้ · ยังไม่ได้ลองต่อเซิร์ฟจริง (ต้องสลับ offline + รีสตาร์ท) · ยังไม่ได้ commit |
+| 2026-11-12 | R21–R23, R25–R27, R33 (+R32 บางส่วน) | กลุ่มดันเจี้ยน/ปาร์ตี้: รายชื่อ run เป็นสำเนา, join/enter ซ้ำถูกจำกัด, watchdog เวลา+instance ว่าง, ปิดทุก instance ตอน disable, ลบโฟลเดอร์ค้างตอนเปิด, รางวัลบันทึกก่อนประกาศและจ่ายเงินแบบ double-entry, ไม่มี template ไม่สร้างโลก, party lock ใน PartyManager, ตายแล้วเกิดในดันเจี้ยน · บิลด์ jar แล้ว | ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit · ตอนเปิดเซิร์ฟครั้งแรกจะลบโฟลเดอร์ `ind_t0_08290480`, `ind_t0_2d7b22b7` ที่ค้างอยู่ |
+| 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ R19 (ปลั๊กอินปิดตัวเองเมื่อรหัส DB ผิด), R20 (`/dm reload` กับไฟล์เสียใช้ registry เดิมต่อ), 0.2 | — |
+| 2026-11-12 | R19, R20 | ต่อ DB ไม่ได้ → ปลั๊กอินปิดตัวเองพร้อมข้อความชัด (ไม่มีรหัส default ในโค้ด, เตือนถ้ายังเป็น `CHANGE_ME`) · `/dm reload` สลับ registry ทีเดียว ไฟล์เสียก็ใช้ของเดิมต่อ · ตัด `loadFromDatabase` ทิ้ง · บิลด์ jar แล้ว | ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit |
+| 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ R17, R18 (และ 0.5 Web Login OTP): /weblogin, /balance, /grants ทำงานถูก และคำสั่งไม่ทำให้เซิร์ฟกระตุก | — |
+| 2026-11-12 | R17, R18 (+บางส่วนของ R19) | `getAccountId` ไม่ fallback เป็น Minecraft UUID แล้ว (throw แทน) · `/weblogin` ผูก key กับ account_id · `/balance`, `/weblogin` ทำ DB แบบ async · `/shop`, `/profile` ไม่แตะ DB · `upsertPlayer` throw เมื่อพัง · `getConnection()` throw ชัดเจนเมื่อไม่มี pool · `compileJava` ผ่าน | บิลด์ jar ลง `server/plugins` แล้ว (02:33) · ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit |
+| 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ R16: enchant, ความสึก และชื่อดาบอยู่ครบหลังออก-เข้าเกม | — |
+| 2026-11-12 | R16 | InventorySync เก็บ ItemStack ทั้งชิ้นในคอลัมน์ใหม่ `material_stacks.item_data` (BYTEA) · รัน `ALTER TABLE ... ADD COLUMN IF NOT EXISTS item_data` บน Neon แล้ว และใส่ไว้ใน `schema_game.sql` (รันซ้ำได้) · บิลด์ jar ใหม่แล้ว | ถ้าใช้ DB local ต้องรัน `init_databases.mjs` หรือ ALTER เองหนึ่งครั้ง · ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit |
 | 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ R14, R24 ผ่านด้วย `dungeon_test_training` | P0 ที่ยังรอตรวจเหลือ R12 (ลบ `env.txt`) · R30, R34 ยังไม่ได้ทดสอบตรงๆ |
 | 2026-11-12 | R14, R24 (เครื่องมือทดสอบ) | เพิ่มดันเจี้ยนทดสอบ `dungeon_test_training` 3 step (ฆ่า Husk 5 ตัว → รอด 10 วิ → ฆ่า Test Boss) ทุกอย่างเกิดที่จุดเกิดของ `ind_t0` (55, 91, -21) · ไฟล์ต้นฉบับ `database/test-content/dungeon_test_training.json` · สคริปต์ใหม่ `web-console/scripts/load_content_file.mjs` โหลดไฟล์ content ลง DB และ registry ทั้ง 2 ที่ · โหลดเรียบร้อยแล้ว | ในเกมต้องสั่ง `/dm reload` ก่อน · มอนอาจเกิดติดกำแพงถ้าตรงจุดเกิดแคบ · `dungeon_ancient_ruins_t0` เดิมยังเล่นไม่จบ (step 2 ไม่มี SUMMON_BOSS) |
 | 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ R1–R11, R13 (enter/destroy), R15, 9.1, 9.2 | **R14 ยังทดสอบไม่ได้:** `dungeon_ancient_ruins_t0` เล่นไม่จบ เพราะ step 2 (KILL_BOSS `void_overseer_boss`) ไม่มี `SUMMON_BOSS` ใน `on_start` จึงไม่มีบอสให้ฆ่า และ step 1 ใช้ dummy ที่พิกัด 0,64,0 → ต้องมีดันเจี้ยนทดสอบที่เล่นจบได้ · R12 รอลบ `env.txt` · R24, R30, R34 ยังไม่ได้ทดสอบตรงๆ |

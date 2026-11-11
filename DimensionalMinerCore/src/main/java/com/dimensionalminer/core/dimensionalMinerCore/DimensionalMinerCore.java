@@ -24,7 +24,11 @@ public final class DimensionalMinerCore extends JavaPlugin {
             databaseManager.connect();
             databaseManager.testConnection();
         } catch (Exception e) {
-            getLogger().severe("Could not establish database connection!");
+            // Without the DB nothing can be loaded or saved safely, so refuse to run at all.
+            getLogger().severe("Could not establish database connection: " + e.getMessage());
+            getLogger().severe("DimensionalMinerCore is DISABLED. Fix plugins/DimensionalMinerCore/config.yml or the database and restart.");
+            databaseManager.close();
+            databaseManager = null;
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -91,6 +95,10 @@ public final class DimensionalMinerCore extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (dungeonInstanceManager != null) {
+            // Moves players to the hub and removes instance worlds before inventories are flushed.
+            dungeonInstanceManager.shutdownAll();
+        }
         if (inventorySync != null) {
             // Blocks until queued saves are committed; must run before the pool is closed.
             inventorySync.shutdown();

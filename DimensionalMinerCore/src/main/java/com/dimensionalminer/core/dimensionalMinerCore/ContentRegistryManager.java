@@ -13,9 +13,6 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.io.File;
 import java.io.FileReader;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,14 +20,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class ContentRegistryManager {
 
     private final DimensionalMinerCore plugin;
     private final NamespacedKey defIdKey;
-    private final Map<String, ItemDefinition> registry = new ConcurrentHashMap<>();
-    private final Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeonRegistry = new ConcurrentHashMap<>();
+    // Replaced as a whole on reload (never cleared in place), so readers on the main thread
+    // always see either the complete old registry or the complete new one.
+    private volatile Map<String, ItemDefinition> registry = Map.of();
+    private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeonRegistry = Map.of();
     private final DecimalFormat df = new DecimalFormat("#.##");
 
     public ContentRegistryManager(DimensionalMinerCore plugin) {
@@ -42,12 +40,37 @@ public class ContentRegistryManager {
         return defIdKey;
     }
 
-    public void loadAll() {
-        registry.clear();
-        dungeonRegistry.clear();
-        loadFromJsonFiles();
-        loadFromDatabase();
-        plugin.getLogger().info("[ContentRegistry] Loaded " + registry.size() + " items, " + dungeonRegistry.size() + " dungeons.");
+    /**
+     * (Re)loads content_registry.json into fresh maps and swaps them in only if the file parsed.
+     * On failure the previous registry stays active, so a bad export never empties the game.
+     * The plugin reads content only from this file (exported by the web console); it has no
+     * access to the dimensional_content database.
+     *
+     * @return true if a registry file was found and loaded
+     */
+    public boolean loadAll() {
+        Map<String, ItemDefinition> items = new HashMap<>();
+        Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeons = new HashMap<>();
+
+        File file = findRegistryFile();
+        if (file == null) {
+            plugin.getLogger().severe("[ContentRegistry] content_registry.json not found; keeping "
+                    + registry.size() + " items, " + dungeonRegistry.size() + " dungeons already loaded.");
+            return false;
+        }
+        try {
+            loadFromFile(file, items, dungeons);
+        } catch (Exception e) {
+            plugin.getLogger().severe("[ContentRegistry] Failed to read " + file.getPath() + " (" + e.getMessage()
+                    + "); keeping the previously loaded registry.");
+            return false;
+        }
+
+        registry = Map.copyOf(items);
+        dungeonRegistry = Map.copyOf(dungeons);
+        plugin.getLogger().info("[ContentRegistry] Loaded " + items.size() + " items, " + dungeons.size()
+                + " dungeons from " + file.getPath());
+        return true;
     }
 
     public boolean hasItem(String id) {
@@ -78,43 +101,7 @@ public class ContentRegistryManager {
         return registry.values();
     }
 
-    public void loadFromDatabase() {
-        String sql = "SELECT definition_id, kind, payload FROM content_definitions";
-        try (Connection conn = plugin.getDatabaseManager().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-
-            int count = 0;
-            int dungeonCount = 0;
-            while (rs.next()) {
-                String defId = rs.getString("definition_id");
-                String kind = rs.getString("kind");
-                String payloadRaw = rs.getString("payload");
-                try {
-                    JsonObject payload = JsonParser.parseString(payloadRaw).getAsJsonObject();
-                    if (kind.equalsIgnoreCase("Dungeon")) {
-                        com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition d =
-                                com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition.fromJson(defId, payload);
-                        dungeonRegistry.put(d.getDefinitionId().toLowerCase(Locale.ROOT), d);
-                        dungeonCount++;
-                    } else {
-                        ItemDefinition def = parseDefinition(defId, kind, payload);
-                        if (def != null) {
-                            registry.put(def.getId().toLowerCase(Locale.ROOT), def);
-                            count++;
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-            if (count > 0 || dungeonCount > 0) {
-                plugin.getLogger().info("[ContentRegistry] Synced " + count + " items, " + dungeonCount + " dungeons from PostgreSQL.");
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("[ContentRegistry] Could not load from database: " + e.getMessage());
-        }
-    }
-
-    public void loadFromJsonFiles() {
+    private File findRegistryFile() {
         File[] candidates = new File[] {
                 new File(plugin.getDataFolder(), "content_registry.json"),
                 new File(plugin.getDataFolder().getParentFile(), "DimensionalMinerCore/content_registry.json"),
@@ -124,15 +111,15 @@ public class ContentRegistryManager {
         };
 
         for (File candidate : candidates) {
-            if (candidate.exists() && candidate.isFile()) {
-                loadFromFile(candidate);
-                break;
-            }
+            if (candidate.exists() && candidate.isFile()) return candidate;
         }
+        return null;
     }
 
-    public void loadFromFile(File file) {
-        try (FileReader reader = new FileReader(file)) {
+    /** Parses the whole file into the given maps; throws if the file itself is unreadable. */
+    private void loadFromFile(File file, Map<String, ItemDefinition> items,
+                              Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeons) throws Exception {
+        try (FileReader reader = new FileReader(file, java.nio.charset.StandardCharsets.UTF_8)) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
             for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
                 String kind = entry.getKey();
@@ -146,21 +133,23 @@ public class ContentRegistryManager {
                     JsonObject payload = obj.has("payload") && obj.get("payload").isJsonObject()
                             ? obj.getAsJsonObject("payload")
                             : new JsonObject();
-                    if (kind.equalsIgnoreCase("Dungeon")) {
-                        com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition d =
-                                com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition.fromJson(defId, payload);
-                        dungeonRegistry.put(d.getDefinitionId().toLowerCase(Locale.ROOT), d);
-                    } else {
-                        ItemDefinition def = parseDefinition(defId, kind, payload);
-                        if (def != null) {
-                            registry.put(def.getId().toLowerCase(Locale.ROOT), def);
+                    try {
+                        if (kind.equalsIgnoreCase("Dungeon")) {
+                            com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition d =
+                                    com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition.fromJson(defId, payload);
+                            dungeons.put(d.getDefinitionId().toLowerCase(Locale.ROOT), d);
+                        } else {
+                            ItemDefinition def = parseDefinition(defId, kind, payload);
+                            if (def != null) {
+                                items.put(def.getId().toLowerCase(Locale.ROOT), def);
+                            }
                         }
+                    } catch (Exception e) {
+                        // One broken definition must not take the rest of the registry down with it.
+                        plugin.getLogger().warning("[ContentRegistry] Skipped " + kind + "/" + defId + ": " + e.getMessage());
                     }
                 }
             }
-            plugin.getLogger().info("[ContentRegistry] Loaded definitions from file: " + file.getPath());
-        } catch (Exception e) {
-            plugin.getLogger().warning("[ContentRegistry] Failed to read JSON file: " + e.getMessage());
         }
     }
 

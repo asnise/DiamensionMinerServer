@@ -8,14 +8,15 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.UUID;
-
+/**
+ * /shop: sends the web shop link. No DB work here: the account and wallets are created on join
+ * (InventorySync -> DatabaseManager.upsertPlayer), and the web shop knows the buyer from its session.
+ */
 public class ShopCommand implements CommandExecutor {
 
-    private final DimensionalMinerCore plugin;
+    private static final String SHOP_URL = "http://localhost:3000/shop";
 
     public ShopCommand(DimensionalMinerCore plugin) {
-        this.plugin = plugin;
     }
 
     @Override
@@ -25,19 +26,15 @@ public class ShopCommand implements CommandExecutor {
             return true;
         }
 
-        plugin.getDatabaseManager().upsertPlayer(player);
-        plugin.getDatabaseManager().ensureAccounts(player.getUniqueId());
-
-        String webUrl = "http://localhost:3000/shop";
-
-        Component message = Component.text("[DimensionalMiner] ")
+        player.sendMessage(Component.text("[DimensionalMiner] ")
                 .color(NamedTextColor.GOLD)
                 .append(Component.text("Click here to open Web Shop: ").color(NamedTextColor.GRAY))
-                .append(Component.text(webUrl)
+                .append(Component.text(SHOP_URL)
                         .color(NamedTextColor.YELLOW)
-                        .clickEvent(ClickEvent.openUrl(webUrl)));
-
-        player.sendMessage(message);
+                        .clickEvent(ClickEvent.openUrl(SHOP_URL))));
+        player.sendMessage(Component.text("Log in there with ").color(NamedTextColor.GRAY)
+                .append(Component.text("/weblogin").color(NamedTextColor.AQUA))
+                .append(Component.text(" to buy with your COIN.").color(NamedTextColor.GRAY)));
         return true;
     }
 }

@@ -74,10 +74,12 @@ public class PartyCommand implements CommandExecutor, TabCompleter {
 
         if (sub.equals("disband")) {
             partyManager.getPartyByPlayer(player.getUniqueId()).ifPresentOrElse(session -> {
-                if (session.getLeaderId().equals(player.getUniqueId())) {
-                    partyManager.disbandParty(session.getPartyId());
-                } else {
+                if (!session.getLeaderId().equals(player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Only the party leader can disband the party.");
+                } else if (partyManager.isLockedByDungeon(session.getPartyId())) {
+                    player.sendMessage(ChatColor.RED + "[Party Lock] You cannot disband your party during a dungeon run.");
+                } else {
+                    partyManager.disbandParty(session.getPartyId());
                 }
             }, () -> player.sendMessage(ChatColor.RED + "You are not in a party."));
             return true;

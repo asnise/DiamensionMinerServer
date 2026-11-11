@@ -10,7 +10,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -56,23 +55,19 @@ public class DungeonEventListener implements Listener {
         });
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void onPartyCommandPreprocess(PlayerCommandPreprocessEvent event) {
+    // The party lock during a run lives in PartyManager (checking command text here could be
+    // bypassed with /dimensionalminercore:party ...).
+
+    /** Dying inside a run respawns you at the instance spawn instead of stranding you in the hub. */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerRespawn(org.bukkit.event.player.PlayerRespawnEvent event) {
         Player player = event.getPlayer();
-        String msg = event.getMessage().trim().toLowerCase();
-
-        if (msg.startsWith("/party leave") || msg.startsWith("/p leave")
-                || msg.startsWith("/party disband") || msg.startsWith("/p disband")
-                || msg.startsWith("/party kick") || msg.startsWith("/p kick")) {
-
-            if (instanceManager.isInDungeon(player)) {
-                if (player.isOp()) return; // OP bypass
-
-                event.setCancelled(true);
-                player.sendMessage("§c[Party Lock] You cannot leave or modify your party while inside a dungeon!");
-                player.sendMessage("§eUse §b/exitdungeon§e to return to the public world first.");
+        instanceManager.getSessionByPlayer(player.getUniqueId()).ifPresent(session -> {
+            org.bukkit.World w = session.getWorld();
+            if (!session.isCompleted() && w != null && org.bukkit.Bukkit.getWorld(w.getUID()) != null) {
+                event.setRespawnLocation(w.getSpawnLocation());
             }
-        }
+        });
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
