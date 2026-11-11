@@ -27,7 +27,8 @@ cd EXeaEntityCore;       .\gradlew.bat jar
 # Stop the Minecraft server first if the jar is locked.
 # DimensionalMinerCore also has run-paper: .\gradlew.bat runServer (MC 26.2)
 
-# Web console
+# Web console (shortcut from repo root: run-web.bat = dev, run-web.bat prod = build + start;
+# it checks .env.local / SESSION_SECRET / port 3000 and runs npm install if needed)
 cd web-console
 npm install
 npm run dev          # http://localhost:3000
@@ -37,6 +38,8 @@ npm run lint         # eslint (flat config, eslint-config-next)
 # Database bootstrap (creates both DBs + seed data)
 cd web-console; node scripts/init_databases.mjs              # local Postgres
 cd web-console; node --env-file=.env.local scripts/init_neon.mjs   # Neon cloud
+# Load one content definition file into the content DB + both content_registry.json copies (then /dm reload):
+cd web-console; node --env-file=.env.local scripts/load_content_file.mjs ../database/test-content/dungeon_test_training.json
 # DB credentials live only in web-console/.env.local (LOCAL_PG* / CLOUD_PG*); lib/db.js throws if missing.
 
 # Switch DB target for server config + web-console .env.local
