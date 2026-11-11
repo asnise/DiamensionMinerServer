@@ -103,6 +103,29 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * Runs after every damage modifier (HIGHEST). A hit that would kill an EXea entity is cancelled
+     * and the death sequence plays instead: if the root actually died, the tick loop would remove it
+     * on the next tick and the 3-second death animation would never be seen. Covers all damage
+     * causes (melee, arrows, fire, fall...); /kill bypasses damage events and still removes at once.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onLethalDamage(org.bukkit.event.entity.EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity victim)) return;
+        EXActiveEntity active = EntityManager.getInstance().getActiveEntity(victim);
+        if (active == null) return;
+
+        if (active.isDying()) {
+            event.setCancelled(true);
+            return;
+        }
+        if (event.getFinalDamage() >= victim.getHealth()) {
+            event.setCancelled(true);
+            victim.setHealth(Math.min(victim.getHealth(), 1.0));
+            active.startDeathSequence();
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityDeath(org.bukkit.event.entity.EntityDeathEvent event) {
         if (EntityManager.getInstance().isActiveEntity(event.getEntity())) {

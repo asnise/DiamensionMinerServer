@@ -190,29 +190,17 @@ public class EntityManager {
         cleanupOrphanedEntities();
     }
 
+    /**
+     * Removes EXea roots and bones that no live EXActiveEntity owns. Matches only this plugin's own
+     * scoreboard tags (every root gets "exea_entity", every bone "exea_bone"); it used to also match
+     * by custom name and CustomModelData range, which deleted other plugins' entities.
+     */
     public void cleanupOrphanedEntities() {
         for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
             for (Entity e : world.getEntities()) {
-                if (e.getScoreboardTags().contains("exea_entity") || e.getScoreboardTags().contains("exea_bone")) {
+                Set<String> tags = e.getScoreboardTags();
+                if (tags.contains("exea_entity") || tags.contains("exea_bone")) {
                     e.remove();
-                    continue;
-                }
-                if (e instanceof org.bukkit.entity.ItemDisplay id) {
-                    org.bukkit.inventory.ItemStack item = id.getItemStack();
-                    if (item != null && item.hasItemMeta() && item.getItemMeta().hasCustomModelData()) {
-                        int cmd = item.getItemMeta().getCustomModelData();
-                        if (cmd >= 1001 && cmd <= 1022) {
-                            id.remove();
-                        }
-                    }
-                } else if (e instanceof org.bukkit.entity.ArmorStand stand) {
-                    if (stand.getCustomName() != null && stand.getCustomName().contains("Void Overseer")) {
-                        stand.remove();
-                    }
-                } else if (e instanceof org.bukkit.entity.Husk husk) {
-                    if (husk.getCustomName() != null && husk.getCustomName().contains("Void Overseer")) {
-                        husk.remove();
-                    }
                 }
             }
         }

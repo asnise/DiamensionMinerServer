@@ -125,6 +125,9 @@ public class EXActiveEntity {
         }
         state = EntityState.DEAD;
         deathTicksRemaining = 60;
+        // The root must stay alive for the 3 s sequence (the manager culls dead roots at once),
+        // so it stops taking damage and moving; tick() removes it when the sequence ends.
+        rootEntity.setInvulnerable(true);
         if (rootEntity instanceof org.bukkit.entity.Mob mob) {
             mob.setAI(false);
         }
@@ -133,6 +136,11 @@ public class EXActiveEntity {
         if (animationMap.containsKey("death")) {
             playAnimation("death");
         }
+    }
+
+    /** True from the start of the death sequence until the entity is removed. */
+    public boolean isDying() {
+        return state == EntityState.DEAD;
     }
 
     public void init() {
@@ -209,7 +217,7 @@ public class EXActiveEntity {
                 trackedChunk = chunk;
                 EXeaEntityPlugin plugin = EXeaEntityPlugin.getInstance();
                 if (plugin != null && trackedChunk != null) {
-                    trackedChunk.addPluginChunkTicket(plugin);
+                    ChunkTickets.acquire(plugin, trackedChunk);
                 }
             }
         } catch (Throwable ignored) {
@@ -221,7 +229,7 @@ public class EXActiveEntity {
             try {
                 EXeaEntityPlugin plugin = EXeaEntityPlugin.getInstance();
                 if (plugin != null) {
-                    trackedChunk.removePluginChunkTicket(plugin);
+                    ChunkTickets.release(plugin, trackedChunk);
                 }
             } catch (Throwable ignored) {
             }

@@ -24,6 +24,14 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [buyingId, setBuyingId] = useState(null);
   const [confirmProduct, setConfirmProduct] = useState(null);
+  // One key per purchase attempt: a retry (double click, network error) re-sends the same key,
+  // so the server charges at most once. A new key is made each time the confirm dialog opens.
+  const [purchaseKey, setPurchaseKey] = useState(null);
+
+  const openConfirm = (product) => {
+    setPurchaseKey(crypto.randomUUID());
+    setConfirmProduct(product);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +104,7 @@ export default function ShopPage() {
       return;
     }
 
+    if (buyingId) return; // a request for this purchase is already in flight
     setBuyingId(product.product_id);
 
     try {
@@ -103,7 +112,7 @@ export default function ShopPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // The buyer comes from the session cookie on the server.
-        body: JSON.stringify({ product_id: product.product_id }),
+        body: JSON.stringify({ product_id: product.product_id, idempotency_key: purchaseKey }),
       });
 
       const json = await res.json();
@@ -362,7 +371,7 @@ export default function ShopPage() {
                       boxShadow: isLowBalance ? "none" : undefined,
                     }}
                     disabled={!player || isLowBalance || isBuyingThis}
-                    onClick={() => setConfirmProduct(product)}
+                    onClick={() => openConfirm(product)}
                   >
                     {!player ? "Login to Buy" : "Purchase"}
                   </button>
