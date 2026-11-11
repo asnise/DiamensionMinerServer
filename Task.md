@@ -27,7 +27,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | # | หมวด | ⬜ | 🟡 | 🔍 | ✅ |
 |---|---|---|---|---|---|
 | 1 | มิติและ Channel | 3 | 2 | 0 | 0 |
-| 2 | Node เหมืองแร่ | 5 | 0 | 0 | 0 |
+| 2 | Node เหมืองแร่ | 0 | 0 | 0 | 5 |
 | 3 | อุปกรณ์และสเตตัส | 4 | 1 | 0 | 0 |
 | 4 | Crafting & ตีบวก | 5 | 0 | 0 | 0 |
 | 5 | ต่อสู้และความตาย | 3 | 1 | 0 | 0 |
@@ -134,11 +134,11 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | ID | งาน | สถานะ | หลักฐาน | ที่ยังขาด / วิธีตรวจ |
 |---|---|---|---|---|
-| 2.1 | โครงสร้างข้อมูล Node (`node_id`, `dimension_id`, `channel_id`, สถานะ, generation) | ⬜ | — | |
-| 2.2 | จอง Node แบบ Atomic | ⬜ | — | |
-| 2.3 | แจกรางวัล + Generation กันช่องโหว่ | ⬜ | — | |
-| 2.4 | เปลี่ยนบล็อกระหว่างรอ Respawn (Visual) | ⬜ | — | ต้องทำงานร่วมกับ 1.5 เพราะตอนนี้ห้ามทุบ block ทั้งแมพ |
-| 2.5 | Anti-abuse (อัตราขุด, ระยะเอื้อม, เครื่องมือ) | ⬜ | — | |
+| 2.1 | โครงสร้างข้อมูล Node (`node_id`, `dimension_id`, `channel_id`, สถานะ, generation) | ✅ | `core/mining/` `MineNodeManager`, `OreType`, `LootTable`; ตาราง `mine_nodes` | node 1 แถวต่อ 1 channel world (`node_id` = `<world>:<x>_<y>_<z>`, `channel_id` = node-id ของเซิร์ฟ) · ชนิดแร่เป็น content kind ใหม่ `OreType` (บล็อก, บล็อกตอนหมด, loot table, เวลาเกิดใหม่, ระดับพลั่ว) · ของดรอปใช้ `LootTable` · วางด้วย `/mine node add <ore>` (สร้างให้ทุก channel) |
+| 2.2 | จอง Node แบบ Atomic | ✅ | `core/mining/` `tryMine`, `recordDepletion` | จองในหน่วยความจำ (RESERVED, main thread → มีผู้ชนะคนเดียว) แล้ว DB `UPDATE ... WHERE state='READY' AND generation=?` ต้องได้ 1 แถว + operation `mine/<channel>/<node>/<gen>` ที่ห้ามซ้ำ ใน transaction เดียว · ขุดพร้อมกันจาก 2 เซิร์ฟก็ได้ผู้ชนะคนเดียว |
+| 2.3 | แจกรางวัล + Generation กันช่องโหว่ | ✅ | `core/mining/` `finishMine`, `processRespawns` | ของแจกหลัง DB commit เท่านั้น (DB ล่ม → ไม่แจก) · เข้ากระเป๋า ล้นไป `/grants` (ไม่มีของตกพื้น) · ตอนเกิดใหม่ generation+1 ถูกบันทึกลง DB ก่อนให้ขุดได้ → crash แล้วขุด generation เดิมซ้ำไม่ได้ · ข้อจำกัดเดียวกับ /grants: ถ้าเซิร์ฟล่มในเสี้ยววินาทีหลังให้ของก่อน save inventory ของรอบนั้นหาย (ไม่ซ้ำ) |
+| 2.4 | เปลี่ยนบล็อกระหว่างรอ Respawn (Visual) | ✅ | `core/mining/` `applyVisual`, `onChunkLoad`, `onWorldLoad` | หมดแล้วเปลี่ยนเป็น `depleted_block` (ค่าเริ่มต้น STONE) จนเกิดใหม่ · คิวเวลาเดียวประมวลผลทุกวินาที (สูงสุด 25 node/tick) ไม่สร้าง scheduler ต่อบล็อก · chunk/world ที่ยังไม่โหลดจะวางบล็อกให้ตอนโหลด |
+| 2.5 | Anti-abuse (อัตราขุด, ระยะเอื้อม, เครื่องมือ) | ✅ | `core/mining/` `reachOf`, `rateOk`, `flag` | ตรวจระยะเอื้อม (attribute `BLOCK_INTERACTION_RANGE` + 1), ระดับพลั่ว, อัตรา (ห่าง ≥120ms และไม่เกิน 12 ครั้ง/5 วิ) · ผิดปกติ → ปฏิเสธ + log `[Mining][FLAG]` (ไม่แบนอัตโนมัติตาม GDD) · creative ขุดไม่ได้ |
 
 ## 3. ระบบอุปกรณ์และสเตตัส
 
@@ -232,6 +232,16 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 ---
 
+## T. เครื่องมือ Admin (แต่งโลก / วางระบบ)
+
+| ID | งาน | สถานะ | หลักฐาน | วิธีตรวจ |
+|---|---|---|---|---|
+| T1 | `/mine` วาง/ลบ/ดู mining node | ✅ | `core/mining/MineCommand.java` | `/mine types` → มองบล็อก `/mine node add ore_prim_metal` → บล็อกเป็นแร่เหล็กทั้ง 3 channel · `/mine info` |
+| T2 | `/dmb` เลือกพื้นที่ + fill / replace / ores / undo / save | ✅ | `core/build/BuildManager.java`, `BuildCommand.java` | `/dmb wand` เลือกพื้นที่ → `/dmb fill stone` → `/dmb ores ore_prim_metal 10` → `/dmb undo` คืนครบ (รวม node) · รีสตาร์ทแล้วงานที่ไม่ได้ undo ยังอยู่ |
+| T3 | Blueprint (JSON ที่ Agent เขียนได้) + ตัวอย่างถ้ำ | ✅ | `core/build/Blueprint.java`, `tools/blueprints/README.md`, `blueprints/tutorial_mine_t1.json` | ยืนพื้นโล่ง หันหน้าไปทางหนึ่ง → `/dmb preview tutorial_mine_t1` → `/dmb run tutorial_mine_t1` → เดินเข้าถ้ำ มีห้องโถง 3 อุโมงค์ แร่ ~30 จุดขุดได้ ไฟ lantern → `/dmb undo` หายหมด |
+
+---
+
 ## ทดสอบ Party / Dungeon แบบหลายคนด้วยบอท (R21, R22, R27)
 
 ใช้บอทแทนเพื่อน ดูวิธีติดตั้งที่ [tools/party-bots/README.md](tools/party-bots/README.md) (ต้องมี ViaVersion + ViaBackwards และสลับเป็น offline mode ก่อน)
@@ -257,6 +267,9 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | วันที่ | ID | สิ่งที่ทำ | ค้าง / ข้อควรระวัง |
 |---|---|---|---|
+| 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ 2.1–2.5 Mining Node (ขุด, แร่เกิดใหม่, พลั่วไม่ถึงขุดไม่ได้) และ T1–T3 (/mine, /dmb, blueprint tutorial_mine_t1 + undo) | — |
+| 2026-11-12 | T1–T3 เครื่องมือแต่งโลก | `/dmb` (wand, pos1/pos2, fill, replace, ores → mining node, undo 5 ระดับ, save อัตโนมัติ, ทำทุก channel พร้อมกัน, ไม่ทับ node) + Blueprint JSON (box, sphere, tunnel, replace, ore_vein, node, light, marker; พิกัดหมุนตามทิศผู้เล่น; seed) + ตัวอย่าง `tutorial_mine_t1` + คู่มือ `tools/blueprints/README.md` · บิลด์ jar แล้ว (รวมงาน Mining Node) | ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit · undo อยู่ในหน่วยความจำ · แก้แมพ `ind_t0` ด้วย /dmb ยังไม่ได้ |
+| 2026-11-12 | 2.1–2.5 Mining Node | ระบบขุดแร่: content kind `OreType` + `LootTable`, `MineNodeManager` (โหลด node, จอง, DB transaction ต่อ generation, ของเข้ากระเป๋า/ล้นไป mailbox, คิวเกิดใหม่, เปลี่ยนบล็อก), anti-abuse, คำสั่ง `/mine` · content ทดสอบ `ore_prim_metal` + `loot_ore_prim_metal` โหลดแล้ว · `compileJava` ผ่าน | ยังไม่ได้บิลด์ jar (เซิร์ฟเปิดอยู่) · ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit · หน้า Admin Editor สำหรับ OreType ยังไม่มี (ใช้ไฟล์ JSON + `load_content_file.mjs`) |
 | 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ R31 (channel copy ครั้งเดียว), R32 (instance copy ที่เดียว), R37, R38 · R35 ที่แก้ไป (ไม่เอียงตามหัว, แอนิเมชันลื่น) ผ่าน แต่ยังเป็น 🟡 เพราะส่วนการหมุนยังไม่ได้ทำ | เหลือ 🟡 R35 (ลำดับแกนหมุน/slerp 360°/teleport ทีละกระดูก) และ R36 (claim_operation_id, hash login key, item+stack ช่องเดียวกัน) |
 | 2026-11-12 | P2: R31, R32, R35 (บางส่วน), R36 (บางส่วน), R37, R38 | Channel copy แบบ async + marker · instance copy ที่เดียว · `util/WorldFiles` ใช้ร่วม · log แทนการกลืน exception · EXea ไม่ส่ง transform ซ้ำ + ไม่เอียงตามหัว · migration R36 (index, trigger ledger สมดุล, FK, CHECK) รันบน Neon แล้ว · แก้ HANDOVER_EXEA_CORE.md · `compileJava` ผ่านทั้ง 2 ปลั๊กอิน | บิลด์ jar ทั้ง 2 ตัวแล้ว (03:23) · ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit · รอบแรกที่เปิดเซิร์ฟ channel 2–3 จะ copy ใหม่ 1 ครั้ง (ยังไม่มีไฟล์ marker) |
 | 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ R28 (ซื้อของไม่หักซ้ำ), R29 (EXea ticket/cleanup/ฉากตาย), R30, R34, 0.6 · **P0 และ P1 ผ่านครบทุกข้อ** | เหลือ P2: R31, R32 (บางส่วน), R35–R38 |

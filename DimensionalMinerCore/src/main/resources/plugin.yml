@@ -50,7 +50,15 @@ commands:
     usage: /exitdungeon
     aliases: [leavedungeon, dungeonleave]
 
+  mine:
+    description: Admin tools for mining nodes
+    usage: /mine <types|node add <ore>|node remove|info|list [radius]|respawn>
+    permission: dimensionalminer.admin
+  dmb:
+    description: Admin world building (selection, fill, ore veins, blueprints)
+    usage: /dmb <wand|pos1|pos2|sel|fill|replace|ores|list|preview|run|undo|save>
+    permission: dimensionalminer.admin
 permissions:
   dimensionalminer.admin:
-    description: Admin commands (/dm give, /dm reload, /dm list)
+    description: Admin commands (/dm, /mine, /dmb)
     default: op

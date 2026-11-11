@@ -29,7 +29,17 @@ public class ContentRegistryManager {
     // always see either the complete old registry or the complete new one.
     private volatile Map<String, ItemDefinition> registry = Map.of();
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeonRegistry = Map.of();
+    private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType> oreRegistry = Map.of();
+    private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> lootRegistry = Map.of();
     private final DecimalFormat df = new DecimalFormat("#.##");
+
+    /** Everything parsed from one registry file; swapped in as a unit. */
+    private record Parsed(Map<String, ItemDefinition> items,
+                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeons,
+                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType> ores,
+                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> loot) {
+        Parsed() { this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>()); }
+    }
 
     public ContentRegistryManager(DimensionalMinerCore plugin) {
         this.plugin = plugin;
@@ -49,8 +59,7 @@ public class ContentRegistryManager {
      * @return true if a registry file was found and loaded
      */
     public boolean loadAll() {
-        Map<String, ItemDefinition> items = new HashMap<>();
-        Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeons = new HashMap<>();
+        Parsed parsed = new Parsed();
 
         File file = findRegistryFile();
         if (file == null) {
@@ -59,18 +68,40 @@ public class ContentRegistryManager {
             return false;
         }
         try {
-            loadFromFile(file, items, dungeons);
+            loadFromFile(file, parsed);
         } catch (Exception e) {
             plugin.getLogger().severe("[ContentRegistry] Failed to read " + file.getPath() + " (" + e.getMessage()
                     + "); keeping the previously loaded registry.");
             return false;
         }
 
-        registry = Map.copyOf(items);
-        dungeonRegistry = Map.copyOf(dungeons);
-        plugin.getLogger().info("[ContentRegistry] Loaded " + items.size() + " items, " + dungeons.size()
-                + " dungeons from " + file.getPath());
+        // An ore whose loot table is missing would deplete nodes and give nothing: drop it loudly.
+        parsed.ores().values().removeIf(ore -> {
+            if (parsed.loot().containsKey(ore.lootTableId().toLowerCase(Locale.ROOT))) return false;
+            plugin.getLogger().warning("[ContentRegistry] OreType/" + ore.id() + " skipped: loot table '"
+                    + ore.lootTableId() + "' not found");
+            return true;
+        });
+
+        registry = Map.copyOf(parsed.items());
+        dungeonRegistry = Map.copyOf(parsed.dungeons());
+        oreRegistry = Map.copyOf(parsed.ores());
+        lootRegistry = Map.copyOf(parsed.loot());
+        plugin.getLogger().info("[ContentRegistry] Loaded " + parsed.items().size() + " items, " + parsed.dungeons().size()
+                + " dungeons, " + parsed.ores().size() + " ore types, " + parsed.loot().size() + " loot tables from " + file.getPath());
         return true;
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.mining.OreType getOreType(String id) {
+        return id == null ? null : oreRegistry.get(id.toLowerCase(Locale.ROOT));
+    }
+
+    public Collection<com.dimensionalminer.core.dimensionalMinerCore.mining.OreType> getAllOreTypes() {
+        return oreRegistry.values();
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable getLootTable(String id) {
+        return id == null ? null : lootRegistry.get(id.toLowerCase(Locale.ROOT));
     }
 
     public boolean hasItem(String id) {
@@ -117,8 +148,7 @@ public class ContentRegistryManager {
     }
 
     /** Parses the whole file into the given maps; throws if the file itself is unreadable. */
-    private void loadFromFile(File file, Map<String, ItemDefinition> items,
-                              Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeons) throws Exception {
+    private void loadFromFile(File file, Parsed out) throws Exception {
         try (FileReader reader = new FileReader(file, java.nio.charset.StandardCharsets.UTF_8)) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
             for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
@@ -134,14 +164,19 @@ public class ContentRegistryManager {
                             ? obj.getAsJsonObject("payload")
                             : new JsonObject();
                     try {
+                        String key = defId.toLowerCase(Locale.ROOT);
                         if (kind.equalsIgnoreCase("Dungeon")) {
                             com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition d =
                                     com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition.fromJson(defId, payload);
-                            dungeons.put(d.getDefinitionId().toLowerCase(Locale.ROOT), d);
+                            out.dungeons().put(d.getDefinitionId().toLowerCase(Locale.ROOT), d);
+                        } else if (kind.equalsIgnoreCase("OreType")) {
+                            out.ores().put(key, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType.fromJson(defId, payload));
+                        } else if (kind.equalsIgnoreCase("LootTable")) {
+                            out.loot().put(key, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable.fromJson(defId, payload));
                         } else {
                             ItemDefinition def = parseDefinition(defId, kind, payload);
                             if (def != null) {
-                                items.put(def.getId().toLowerCase(Locale.ROOT), def);
+                                out.items().put(def.getId().toLowerCase(Locale.ROOT), def);
                             }
                         }
                     } catch (Exception e) {

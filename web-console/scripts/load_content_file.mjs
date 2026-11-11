@@ -12,7 +12,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { contentPool } from '../lib/db.js';
 
-const KINDS = new Set(['ItemBase', 'PassiveGenerator', 'UpgradeTree', 'Recipe', 'LootTable', 'Dungeon']);
+const KINDS = new Set(['ItemBase', 'PassiveGenerator', 'UpgradeTree', 'Recipe', 'LootTable', 'Dungeon', 'OreType']);
 
 const file = process.argv[2];
 if (!file) {

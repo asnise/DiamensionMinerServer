@@ -1,0 +1,14 @@
+{
+  "definition_id": "loot_ore_prim_metal",
+  "kind": "LootTable",
+  "payload": {
+    "name": "Prim Metal Ore drops",
+    "min_rolls": 1,
+    "max_rolls": 2,
+    "pools": [
+      { "item": "prim_metal", "weight": 70, "min_qty": 1, "max_qty": 2 },
+      { "item": "cobblestone", "weight": 25, "min_qty": 1, "max_qty": 1 },
+      { "item": "raw_iron", "weight": 5, "min_qty": 1, "max_qty": 1 }
+    ]
+  }
+}

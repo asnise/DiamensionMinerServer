@@ -48,6 +48,22 @@ public final class DimensionalMinerCore extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonEventListener(this, dungeonInstanceManager), this);
 
+        // Mining nodes: its break handler runs at LOWEST and cancels node breaks itself, so the
+        // map protection (HIGHEST, ignoreCancelled) still blocks every other block.
+        com.dimensionalminer.core.dimensionalMinerCore.mining.MineNodeManager mineNodes =
+                new com.dimensionalminer.core.dimensionalMinerCore.mining.MineNodeManager(this);
+        getServer().getPluginManager().registerEvents(mineNodes, this);
+        var mineCmd = new com.dimensionalminer.core.dimensionalMinerCore.mining.MineCommand(this, mineNodes);
+        getCommand("mine").setExecutor(mineCmd);
+        getCommand("mine").setTabCompleter(mineCmd);
+
+        // World building for admins (/dmb, blueprints in plugins/DimensionalMinerCore/blueprints)
+        var buildManager = new com.dimensionalminer.core.dimensionalMinerCore.build.BuildManager(this, mineNodes);
+        var buildCmd = new com.dimensionalminer.core.dimensionalMinerCore.build.BuildCommand(this, buildManager);
+        getServer().getPluginManager().registerEvents(buildCmd, this);
+        getCommand("dmb").setExecutor(buildCmd);
+        getCommand("dmb").setTabCompleter(buildCmd);
+
         getCommand("profile").setExecutor(new ProfileCommand(this));
         getCommand("balance").setExecutor(new BalanceCommand(this));
         getCommand("grants").setExecutor(new GrantsCommand(this));

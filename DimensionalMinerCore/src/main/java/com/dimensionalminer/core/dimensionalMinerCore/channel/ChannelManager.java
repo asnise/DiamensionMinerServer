@@ -167,6 +167,16 @@ public class ChannelManager {
 
     public int getTotalChannels() { return totalChannels; }
 
+    /** World names of all channels of the hub map (channel 1 = hub world), in channel order. */
+    public List<String> getChannelWorldNames() {
+        List<String> names = new ArrayList<>();
+        for (int i = 1; i <= totalChannels; i++) {
+            String n = channelWorlds.get(i);
+            if (n != null) names.add(n);
+        }
+        return names;
+    }
+
     public record ChannelStatus(int id, String name, int onlineCount, int maxCount) {}
 
 }

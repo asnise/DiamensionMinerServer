@@ -50,6 +50,10 @@ cd web-console; node --env-file=.env.local scripts/load_content_file.mjs ../data
 .\switch-online-mode.ps1 offline   # or: online ; restart the server after switching
 cd tools\party-bots; npm install; node bots.mjs --count 2
 
+# World building (in game, admin): /dmb wand|fill|replace|ores|preview|run|undo|save — blueprints are JSON
+# in server/plugins/DimensionalMinerCore/blueprints/ (format: tools/blueprints/README.md). All worlds have
+# autoSave=false, so /dmb saves what it changes; edits in the hub are mirrored to every channel world.
+
 # EXea model export from Blockbench file
 node EXeaEntityCore\tools\exea_exporter.js "<path>.bbmodel" <entity_id>
 ```
@@ -89,6 +93,10 @@ The web console never writes to the player's live inventory. Shop purchases (`ap
   3. It drives a `DungeonInstanceSession` through `Dungeon` definition `steps`. Each step has goals (`KILL_MOBS`, `KILL_BOSS`, `HOLD_ZONE`, `SURVIVE_TIME`, `INTERACT_DUMMY`) and `on_start`/`on_current`/`on_end` actions.
   4. On clear, it writes `reward_grants`, returns players to hub `overworld_t0`, unloads the world, and deletes its folder.
 - Solo players get an auto-created party on `/dungeon enter`.
+- Mining (`mining/`): content kinds `OreType` (block, depleted block, loot table, respawn, pickaxe tier) and `LootTable`. `MineNodeManager` keeps `mine_nodes` (one row per channel world) in memory.
+  - Node breaks are cancelled at LOWEST, so map protection still blocks everything else.
+  - A break reserves the node, then one transaction records operation `mine/<channel>/<node>/<generation>` and flips READY→DEPLETED for that generation. Loot is given only after commit: inventory first, overflow to `reward_grants`.
+  - Respawn uses a time queue that bumps the generation in the DB first. Admin placement is `/mine node add <ore>` while looking at a block.
 
 ### EXeaEntityCore
 

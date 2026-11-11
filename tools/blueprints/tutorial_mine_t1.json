@@ -1,0 +1,23 @@
+{
+  "description": "Tier 1 tutorial mine: rock mass, sloped entrance, main hall, 3 side tunnels, ~30 Prim Metal nodes, lanterns",
+  "seed": 20261112,
+  "ops": [
+    { "op": "box", "from": [1, -16, -14], "to": [42, 3, 14], "block": "stone" },
+    { "op": "replace", "from": [1, -16, -14], "to": [42, -10, 14], "match": ["stone"], "block": "deepslate" },
+
+    { "op": "tunnel", "from": [1, 0, 0], "direction": [1, -0.4, 0], "length": 15, "radius": 1.8, "wander": 0.05 },
+    { "op": "sphere", "center": [20, -7, 0], "radii": [8, 4, 7] },
+
+    { "op": "tunnel", "from": [20, -7, 4], "direction": [0.3, -0.05, 1], "length": 12, "radius": 2, "wander": 0.35 },
+    { "op": "tunnel", "from": [20, -7, -4], "direction": [0.3, -0.05, -1], "length": 12, "radius": 2, "wander": 0.35 },
+    { "op": "tunnel", "from": [27, -7, 0], "direction": [1, -0.1, 0], "length": 12, "radius": 2.2, "wander": 0.3 },
+
+    { "op": "ore_vein", "from": [2, -15, -13], "to": [41, 2, 13], "ore": "ore_prim_metal",
+      "chance": 0.07, "max": 30, "exposed_only": true },
+
+    { "op": "light", "from": [2, -14, -13], "to": [41, 1, 13], "block": "lantern", "every": 6 },
+
+    { "op": "marker", "name": "entrance", "at": [1, 0, 0] },
+    { "op": "marker", "name": "hall_center", "at": [20, -7, 0] }
+  ]
+}

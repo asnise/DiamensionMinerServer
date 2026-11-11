@@ -232,6 +232,36 @@
   ],
   "LootTable": [
     {
+      "definition_id": "loot_ore_prim_metal",
+      "version": 1,
+      "kind": "LootTable",
+      "payload": {
+        "name": "Prim Metal Ore drops",
+        "min_rolls": 1,
+        "max_rolls": 2,
+        "pools": [
+          {
+            "item": "prim_metal",
+            "weight": 70,
+            "min_qty": 1,
+            "max_qty": 2
+          },
+          {
+            "item": "cobblestone",
+            "weight": 25,
+            "min_qty": 1,
+            "max_qty": 1
+          },
+          {
+            "item": "raw_iron",
+            "weight": 5,
+            "min_qty": 1,
+            "max_qty": 1
+          }
+        ]
+      }
+    },
+    {
       "definition_id": "worker_drop",
       "version": 1,
       "kind": "LootTable",
@@ -289,6 +319,21 @@
         "station": "CRAFTING_TABLE",
         "required_level": 1,
         "duration_seconds": 5
+      }
+    }
+  ],
+  "OreType": [
+    {
+      "definition_id": "ore_prim_metal",
+      "version": 1,
+      "kind": "OreType",
+      "payload": {
+        "display_name": "Prim Metal Ore",
+        "block": "IRON_ORE",
+        "depleted_block": "STONE",
+        "loot_table": "loot_ore_prim_metal",
+        "respawn_seconds": 20,
+        "required_tool_tier": "STONE"
       }
     }
   ]

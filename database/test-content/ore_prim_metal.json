@@ -1,0 +1,12 @@
+{
+  "definition_id": "ore_prim_metal",
+  "kind": "OreType",
+  "payload": {
+    "display_name": "Prim Metal Ore",
+    "block": "IRON_ORE",
+    "depleted_block": "STONE",
+    "loot_table": "loot_ore_prim_metal",
+    "respawn_seconds": 20,
+    "required_tool_tier": "STONE"
+  }
+}
