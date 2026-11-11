@@ -39,7 +39,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | 11 | Web Console | 2 | 0 | 1 | 0 |
 | 12 | Resource Pack & 3D | 2 | 1 | 0 | 0 |
 | 0 | ระบบพื้นฐานที่มีอยู่แล้ว | 0 | 6 | 1 | 0 |
-| R | แก้งานเก่าจากการรีวิว (P0 15 · P1 15 · P2 8) | 24 | 0 | 14 | 0 |
+| R | แก้งานเก่าจากการรีวิว (P0 15 · P1 15 · P2 8) | 18 | 2 | 18 | 0 |
 
 ---
 
@@ -69,9 +69,9 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | R10 | Admin cookie = `base64("admin:"+password)`, default `admin123` | 🔍 | `lib/auth.js`, `app/api/admin/login/route.js`, `proxy.js`, `app/admin/login/page.jsx` | **แก้แล้ว:** cookie เป็น token ที่ sign ด้วย `SESSION_SECRET` (ไม่มีรหัสผ่านอยู่ข้างใน, หมดอายุ 8 ชม.) · ไม่มีรหัส default (ไม่ตั้ง `ADMIN_PASSWORD` = เข้าไม่ได้) · เทียบรหัสแบบ constant-time · ผิด 10 ครั้ง/15 นาที → ล็อก · **ทดสอบแล้ว:** cookie แบบเก่า → 401 |
 | R11 | OTP: เช็คแล้วค่อย mark ว่าใช้แล้วแยกกัน 2 คำสั่ง (error ถูกกลืน), ไม่มี rate limit, GET ใส่ key ใน URL | 🔍 | `app/api/auth/login-key/route.js`, `lib/rate-limit.js` | **แก้แล้ว:** เช็คและใช้ key ใน `UPDATE … RETURNING` คำสั่งเดียว · ผิด 10 ครั้ง/10 นาทีต่อ IP → 429 · ตัด GET ทิ้ง (ลิงก์ `/login?code=` จากในเกมยังใช้ได้ เพราะหน้าเว็บส่ง POST ให้) · **ทดสอบแล้ว:** ยิง key เดียวพร้อมกัน 3 ครั้ง → ผ่าน 1 ครั้ง · ข้อจำกัด: rate limit อยู่ใน memory ของ process เดียว |
 | R12 | รหัสผ่าน Neon อยู่ใน `config.yml` ซึ่งไม่อยู่ใน .gitignore และถูก bundle เข้าไปใน jar | 🔍 | ผู้ใช้ rotate รหัสแล้ว (รหัสเก่าต่อไม่ได้แล้ว, รหัสใหม่ต่อได้) · ใส่รหัสใหม่ใน `web-console/.env.local`, `.env`, `server/plugins/DimensionalMinerCore/config.yml` · `src/main/resources/config.yml` ใช้ `CHANGE_ME` + คำเตือน · `.gitignore` เพิ่ม `env.txt`, `*/bin/` | **วิธีตรวจ:** เปิด `npm run dev` แล้วเข้า `/profile` ได้ · รีบิลด์ jar (ตัวเก่าใน `server/plugins/` ยังมีรหัสเก่าที่ตายแล้วอยู่) แล้วเซิร์ฟต่อ DB ได้ · ลบ `env.txt` ทิ้ง |
-| R13 | Unload world ทั้งที่การวาร์ป async ยังไม่เสร็จ, ไม่เช็คผล unload แล้วลบโฟลเดอร์ต่อเลย | ⬜ | `core/dungeon/runtime/DungeonInstanceManager.java:127-157` | world ค้างใน memory + โฟลเดอร์ถูกลบไม่ครบ → รอ teleport future ให้ครบ, เช็ค boolean ของ unload ก่อนลบ |
-| R14 | `advanceStep()` ไม่มีตัวกันเรียกซ้ำ | ⬜ | `core/dungeon/runtime/DungeonInstanceSession.java:183-219` | มอนตายพร้อมกันแล้วข้าม step, `on_end`/รางวัลรันซ้ำ, `finishDungeon` 2 ครั้ง → เพิ่ม flag `advancing` + จับ index ไว้ตอน schedule |
-| R15 | EXea: bone ตั้ง `setPersistent(true)` แต่ root ไม่ persistent | ⬜ | `EXeaEntityCore/.../render/DisplayRenderer.java:163` | หลัง crash/chunk unload มีโมเดลแข็งค้างในโลก → ตั้ง bone เป็นไม่ persistent หรือเป็น passenger + sweep ตอน `EntitiesLoadEvent` |
+| R13 | Unload world ทั้งที่การวาร์ป async ยังไม่เสร็จ, ไม่เช็คผล unload แล้วลบโฟลเดอร์ต่อเลย | 🔍 | `core/dungeon/runtime/DungeonInstanceManager.java` (`destroyInstance`, `unloadThenDelete`, `evacuateNow`) | **แก้แล้ว:** วาร์ปทุกคนที่อยู่ใน world ออกแบบ sync (ทั้งสมาชิกและคนที่ `/dungeon join` เข้ามา) ถ้าวาร์ปไม่ได้จะ kick · เช็คผล `unloadWorld` ถ้าไม่ผ่านจะลองใหม่ทุก 2 วิ (สูงสุด 5 ครั้ง) · **ลบโฟลเดอร์ต่อเมื่อ unload สำเร็จเท่านั้น** · ล้าง `playerToSession` ของทุกคนใน session · **วิธีตรวจ:** `/dungeon enter` แล้ว `/dungeon destroy <id>` ระหว่างที่ยังยืนอยู่ข้างใน → ถูกวาร์ปออก, log ไม่มี "did not unload", โฟลเดอร์ `ind_t0_<id>` หายไป |
+| R14 | `advanceStep()` ไม่มีตัวกันเรียกซ้ำ | 🔍 | `core/dungeon/runtime/DungeonInstanceSession.java` (`advancing`, `advanceStep`, `runStep`, `finishDungeon`) | **แก้แล้ว:** flag `advancing` กันจบ step ซ้ำ (ทั้งตอนฆ่ามอน, กดสวิตช์ และ goal timer) · จับ index ของ step ถัดไปไว้ตั้งแต่ตอน schedule · `finishDungeon` ทำงานได้ครั้งเดียว · **วิธีตรวจ:** step แบบ KILL_MOBS ที่มอนตายพร้อมกันหลายตัว (เช่น ใช้ TNT) → ไปต่อทีละ step, ข้อความ VICTORY ขึ้นครั้งเดียว และ `reward_grants` มีแถวเดียวต่อคน |
+| R15 | EXea: bone ตั้ง `setPersistent(true)` แต่ root ไม่ persistent | 🔍 | `EXeaEntityCore/.../render/DisplayRenderer.java`, `EXeaEntityPlugin.java` (`onEntitiesLoad`) | **แก้แล้ว:** bone เป็น non-persistent เหมือน root (ไม่ถูกบันทึกลง disk) · ตอน chunk โหลด entity ที่มี tag `exea_bone`/`exea_entity` ที่ค้างมาจาก build เก่าจะถูกลบทิ้ง · **วิธีตรวจ:** spawn void_overseer แล้ว kill เซิร์ฟ (ไม่ใช้ stop) → เปิดใหม่แล้วไปที่เดิม ต้องไม่มีโมเดลค้าง |
 
 ### P1 — บั๊กที่เจอแน่ตอนเล่นจริง
 
@@ -85,7 +85,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | R21 | `members` ของ session เป็น view สดของ party | ⬜ | `dungeon/DungeonCommand.java:127`, `DungeonInstanceSession.java:68` | คนเข้าปาร์ตี้กลางรอบได้รางวัล / คนที่ออกไม่ถูกวาร์ปออก → `Set.copyOf` ตอนสร้าง session |
 | R22 | `/dungeon join` ใครก็เข้าได้ และ `/dungeon enter` ซ้ำได้ | ⬜ | `DungeonInstanceManager.java:104-116`, `DungeonCommand.java:90-136` | instance ซ้อน, คนแปลกหน้าเข้ามาในดันเจี้ยน → เช็คสมาชิกปาร์ตี้ + กันการเข้าซ้ำ |
 | R23 | ดันเจี้ยนที่ไม่มีคนอยู่ไม่มีวันจบ: ไม่บังคับ time limit, ไม่ cleanup ตอน `onDisable`, โฟลเดอร์ orphan | ⬜ | `DungeonInstanceManager`, `DimensionalMinerCore.onDisable` | world และ task ค้างจนรีสตาร์ท, โฟลเดอร์ `ind_t0_*` สะสม → watchdog + destroy ตอน disable + sweep ตอน enable |
-| R24 | `/dungeon destroy` ไม่ cancel task ที่รออยู่ | ⬜ | `DungeonInstanceSession.java:255-274` | spawn มอนเข้า world ที่ unload ไปแล้ว + timer รั่ว → เก็บ task ทั้งหมดแล้ว cancel ให้ครบ |
+| R24 | `/dungeon destroy` ไม่ cancel task ที่รออยู่ | 🔍 | `DungeonInstanceSession.java` (`cleanup`, `runStep`) | **แก้แล้ว (พร้อม R14):** `cleanup()` ตั้ง `completed=true` แล้ว step ที่รออยู่กับ action ที่หน่วงเวลาจะเช็ค flag นี้และหยุด ส่วน interval/goal timer ถูก cancel อยู่แล้ว · **วิธีตรวจ:** `/dungeon destroy` ในช่วง 2 วินาทีที่กำลังเปลี่ยน step → ไม่มีมอนเกิดใหม่และไม่มี error ใน log |
 | R25 | ประกาศว่าแจกรางวัลแล้วก่อนเขียนลง DB จริง และถ้าเขียนไม่สำเร็จก็ไม่มีใครรู้ (= งาน 6.3) | ⬜ | `DungeonInstanceSession.java:240-247,447-479` | → เขียนให้เสร็จใน transaction เดียวก่อน แล้วค่อยประกาศ, กำหนดเกณฑ์ว่าใครมีสิทธิ์ได้รางวัล · **พบเพิ่ม:** `distributeFinalRewards` กรองรางวัล `currency` (เช่น COIN 1000) ทิ้ง ผู้เล่นไม่เคยได้เงินจากดันเจี้ยน |
 | R26 | ไม่มี template แล้วระบบสร้างโลกสุ่มขึ้นมาแทน | ⬜ | `DungeonInstanceManager.java:52-63` | → ให้ future fail |
 | R27 | Party: เข้าได้ 2 ปาร์ตี้, ออกปาร์ตี้ระหว่างอยู่ในดันเจี้ยนได้ (lock โดนเลี่ยงได้ด้วย `/dimensionalminercore:party`), `party_members` ใน DB ไม่ตรงกับ memory | ⬜ | `party/PartyManager.java:93-110,225-231`, `DungeonEventListener.java:64` | → เช็คใน `acceptInvite`, lock ในตัว manager, ลบแถว DB |
@@ -98,8 +98,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | ID | ปัญหา | สถานะ | ไฟล์ |
 |---|---|---|---|
 | R31 | Channel clone dimension บน main thread ตอน constructor, heuristic "<5 region" ทำให้ clone ใหม่ทุกครั้งที่บูต, `/reload` อาจลบ world ที่โหลดอยู่ | ⬜ | `channel/ChannelManager.java:33-63` |
-| R32 | `Files.walk` ไม่ปิด stream, copy template ไปไว้ 2 ที่, copy พังกลางทางแล้วเหลือโฟลเดอร์ครึ่งๆ | ⬜ | `DungeonInstanceManager`, `ChannelManager` |
-| R33 | `/exitdungeon` ไม่เอาผู้เล่นออกจาก session (rejoin แล้วถูกวาร์ปกลับเข้าไป), ตายในดันเจี้ยนไม่มี handler, ถ้า content ไม่มี `display_text` จะ NPE จน step ค้าง | ⬜ | `DungeonCommand.java:40-48`, `DungeonEventListener.java:104`, `DungeonInstanceSession.java:185` |
+| R32 | `Files.walk` ไม่ปิด stream, copy template ไปไว้ 2 ที่, copy พังกลางทางแล้วเหลือโฟลเดอร์ครึ่งๆ | 🟡 | `DungeonInstanceManager` ปิด stream แล้ว และ delete จะรายงานเมื่อลบไม่หมด · ยังเหลือ: copy ไป 2 ที่, โฟลเดอร์ครึ่งๆ ตอน copy พัง, `ChannelManager` |
+| R33 | `/exitdungeon` ไม่เอาผู้เล่นออกจาก session (rejoin แล้วถูกวาร์ปกลับเข้าไป), ตายในดันเจี้ยนไม่มี handler, ถ้า content ไม่มี `display_text` จะ NPE จน step ค้าง | 🟡 | NPE ของ `display_text` แก้แล้ว (ถ้าไม่มีจะใช้ "Defeat <mob>") · ยังเหลือ: `/exitdungeon` และการตายในดันเจี้ยน |
 | R34 | GrantsMenu ลงทะเบียน listener ใหม่ทุกครั้งที่เปิดเมนู ทำให้ listener รั่ว | 🔍 | **แก้แล้ว (พร้อม R2–R4):** `GrantsMenu.MenuListener` ตัวเดียว ลงทะเบียนครั้งเดียวใน `onEnable` |
 | R35 | EXea: per-tick สร้าง Matrix/Quaternion ใหม่ทุก bone, teleport ทีละ bone, โมเดลเอียงตาม pitch หัว, ลำดับ Euler XYZ (Blockbench ใช้ ZYX), slerp 0→360° ไม่หมุน | ⬜ | `AnimationController.java`, `KeyframeTimeline.java`, `DisplayRenderer.java`, `ModelLoader.java:129` |
 | R36 | Schema: ขาด index (`ledger_entries.operation_id` ฯลฯ), `item_transactions` ON DELETE CASCADE, item กับ stack อยู่ slot เดียวกันได้, login key เก็บเป็น plaintext | ⬜ | `database/schema_game.sql` |
@@ -176,7 +176,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | 6.1 | วงจรชีวิต Instance (Requested → Reserved → … → Closed) | 🟡 | `core/dungeon/runtime/DungeonInstanceManager.java`, `DungeonInstanceSession.java` | สถานะเก็บแค่ใน memory ยังไม่ได้บันทึก `instance_slots` / `instance_runs` ลง DB ตามสเปก |
 | 6.2 | กุญแจและปาร์ตี้ (ตัดกุญแจเมื่อเริ่ม, แช่แข็งปาร์ตี้) | 🟡 | `core/dungeon/DungeonCommand.java` (สร้าง Solo Party อัตโนมัติ) | ยังไม่มีระบบกุญแจ และยังไม่แช่แข็งปาร์ตี้ (ดู 0.4) |
 | 6.3 | แจกรางวัลลง DB **ก่อน** เล่น Animation ชนะ | 🟡 | `DungeonInstanceSession.java` ~บรรทัด 240 | ตอนนี้ขึ้น title VICTORY ก่อน แล้วค่อยเขียน `reward_grants` แบบ async (ลำดับกลับกันกับสเปก) |
-| 6.4 | จัดการ World/Template แบบ Async | 🟡 | `DungeonInstanceManager.java` | copy แบบ async แล้ว แต่ต้องแก้ R13, R23, R26, R32 |
+| 6.4 | จัดการ World/Template แบบ Async | 🟡 | `DungeonInstanceManager.java` | copy async แล้ว และ R13 (unload/ลบ) แก้แล้ว · ยังเหลือ R23, R26, R32 |
 
 ## 7. ระบบ World Boss
 
@@ -238,6 +238,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | วันที่ | ID | สิ่งที่ทำ | ค้าง / ข้อควรระวัง |
 |---|---|---|---|
+| 2026-11-12 | R13–R15, R24 (+บางส่วนของ R32, R33) | Dungeon: unload world หลังวาร์ป sync แล้ว และลบโฟลเดอร์เฉพาะเมื่อ unload สำเร็จ, step ไปต่อได้ครั้งเดียว, destroy หยุดงานที่รออยู่ · EXea: bone เป็น non-persistent + sweep ตอนโหลด chunk · `compileJava` ผ่านทั้ง 2 ปลั๊กอิน | **P0 ครบทุกข้อแล้ว (รอตรวจ)** · ยังไม่ได้ทดสอบในเกม · ต้องบิลด์ jar ใหม่ทั้ง 2 ตัว · ยังไม่ได้ commit |
 | 2026-11-12 | R8–R11, R30 | ระบบ session ใหม่ (`lib/auth.js`: cookie ที่ sign ด้วย HMAC สำหรับ admin และผู้เล่น), proxy + `requireAdmin` ทุก admin route, OTP แบบ atomic + rate limit, ซื้อของด้วย session, ซ่อน error 5xx · เพิ่ม `SESSION_SECRET` ใน `web-console/.env.local` · **ทดสอบแล้ว:** smoke test 30/30 ผ่านบน dev server (พอร์ต 3100) + login/shop/logout ใน browser | ยังไม่ได้ commit · lint error เดิมใน `app/shop/page.jsx:48` (setState ใน effect) ไม่ได้แตะ · หน้าแรก `/` และ `/api/players` ยังโชว์ผู้เล่นทุกคนพร้อมยอดเงินแบบ public (ต้องตัดสินใจว่าจะเปิดหรือปิด) · rate limit อยู่ใน memory ใช้ได้แค่ process เดียว |
 | 2026-11-12 | R2–R7, R34 | เขียน `GrantsMenu` ใหม่ (claim ใน DB ก่อน, รับทั้ง grant, ล็อกทุก click, listener ตัวเดียว), `GrantsCommand` เหลือแค่เปิดเมนู, `InventorySync` มีคิวต่อผู้เล่น + gate ตอน load + `shutdown()` รอ save · `compileJava` ผ่าน | ยังไม่ได้ทดสอบในเกม · ต้องบิลด์ jar ใหม่ · **พบเพิ่ม:** ก่อนหน้านี้รางวัลดันเจี้ยน (key `item`/`qty`) ไม่เคยถูกอ่านเลย (ตอนนี้อ่านได้แล้ว) และรางวัล COIN ของดันเจี้ยนถูกกรองทิ้งตั้งแต่ตอนเขียน grant (ยังไม่แก้ → ใส่ไว้กับ R25) |
 | 2026-11-12 | R12 | ผู้ใช้ rotate รหัส Neon แล้ว · ใส่รหัสใหม่ใน env/config ที่ใช้งานจริง · config ที่ bundle เข้า jar ใช้ placeholder แทน · web console ต่อ DB ได้ทั้ง 2 pool | jar ใน `server/plugins/` ต้องรีบิลด์ · ผู้ใช้ควรลบ `env.txt` · รหัสเก่าใน git history ตายแล้ว ไม่ต้องลบ history |

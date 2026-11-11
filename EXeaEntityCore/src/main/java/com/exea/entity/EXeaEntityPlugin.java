@@ -115,6 +115,20 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    /**
+     * EXea roots and bones are non-persistent, so anything tagged that comes back from disk is a
+     * leftover from an older build (or a crash before this fix) with no live controller. Remove it.
+     */
+    @EventHandler
+    public void onEntitiesLoad(org.bukkit.event.world.EntitiesLoadEvent event) {
+        for (org.bukkit.entity.Entity e : event.getEntities()) {
+            java.util.Set<String> tags = e.getScoreboardTags();
+            if (tags.contains("exea_bone") || tags.contains("exea_entity")) {
+                e.remove();
+            }
+        }
+    }
+
     @EventHandler
     public void onPlayerRespawn(org.bukkit.event.player.PlayerRespawnEvent event) {
         Bukkit.getScheduler().runTaskLater(this, () -> {

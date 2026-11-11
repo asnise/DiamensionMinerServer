@@ -160,7 +160,9 @@ public class DisplayRenderer {
                 entity.setViewRange(64.0f);
                 entity.setShadowRadius(0.0f);
                 entity.setTeleportDuration(1);
-                entity.setPersistent(true);
+                // Never saved to disk, same as the root mob: after a crash or chunk unload the
+                // bones disappear with the root instead of being left behind as frozen statues.
+                entity.setPersistent(false);
                 entity.addScoreboardTag("exea_bone");
 
                 Vector3f pivotOffset = new Vector3f(node.getPivot()).mul(1.0f / 16.0f);

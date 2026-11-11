@@ -51,6 +51,8 @@ public class DungeonInstanceSession {
     private final List<LivingEntity> spawnedEntities = new ArrayList<>();
     private BossBar activeBossBar;
     private boolean completed = false;
+    /** True from the moment a step's goal is met until the next step starts; blocks double advances. */
+    private boolean advancing = false;
     private BukkitTask currentGoalTask;
     private int stepHoldProgress = 0;
 
@@ -78,12 +80,14 @@ public class DungeonInstanceSession {
     }
 
     public void runStep(int index) {
+        if (completed) return; // destroyed or finished while the step delay was pending
         if (index >= definition.getSteps().size()) {
             finishDungeon();
             return;
         }
 
         this.currentStepIndex = index;
+        this.advancing = false;
         killCounts.clear();
         stepHoldProgress = 0;
         if (currentGoalTask != null) currentGoalTask.cancel();
@@ -171,7 +175,7 @@ public class DungeonInstanceSession {
     }
 
     public void onMobKilled(String mobId) {
-        if (completed || currentStepIndex >= definition.getSteps().size()) return;
+        if (completed || advancing || currentStepIndex >= definition.getSteps().size()) return;
         DungeonStep step = definition.getSteps().get(currentStepIndex);
         JsonObject goal = step.getGoalConfig();
 
@@ -182,7 +186,8 @@ public class DungeonInstanceSession {
                 if (targetId.equalsIgnoreCase(mobId)) {
                     int count = killCounts.merge(mobId, 1, Integer::sum);
                     int targetCount = goal.has("target_count") ? goal.get("target_count").getAsInt() : 1;
-                    broadcastActionBar(ChatColor.YELLOW + goal.get("display_text").getAsString() + " [" + count + "/" + targetCount + "]");
+                    String label = goal.has("display_text") ? goal.get("display_text").getAsString() : "Defeat " + targetId;
+                    broadcastActionBar(ChatColor.YELLOW + label + " [" + count + "/" + targetCount + "]");
                     if (count >= targetCount) {
                         advanceStep();
                     }
@@ -202,7 +207,14 @@ public class DungeonInstanceSession {
         }
     }
 
+    /**
+     * Ends the current step exactly once: several mobs dying in the same tick, or a goal timer
+     * firing again, must not run on_end twice or skip the following step.
+     */
     public void advanceStep() {
+        if (completed || advancing) return;
+        advancing = true;
+
         if (currentIntervalTask != null) currentIntervalTask.cancel();
         if (currentGoalTask != null) currentGoalTask.cancel();
         DungeonStep step = definition.getSteps().get(currentStepIndex);
@@ -212,14 +224,13 @@ public class DungeonInstanceSession {
             executeAction(act);
         }
 
-        // Advance
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            runStep(currentStepIndex + 1);
-        }, 40L); // 2 second delay before next step
+        // Advance to the step after the one that just ended (captured now, not when the delay fires)
+        final int nextIndex = currentStepIndex + 1;
+        Bukkit.getScheduler().runTaskLater(plugin, () -> runStep(nextIndex), 40L); // 2 second delay
     }
 
     public void onDummyInteracted(String dummyId) {
-        if (completed || currentStepIndex >= definition.getSteps().size()) return;
+        if (completed || advancing || currentStepIndex >= definition.getSteps().size()) return;
         DungeonStep step = definition.getSteps().get(currentStepIndex);
         JsonObject goal = step.getGoalConfig();
 
@@ -233,6 +244,7 @@ public class DungeonInstanceSession {
     }
 
     public void finishDungeon() {
+        if (completed) return; // rewards and the auto-destroy must only be scheduled once
         this.completed = true;
         if (currentIntervalTask != null) currentIntervalTask.cancel();
         if (currentGoalTask != null) currentGoalTask.cancel();
@@ -253,6 +265,8 @@ public class DungeonInstanceSession {
     }
 
     public void cleanup() {
+        // Pending delayed work (next step, delayed actions) checks this flag and stops.
+        this.completed = true;
         if (currentIntervalTask != null) currentIntervalTask.cancel();
         if (currentGoalTask != null) currentGoalTask.cancel();
         if (activeBossBar != null) {

@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -115,6 +116,15 @@ public class DungeonInstanceManager {
         return true;
     }
 
+    private static final int UNLOAD_ATTEMPTS = 5;
+    private static final long UNLOAD_RETRY_TICKS = 40L;
+
+    /**
+     * Main thread only. Ends the session, moves every player out of the instance world with a
+     * synchronous teleport, unloads the world, and deletes its folders only once the unload has
+     * actually succeeded (Paper refuses to unload a world that still has players in it).
+     * The future completes with true when the folders were deleted.
+     */
     public CompletableFuture<Boolean> destroyInstance(String sessionId) {
         CompletableFuture<Boolean> future = new CompletableFuture<>();
         DungeonInstanceSession session = activeSessions.remove(sessionId);
@@ -123,41 +133,71 @@ public class DungeonInstanceManager {
             return future;
         }
 
-        World world = session.getWorld();
+        // Forget everyone mapped to this session, including /dungeon join players who are not party members.
+        playerToSession.values().removeIf(sessionId::equals);
+        session.cleanup(); // stops timers and pending steps, removes spawned mobs
 
-        for (UUID mId : session.getMembers()) {
-            playerToSession.remove(mId);
-            Player p = Bukkit.getPlayer(mId);
-            if (p != null && p.isOnline()) {
-                if (world != null && p.getWorld().equals(world)) {
-                    evacuateToPublicWorld(p);
-                } else if (isInDungeon(p)) {
-                    evacuateToPublicWorld(p);
-                }
+        World world = session.getWorld();
+        if (world != null) {
+            for (UUID mId : session.getMembers()) {
+                Player p = Bukkit.getPlayer(mId);
+                if (p != null && p.isOnline() && p.getWorld().equals(world)) evacuateNow(p);
+            }
+            for (Player p : List.copyOf(world.getPlayers())) {
+                evacuateNow(p);
             }
         }
 
-        session.cleanup();
+        unloadThenDelete(world, session.getRuntimeWorldName(), 1, future);
+        return future;
+    }
 
-        if (world != null) {
-            Bukkit.unloadWorld(world, false);
+    private void unloadThenDelete(World world, String runtimeWorldName, int attempt, CompletableFuture<Boolean> future) {
+        if (world != null && Bukkit.getWorld(world.getUID()) != null) {
+            for (Player p : List.copyOf(world.getPlayers())) {
+                evacuateNow(p);
+            }
+            if (!Bukkit.unloadWorld(world, false)) {
+                if (attempt < UNLOAD_ATTEMPTS) {
+                    plugin.getLogger().warning("Instance world " + runtimeWorldName + " did not unload (attempt "
+                            + attempt + "/" + UNLOAD_ATTEMPTS + "), retrying.");
+                    Bukkit.getScheduler().runTaskLater(plugin,
+                            () -> unloadThenDelete(world, runtimeWorldName, attempt + 1, future), UNLOAD_RETRY_TICKS);
+                } else {
+                    // Leave the files alone: deleting under a loaded world corrupts it and fails on Windows.
+                    plugin.getLogger().severe("Instance world " + runtimeWorldName + " could not be unloaded after "
+                            + UNLOAD_ATTEMPTS + " attempts; its folder was kept. Remove it after a restart.");
+                    future.complete(false);
+                }
+                return;
+            }
         }
 
-        File rootRuntimeDir = new File(Bukkit.getWorldContainer(), session.getRuntimeWorldName());
+        File rootRuntimeDir = new File(Bukkit.getWorldContainer(), runtimeWorldName);
         File dimensionsBaseDir = new File(new File(Bukkit.getWorldContainer(), "overworld_t0"), "dimensions/minecraft");
-        File dimensionRuntimeDir = new File(dimensionsBaseDir, session.getRuntimeWorldName());
+        File dimensionRuntimeDir = new File(dimensionsBaseDir, runtimeWorldName);
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            try {
-                deleteDirectory(rootRuntimeDir.toPath());
-            } catch (Exception ignored) {}
-            try {
-                deleteDirectory(dimensionRuntimeDir.toPath());
-            } catch (Exception ignored) {}
-            future.complete(true);
+            boolean ok = true;
+            for (File dir : new File[]{rootRuntimeDir, dimensionRuntimeDir}) {
+                try {
+                    deleteDirectory(dir.toPath());
+                } catch (IOException e) {
+                    ok = false;
+                    plugin.getLogger().warning("Could not fully delete " + dir + ": " + e.getMessage());
+                }
+            }
+            future.complete(ok);
         });
+    }
 
-        return future;
+    /** Synchronous teleport to the hub, so the player has left before the world is unloaded. */
+    private void evacuateNow(Player player) {
+        World fallback = Bukkit.getWorld("overworld_t0");
+        if (fallback == null) fallback = Bukkit.getWorlds().get(0);
+        if (!player.teleport(fallback.getSpawnLocation())) {
+            player.kick(net.kyori.adventure.text.Component.text("The dungeon instance closed. Please rejoin."));
+        }
     }
 
     private static void cleanLocksAndUids(File dir) {
@@ -219,7 +259,14 @@ public class DungeonInstanceManager {
     }
 
     private static void copyDirectory(Path src, Path dest) throws IOException {
-        Files.walk(src).forEach(source -> {
+        // try-with-resources: an unclosed Files.walk keeps directory handles open, which blocks deletes on Windows.
+        try (java.util.stream.Stream<Path> paths = Files.walk(src)) {
+            copyEach(paths, src, dest);
+        }
+    }
+
+    private static void copyEach(java.util.stream.Stream<Path> paths, Path src, Path dest) {
+        paths.forEach(source -> {
             try {
                 if (source.getFileName() != null) {
                     String fn = source.getFileName().toString();
@@ -239,14 +286,21 @@ public class DungeonInstanceManager {
         });
     }
 
+    /** Deletes the tree; throws if anything could not be removed. */
     private static void deleteDirectory(Path path) throws IOException {
         if (!Files.exists(path)) return;
-        Files.walk(path)
-                .sorted(Comparator.reverseOrder())
-                .forEach(p -> {
-                    try {
-                        Files.deleteIfExists(p);
-                    } catch (IOException ignored) {}
-                });
+        List<Path> all;
+        try (java.util.stream.Stream<Path> paths = Files.walk(path)) {
+            all = paths.sorted(Comparator.reverseOrder()).toList();
+        }
+        IOException first = null;
+        for (Path p : all) {
+            try {
+                Files.deleteIfExists(p);
+            } catch (IOException e) {
+                if (first == null) first = e;
+            }
+        }
+        if (first != null) throw first;
     }
 }
