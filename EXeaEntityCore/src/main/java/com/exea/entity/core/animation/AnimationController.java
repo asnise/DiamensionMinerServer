@@ -140,7 +140,21 @@ public class AnimationController {
         Bukkit.getPluginManager().callEvent(bukkitEvent);
     }
 
+    /** Last transformation sent per display entity; unchanged transforms are not re-sent. */
+    private final java.util.Map<java.util.UUID, Transformation> lastSent = new java.util.HashMap<>();
+    /** Default (rest) rotation per bone: constant, so built once instead of every tick. */
+    private final java.util.IdentityHashMap<BoneNode, Quaternionf> defaultRotations = new java.util.IdentityHashMap<>();
+
+    private Quaternionf defaultRotation(BoneNode bone) {
+        return defaultRotations.computeIfAbsent(bone, b -> new Quaternionf().rotationXYZ(
+                (float) Math.toRadians(b.getDefaultRotation().x),
+                (float) Math.toRadians(b.getDefaultRotation().y),
+                (float) Math.toRadians(b.getDefaultRotation().z)));
+    }
+
     private void updateBoneTransforms() {
+        // Respawned bones get new entity ids; drop stale entries instead of growing forever.
+        if (lastSent.size() > 256) lastSent.clear();
         Matrix4f rootMatrix = new Matrix4f().identity();
         for (BoneNode rootBone : modelStructure.getRootBones()) {
             updateBoneRecursive(rootBone, rootMatrix);
@@ -164,12 +178,7 @@ public class AnimationController {
         currentWorldMatrix.translate(animPos);
 
         if (bone.getDefaultRotation().lengthSquared() > 0.0001f) {
-            Quaternionf defRot = new Quaternionf().rotationXYZ(
-                    (float) Math.toRadians(bone.getDefaultRotation().x),
-                    (float) Math.toRadians(bone.getDefaultRotation().y),
-                    (float) Math.toRadians(bone.getDefaultRotation().z)
-            );
-            currentWorldMatrix.rotate(defRot);
+            currentWorldMatrix.rotate(defaultRotation(bone));
         }
 
         Quaternionf animRot = activeTimeline != null ? activeTimeline.evaluateRotation(bone.getName(), currentTime) : new Quaternionf();
@@ -190,9 +199,14 @@ public class AnimationController {
 
             Transformation transformation = new Transformation(trans, rot, scl, new Quaternionf());
             ItemDisplay display = bone.getDisplayEntity();
-            display.setInterpolationDelay(0);
-            display.setInterpolationDuration(1);
-            display.setTransformation(transformation);
+            // Each change is a metadata packet to every viewer: skip bones that did not move
+            // (idle statues, held poses, static parts of a model).
+            if (!transformation.equals(lastSent.get(display.getUniqueId()))) {
+                display.setInterpolationDelay(0);
+                display.setInterpolationDuration(1);
+                display.setTransformation(transformation);
+                lastSent.put(display.getUniqueId(), transformation);
+            }
         }
 
         for (BoneNode child : bone.getChildren()) {

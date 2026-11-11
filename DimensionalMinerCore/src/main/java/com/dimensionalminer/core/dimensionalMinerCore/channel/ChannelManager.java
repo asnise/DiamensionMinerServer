@@ -1,6 +1,7 @@
 package com.dimensionalminer.core.dimensionalMinerCore.channel;
 
 import com.dimensionalminer.core.dimensionalMinerCore.DimensionalMinerCore;
+import com.dimensionalminer.core.dimensionalMinerCore.util.WorldFiles;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -11,15 +12,16 @@ import org.bukkit.entity.Player;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ChannelManager {
+
+    private static final String HUB_WORLD = "overworld_t0";
+    /** Written into a channel folder once a clone finished, so a crash mid-copy is redone next start. */
+    private static final String CLONE_MARKER = ".dm_channel_clone";
 
     private final DimensionalMinerCore plugin;
     private final Map<Integer, String> channelWorlds = new ConcurrentHashMap<>();
@@ -30,59 +32,68 @@ public class ChannelManager {
         initChannels();
     }
 
+    /**
+     * Channel 1 is the hub world. Channels 2..N are copies of the hub's overworld dimension, cloned
+     * on an async thread (a whole dimension copy would freeze startup) and then loaded on the main
+     * thread. A channel is unavailable (/channel says so) until its world has loaded.
+     */
     public void initChannels() {
-        channelWorlds.put(1, "overworld_t0");
-
-        World mainWorld = Bukkit.getWorld("overworld_t0");
-        File worldContainer = Bukkit.getWorldContainer();
-        File templateDimensionDir = new File(new File(worldContainer, "overworld_t0"), "dimensions/minecraft/overworld");
-        if (!templateDimensionDir.exists() || !templateDimensionDir.isDirectory()) {
-            templateDimensionDir = new File(new File(worldContainer.getParentFile(), "Map/OverWorld_t0/overworld_t0"), "dimensions/minecraft/overworld");
-        }
+        channelWorlds.put(1, HUB_WORLD);
+        File dimensions = new File(new File(Bukkit.getWorldContainer(), HUB_WORLD), "dimensions/minecraft");
+        File template = new File(dimensions, "overworld");
 
         for (int i = 2; i <= totalChannels; i++) {
-            String wName = "overworld_t0_ch" + i;
+            String wName = HUB_WORLD + "_ch" + i;
             channelWorlds.put(i, wName);
 
-            File targetDimensionDir = new File(new File(worldContainer, "overworld_t0"), "dimensions/minecraft/" + wName);
-            File targetRegionDir = new File(targetDimensionDir, "region");
+            if (Bukkit.getWorld(wName) != null) {
+                continue; // already loaded (e.g. after /reload): never touch a loaded world's files
+            }
 
-            if (!targetRegionDir.exists() || targetRegionDir.list() == null || targetRegionDir.list().length < 5) {
-                if (templateDimensionDir.exists() && templateDimensionDir.isDirectory()) {
+            File target = new File(dimensions, wName);
+            boolean needsClone = !new File(target, CLONE_MARKER).isFile();
+            if (needsClone && !template.isDirectory()) {
+                plugin.getLogger().severe("Channel template " + template + " not found; channel " + i + " is disabled.");
+                continue;
+            }
+
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                if (needsClone) {
                     try {
-                        if (targetDimensionDir.exists()) {
-                            deleteDirectory(targetDimensionDir.toPath());
-                        }
-                        copyDirectory(templateDimensionDir.toPath(), targetDimensionDir.toPath());
-                        cleanLocksAndUids(targetDimensionDir);
+                        WorldFiles.deleteTree(target.toPath());
+                        WorldFiles.copyWorld(template.toPath(), target.toPath());
+                        Files.writeString(new File(target, CLONE_MARKER).toPath(), "cloned from " + template.getName());
                         plugin.getLogger().info("Cloned map template for channel: " + wName);
-                    } catch (Exception e) {
+                    } catch (IOException e) {
                         plugin.getLogger().severe("Failed to clone map template for channel " + wName + ": " + e.getMessage());
+                        return;
                     }
                 }
-            }
+                Bukkit.getScheduler().runTask(plugin, () -> loadChannelWorld(wName));
+            });
+        }
+    }
 
-            World w = Bukkit.getWorld(wName);
-            if (w == null) {
-                try {
-                    WorldCreator wc = new WorldCreator(wName);
-                    if (mainWorld != null) {
-                        wc.copy(mainWorld);
-                    }
-                    w = wc.createWorld();
-                    if (w != null) {
-                        w.setAutoSave(false);
-                        w.setGameRule(org.bukkit.GameRule.KEEP_INVENTORY, true);
-                        if (mainWorld != null) {
-                            w.setSpawnLocation(mainWorld.getSpawnLocation());
-                        }
-                    } else {
-                        plugin.getLogger().severe("WorldCreator returned null for channel world: " + wName);
-                    }
-                } catch (Exception e) {
-                    plugin.getLogger().log(java.util.logging.Level.SEVERE, "Could not pre-load channel world: " + wName, e);
-                }
+    private void loadChannelWorld(String wName) {
+        if (Bukkit.getWorld(wName) != null) return;
+        World mainWorld = Bukkit.getWorld(HUB_WORLD);
+        try {
+            WorldCreator wc = new WorldCreator(wName);
+            if (mainWorld != null) {
+                wc.copy(mainWorld);
             }
+            World w = wc.createWorld();
+            if (w == null) {
+                plugin.getLogger().severe("WorldCreator returned null for channel world: " + wName);
+                return;
+            }
+            w.setAutoSave(false);
+            w.setGameRule(org.bukkit.GameRule.KEEP_INVENTORY, true);
+            if (mainWorld != null) {
+                w.setSpawnLocation(mainWorld.getSpawnLocation());
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(java.util.logging.Level.SEVERE, "Could not load channel world: " + wName, e);
         }
     }
 
@@ -158,46 +169,4 @@ public class ChannelManager {
 
     public record ChannelStatus(int id, String name, int onlineCount, int maxCount) {}
 
-    private static void copyDirectory(Path src, Path dest) throws IOException {
-        Files.walk(src).forEach(source -> {
-            try {
-                if (source.getFileName() != null) {
-                    String name = source.getFileName().toString();
-                    if (name.equalsIgnoreCase("session.lock") ||
-                            name.equalsIgnoreCase("uid.dat") ||
-                            name.equalsIgnoreCase("metadata.dat")) {
-                        return;
-                    }
-                }
-                Path destination = dest.resolve(src.relativize(source));
-                if (Files.isDirectory(source)) {
-                    if (!Files.exists(destination)) Files.createDirectories(destination);
-                } else {
-                    Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
-                }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
-    private static void deleteDirectory(Path path) throws IOException {
-        if (!Files.exists(path)) return;
-        Files.walk(path)
-                .sorted(Comparator.reverseOrder())
-                .forEach(p -> {
-                    try {
-                        Files.deleteIfExists(p);
-                    } catch (IOException ignored) {}
-                });
-    }
-
-    private static void cleanLocksAndUids(File dir) {
-        File uidFile = new File(dir, "uid.dat");
-        if (uidFile.exists()) uidFile.delete();
-        File lockFile = new File(dir, "session.lock");
-        if (lockFile.exists()) lockFile.delete();
-        File paperMeta = new File(dir, "data/paper/metadata.dat");
-        if (paperMeta.exists()) paperMeta.delete();
-    }
 }

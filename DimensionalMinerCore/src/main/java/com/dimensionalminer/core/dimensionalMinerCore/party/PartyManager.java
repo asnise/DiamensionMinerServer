@@ -171,7 +171,9 @@ public class PartyManager {
                 try {
                     UUID accountId = plugin.getDatabaseManager().getAccountId(playerId);
                     removeMemberDb(partyId, accountId);
-                } catch (SQLException ignored) {}
+                } catch (SQLException e) {
+                    plugin.getLogger().warning("Failed to remove party member from DB: " + e.getMessage());
+                }
             });
         }
     }
@@ -189,7 +191,9 @@ public class PartyManager {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
                 try {
                     disbandPartyDb(partyId);
-                } catch (SQLException ignored) {}
+                } catch (SQLException e) {
+                    plugin.getLogger().warning("Failed to record party disband in DB: " + e.getMessage());
+                }
             });
         }
     }

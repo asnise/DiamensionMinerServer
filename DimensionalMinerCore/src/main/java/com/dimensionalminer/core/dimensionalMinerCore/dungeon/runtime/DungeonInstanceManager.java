@@ -2,6 +2,7 @@ package com.dimensionalminer.core.dimensionalMinerCore.dungeon.runtime;
 
 import com.dimensionalminer.core.dimensionalMinerCore.DimensionalMinerCore;
 import com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition;
+import com.dimensionalminer.core.dimensionalMinerCore.util.WorldFiles;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
@@ -10,11 +11,7 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -83,7 +80,6 @@ public class DungeonInstanceManager {
         String runtimeWorldName = templateName + "_" + sessionId;
 
         File templateDir = new File(Bukkit.getWorldContainer(), templateName);
-        File rootRuntimeDir = new File(Bukkit.getWorldContainer(), runtimeWorldName);
         File dimensionsBaseDir = new File(new File(Bukkit.getWorldContainer(), HUB_WORLD), "dimensions/minecraft");
         File dimensionRuntimeDir = new File(dimensionsBaseDir, runtimeWorldName);
 
@@ -95,15 +91,16 @@ public class DungeonInstanceManager {
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                copyDirectory(templateDir.toPath(), dimensionRuntimeDir.toPath());
-                cleanLocksAndUids(dimensionRuntimeDir);
-
-                copyDirectory(templateDir.toPath(), rootRuntimeDir.toPath());
-                cleanLocksAndUids(rootRuntimeDir);
+                // Paper 26.x loads extra worlds as dimensions of the main level
+                // (server log: "level 'minecraft:<name>'"), i.e. from
+                // <hub>/dimensions/minecraft/<name>. A copy in the server root is never read.
+                WorldFiles.copyWorld(templateDir.toPath(), dimensionRuntimeDir.toPath());
             } catch (Exception e) {
-                // Do not leave half-copied folders behind.
-                for (File dir : new File[]{rootRuntimeDir, dimensionRuntimeDir}) {
-                    try { deleteDirectory(dir.toPath()); } catch (IOException ignored) {}
+                // Do not leave a half-copied folder behind.
+                try {
+                    WorldFiles.deleteTree(dimensionRuntimeDir.toPath());
+                } catch (IOException cleanup) {
+                    plugin.getLogger().warning("Could not remove half-copied " + dimensionRuntimeDir + "; it is removed on next start.");
                 }
                 future.completeExceptionally(new IllegalStateException("Could not copy the template map: " + e.getMessage(), e));
                 return;
@@ -285,16 +282,24 @@ public class DungeonInstanceManager {
         }
     }
 
-    private void deleteInstanceFolders(String runtimeWorldName) {
-        File root = new File(Bukkit.getWorldContainer(), runtimeWorldName);
+    /**
+     * Deletes an instance's world folder. The server-root path is only checked for leftovers from
+     * older builds, which copied the template there as well (unused by Paper 26.x).
+     * @return true if everything was removed
+     */
+    private boolean deleteInstanceFolders(String runtimeWorldName) {
         File dim = new File(new File(new File(Bukkit.getWorldContainer(), HUB_WORLD), "dimensions/minecraft"), runtimeWorldName);
-        for (File dir : new File[]{root, dim}) {
+        File legacyRoot = new File(Bukkit.getWorldContainer(), runtimeWorldName);
+        boolean ok = true;
+        for (File dir : new File[]{dim, legacyRoot}) {
             try {
-                deleteDirectory(dir.toPath());
+                WorldFiles.deleteTree(dir.toPath());
             } catch (IOException e) {
+                ok = false;
                 plugin.getLogger().warning("Could not fully delete " + dir + ": " + e.getMessage());
             }
         }
+        return ok;
     }
 
     private static final int UNLOAD_ATTEMPTS = 5;
@@ -355,22 +360,7 @@ public class DungeonInstanceManager {
             }
         }
 
-        File rootRuntimeDir = new File(Bukkit.getWorldContainer(), runtimeWorldName);
-        File dimensionsBaseDir = new File(new File(Bukkit.getWorldContainer(), "overworld_t0"), "dimensions/minecraft");
-        File dimensionRuntimeDir = new File(dimensionsBaseDir, runtimeWorldName);
-
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            boolean ok = true;
-            for (File dir : new File[]{rootRuntimeDir, dimensionRuntimeDir}) {
-                try {
-                    deleteDirectory(dir.toPath());
-                } catch (IOException e) {
-                    ok = false;
-                    plugin.getLogger().warning("Could not fully delete " + dir + ": " + e.getMessage());
-                }
-            }
-            future.complete(ok);
-        });
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> future.complete(deleteInstanceFolders(runtimeWorldName)));
     }
 
     /** Synchronous teleport to the hub, so the player has left before the world is unloaded. */
@@ -380,15 +370,6 @@ public class DungeonInstanceManager {
         if (!player.teleport(fallback.getSpawnLocation())) {
             player.kick(net.kyori.adventure.text.Component.text("The dungeon instance closed. Please rejoin."));
         }
-    }
-
-    private static void cleanLocksAndUids(File dir) {
-        File uidFile = new File(dir, "uid.dat");
-        if (uidFile.exists()) uidFile.delete();
-        File lockFile = new File(dir, "session.lock");
-        if (lockFile.exists()) lockFile.delete();
-        File paperMeta = new File(dir, "data/paper/metadata.dat");
-        if (paperMeta.exists()) paperMeta.delete();
     }
 
     public void evacuateToPublicWorld(Player player) {
@@ -438,51 +419,5 @@ public class DungeonInstanceManager {
                 p.sendMessage(msg);
             }
         }
-    }
-
-    private static void copyDirectory(Path src, Path dest) throws IOException {
-        // try-with-resources: an unclosed Files.walk keeps directory handles open, which blocks deletes on Windows.
-        try (java.util.stream.Stream<Path> paths = Files.walk(src)) {
-            copyEach(paths, src, dest);
-        }
-    }
-
-    private static void copyEach(java.util.stream.Stream<Path> paths, Path src, Path dest) {
-        paths.forEach(source -> {
-            try {
-                if (source.getFileName() != null) {
-                    String fn = source.getFileName().toString();
-                    if (fn.equalsIgnoreCase("session.lock") || fn.equalsIgnoreCase("uid.dat") || fn.equalsIgnoreCase("metadata.dat")) {
-                        return;
-                    }
-                }
-                Path destination = dest.resolve(src.relativize(source));
-                if (Files.isDirectory(source)) {
-                    if (!Files.exists(destination)) Files.createDirectories(destination);
-                } else {
-                    Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
-                }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
-    /** Deletes the tree; throws if anything could not be removed. */
-    private static void deleteDirectory(Path path) throws IOException {
-        if (!Files.exists(path)) return;
-        List<Path> all;
-        try (java.util.stream.Stream<Path> paths = Files.walk(path)) {
-            all = paths.sorted(Comparator.reverseOrder()).toList();
-        }
-        IOException first = null;
-        for (Path p : all) {
-            try {
-                Files.deleteIfExists(p);
-            } catch (IOException e) {
-                if (first == null) first = e;
-            }
-        }
-        if (first != null) throw first;
     }
 }

@@ -467,9 +467,19 @@ public class DungeonInstanceSession {
         });
     }
 
+    /** Content's vanilla_type, or the fallback (with a warning) when it is not a valid entity type. */
+    private EntityType entityTypeOr(String vanillaType, EntityType fallback) {
+        try {
+            return EntityType.valueOf(vanillaType.toUpperCase(Locale.ROOT));
+        } catch (Exception e) {
+            plugin.getLogger().warning("[Dungeon] " + definition.getDefinitionId() + ": unknown vanilla_type '"
+                    + vanillaType + "', using " + fallback);
+            return fallback;
+        }
+    }
+
     private void spawnMob(String mobId, String vanillaType, Location loc, int count) {
-        EntityType et = EntityType.ZOMBIE;
-        try { et = EntityType.valueOf(vanillaType.toUpperCase(Locale.ROOT)); } catch (Exception ignored) {}
+        EntityType et = entityTypeOr(vanillaType, EntityType.ZOMBIE);
         for (int i = 0; i < count; i++) {
             if (loc.getWorld() == null) continue;
             org.bukkit.entity.Entity e = loc.getWorld().spawnEntity(loc, et);
@@ -482,8 +492,7 @@ public class DungeonInstanceSession {
     }
 
     private void spawnBoss(String bossId, String vanillaType, String displayName, double maxHp, Location loc) {
-        EntityType et = EntityType.WITHER_SKELETON;
-        try { et = EntityType.valueOf(vanillaType.toUpperCase(Locale.ROOT)); } catch (Exception ignored) {}
+        EntityType et = entityTypeOr(vanillaType, EntityType.WITHER_SKELETON);
         if (loc.getWorld() == null) return;
         org.bukkit.entity.Entity e = loc.getWorld().spawnEntity(loc, et);
         if (e instanceof LivingEntity le) {

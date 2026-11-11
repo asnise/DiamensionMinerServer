@@ -174,7 +174,9 @@ public class ContentRegistryManager {
             for (Map.Entry<String, JsonElement> statEntry : s.entrySet()) {
                 try {
                     stats.put(statEntry.getKey(), statEntry.getValue().getAsDouble());
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    plugin.getLogger().warning("[ContentRegistry] " + id + ": stat '" + statEntry.getKey() + "' is not a number, ignored");
+                }
             }
         }
 

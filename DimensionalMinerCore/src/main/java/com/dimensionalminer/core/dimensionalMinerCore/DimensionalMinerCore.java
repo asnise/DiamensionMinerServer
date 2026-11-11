@@ -83,7 +83,7 @@ public final class DimensionalMinerCore extends JavaPlugin {
         }
 
         // Low-frequency sync: snapshot online players every 15s; DB writes happen only
-        // when slot content actually changed. Quit + inventory close also trigger saves.
+        // when slot content actually changed. Quit, channel switch, mailbox claims and shutdown also save.
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 inventorySync.snapshotAndMaybeSave(p);

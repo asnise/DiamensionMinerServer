@@ -1,7 +1,31 @@
 # 📋 เอกสารส่งมอบงาน (Handover Specification & Progress Summary)
-**โครงการ:** EXeaEntityCore (Custom 3D Bedrock-Style Animated Entity Engine on Paper 1.21.4)  
-**วันที่:** 18 กันยายน 2026  
-**สถานะ:** Standalone Plugin สมบูรณ์ 100% พร้อมเครื่องมือ Export & Inspector
+**โครงการ:** EXeaEntityCore (Custom 3D Bedrock-Style Animated Entity Engine) — บิลด์กับ **Paper 26.2** (`build.gradle.kts`), `plugin.yml` ตั้ง `api-version: '1.21'`  
+**วันที่:** 18 กันยายน 2026 (ตรวจทานล่าสุด 12 พฤศจิกายน 2026)  
+**สถานะ:** ⚠️ **ต้นแบบที่ใช้งานได้กับโมเดลเดียว (`void_overseer`)** — ไม่ใช่ "สมบูรณ์ 100%" ตามที่เอกสารฉบับแรกเขียนไว้
+
+> ## ✅ สถานะจริงหลังรีวิวโค้ด (12 พ.ย. 2026, Task.md R15 / R29 / R35 / R38)
+>
+> **ทำงานได้จริง:** เรนเดอร์กระดูกด้วย `ItemDisplay`, เล่นแอนิเมชัน (idle / move / attack), ระบบ hitbox ผ่าน Husk/ArmorStand, คำสั่ง `/exea`, Blockbench exporter และ inspector
+>
+> **แก้ไขแล้ว:**
+> - กระดูกไม่ถูกบันทึกลง disk แล้ว และกระดูกที่ค้างจาก build เก่าจะถูกลบเมื่อ chunk โหลด (R15)
+> - chunk ticket นับจำนวน, การเก็บกวาดลบเฉพาะ entity ที่มี tag ของ EXea, ฉากตาย 3 วินาทีเล่นจริงแล้ว (R29)
+>
+> **ข้อความในเอกสารเดิมที่ไม่ตรงกับโค้ด:**
+> | เอกสารเดิมเขียนว่า | ความจริงในโค้ด |
+> |---|---|
+> | Hermite interpolation | ไม่มี — มีแค่ Lerp (ตำแหน่ง/สเกล) และ Slerp (การหมุน) ใน `KeyframeTimeline` |
+> | Animation Events มี "ดาเมจกวาด" | `TimelineEvent` มีฟิลด์ `hitboxRange` / `hitboxDamage` แต่**ไม่มีโค้ดไหนอ่านไปใช้** — ยังไม่มีดาเมจจากแอนิเมชัน |
+> | Standalone ใช้กับโมเดลอะไรก็ได้ | ผูกกับ `void_overseer` ตายตัว: item-model key `exea:void_overseer/...`, ชื่อ "Void Overseer", HP 250 ใน `EntityManager.spawn` |
+> | Paper 1.21.4 | บิลด์กับ Paper 26.2 |
+> | Self-Healing Renderer | ทำงาน แต่ถ้ากระดูกชิ้นเดียวหายจะสร้างใหม่**ทั้งชุด** |
+> | `/exea pack generate` | เป็นแค่ข้อความ ยังไม่ได้สร้าง resource pack จริง |
+>
+> **ยังค้าง (ดู Task.md R35):** ต้นทุนต่อ tick สูง (สร้าง Matrix/Quaternion ใหม่ทุกกระดูกทุก tick, teleport ทีละกระดูก), โมเดลเอียงตาม pitch ของหัว Husk, ลำดับการหมุน Euler (XYZ ในโค้ด แต่ Blockbench ใช้ ZYX), slerp 0°→360° ไม่หมุน
+>
+> **ถ้าจะใช้เป็นบอสในดันเจี้ยน:** บอส EXea ไม่ส่ง `EntityDeathEvent` ตามปกติแล้ว (ยกเลิกดาเมจสุดท้ายเพื่อเล่นฉากตาย) ต้องเพิ่ม event ของ EXea ตอนจบฉากตายให้เป้าหมาย KILL_BOSS นับได้
+>
+> เนื้อหาด้านล่างคือเอกสารฉบับเดิม เก็บไว้เป็นประวัติ — ให้เชื่อกล่องนี้ก่อนเมื่อขัดกัน
 
 ---
 
@@ -9,7 +33,7 @@
 - **Standalone Core:** `EXeaEntityCore` พัฒนาแยกจาก `DimensionalMinerCore` 100% (ไม่มี Dependency ผูกมัด สามารถหยิบ Jar ไปรันเดี่ยวได้ทันที)
 - **Rendering Engine:** ใช้ Minecraft 1.20+ `ItemDisplay` ซ้อนกระดูกเป็นลำดับชั้น (Bone Hierarchy Matrix / Forward Kinematics) เชื่อมโยงกับ Root Driver (Husk/ArmorStand)
 - **Resource Pack Generation:** ควบคุม CustomModelData (1001-1022) และ Minecraft 1.21.4 `item_model` Definition ใน `assets/exea/`
-- **Animation System:** KeyframeTimeline พร้อมระบบ Hermite/Slerp/Lerp interpolation และ Animation Events (เสียง, อนุภาค, ดาเมจกวาด)
+- **Animation System:** KeyframeTimeline พร้อม Lerp/Slerp interpolation และ Animation Events (เสียง, อนุภาค) — ~~Hermite~~, ~~ดาเมจกวาด~~ ยังไม่มีในโค้ด (ดูกล่องสถานะจริงด้านบน)
 
 ---
 

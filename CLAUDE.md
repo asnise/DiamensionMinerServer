@@ -80,7 +80,8 @@ The web console never writes to the player's live inventory. Shop purchases (`ap
 ### DimensionalMinerCore runtime
 
 - `DimensionalMinerCore.onEnable` wires everything: DB, then content registry, then listeners, then managers (Party, Channel, DungeonInstance), then commands. Commands are also declared in `src/main/resources/plugin.yml`. HikariCP and the Postgres driver are `compileOnly` and loaded through `plugin.yml` `libraries:`.
-- All worlds are treated as stateless: `keepInventory=true` and `autoSave=false`. Persistence lives in the DB. `InventorySync` snapshots online players every 15s and writes only when slots changed. It also saves on quit and inventory close.
+- All worlds are treated as stateless: `keepInventory=true` and `autoSave=false`. Persistence lives in the DB. `InventorySync` snapshots online players every 15s and writes only changed slots (full serialized ItemStack in `material_stacks.item_data`). It also saves on quit, channel switch, mailbox claim and shutdown. Per-player loads/saves run in order on its own IO pool, and nothing is saved before the player's load succeeded.
+- Shared world-folder copy/delete helpers live in `util/WorldFiles` (blocking I/O, off the main thread). Instance and channel worlds are dimensions of the hub level: `overworld_t0/dimensions/minecraft/<name>`.
 - DB work runs in `runTaskAsynchronously`, and Bukkit API calls hop back to the main thread. Follow this pattern.
 - Dungeons (`dungeon/`, documented in `docs/instance-dungeon-system.md`):
   1. `DungeonInstanceManager` copies a template world folder (e.g. `ind_t0`, skipping `session.lock`/`uid.dat`) to `<template>_<8-hex sessionId>`.

@@ -39,7 +39,7 @@ public class DisplayRenderer {
     }
 
     public void spawnBones() {
-        Location baseLocation = rootEntity.getLocation();
+        Location baseLocation = bodyLocation();
 
         for (BoneNode rootBone : modelStructure.getRootBones()) {
             spawnBoneRecursive(rootBone, baseLocation);
@@ -63,12 +63,11 @@ public class DisplayRenderer {
             return;
         }
 
-        Location currentLoc = rootEntity.getLocation();
+        Location currentLoc = bodyLocation();
         if (lastLocation == null ||
                 currentLoc.getWorld() != lastLocation.getWorld() ||
                 currentLoc.distanceSquared(lastLocation) > 0.0001 ||
-                Math.abs(currentLoc.getYaw() - lastLocation.getYaw()) > 0.05f ||
-                Math.abs(currentLoc.getPitch() - lastLocation.getPitch()) > 0.05f) {
+                Math.abs(currentLoc.getYaw() - lastLocation.getYaw()) > 0.05f) {
 
             for (ItemDisplay display : spawnedDisplays) {
                 if (display.isValid()) {
@@ -97,7 +96,7 @@ public class DisplayRenderer {
             return;
         }
 
-        Location currentLoc = rootEntity.getLocation();
+        Location currentLoc = bodyLocation();
         for (ItemDisplay display : spawnedDisplays) {
             if (display.isValid()) {
                 display.setTeleportDuration(1);
@@ -105,6 +104,16 @@ public class DisplayRenderer {
             }
         }
         lastLocation = currentLoc.clone();
+    }
+
+    /**
+     * Where the model is drawn: the root's position and body yaw, with pitch forced to 0.
+     * The root's location pitch is where its head looks, which used to tilt the whole model.
+     */
+    private Location bodyLocation() {
+        Location loc = rootEntity.getLocation();
+        loc.setPitch(0f);
+        return loc;
     }
 
     public void respawnBones() {
