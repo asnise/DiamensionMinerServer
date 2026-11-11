@@ -29,10 +29,26 @@ public class DatabaseManager {
             return;
         }
 
+        plugin.saveDefaultConfig();
+        String profile = plugin.getConfig().getString("database.profile", "cloud").toLowerCase();
+
+        String prefix = "databases." + profile + ".";
+        String jdbcUrl = plugin.getConfig().getString(prefix + "jdbcUrl");
+        String username = plugin.getConfig().getString(prefix + "username");
+        String password = plugin.getConfig().getString(prefix + "password");
+
+        if (jdbcUrl == null || jdbcUrl.isBlank()) {
+            jdbcUrl = plugin.getConfig().getString("database.jdbcUrl", "jdbc:postgresql://localhost:5432/dimensional_game");
+            username = plugin.getConfig().getString("database.username", "postgres");
+            password = plugin.getConfig().getString("database.password", "123456");
+        }
+
+        plugin.getLogger().info("Database Profile: [" + profile.toUpperCase() + "]");
+
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:postgresql://localhost:5432/dimensional_game");
-        config.setUsername("postgres");
-        config.setPassword("123456");
+        config.setJdbcUrl(jdbcUrl);
+        config.setUsername(username);
+        config.setPassword(password);
 
         config.setMaximumPoolSize(10);
         config.setMinimumIdle(2);
@@ -40,7 +56,7 @@ public class DatabaseManager {
 
         try {
             dataSource = new HikariDataSource(config);
-            plugin.getLogger().info("HikariDataSource initialized successfully (dimensional_game)!");
+            plugin.getLogger().info("HikariDataSource initialized successfully (" + jdbcUrl.replaceAll(":[^:@]+@", ":***@") + ")!");
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to initialize HikariDataSource: " + e.getMessage());
             e.printStackTrace();

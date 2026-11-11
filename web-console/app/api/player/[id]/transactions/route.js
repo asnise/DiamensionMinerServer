@@ -1,16 +1,21 @@
 import { ok, fail, isUuid } from "@/lib/api";
 import { gamePool } from "@/lib/db";
+import { getSessionPlayerId, isAdmin } from "@/lib/auth";
 
+// A player's ledger is private: only that player (session cookie) or an admin may read it.
 export async function GET(request, { params }) {
   const { id } = await params;
 
   if (!isUuid(id)) {
     return fail("Invalid player ID format", 400);
   }
+  if (getSessionPlayerId(request) !== id.toLowerCase() && !isAdmin(request)) {
+    return fail("You can only view your own transactions", 403);
+  }
 
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)));
-  const offset = Math.max(0, parseInt(searchParams.get("offset") || "0", 10));
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit"), 10) || 50));
+  const offset = Math.max(0, parseInt(searchParams.get("offset"), 10) || 0);
 
   try {
     const res = await gamePool.query(

@@ -1,0 +1,140 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "minecraft:item/leather_horse_armor"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1001
+      },
+      "model": "exea:item/void_overseer/body"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1002
+      },
+      "model": "exea:item/void_overseer/torso"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1003
+      },
+      "model": "exea:item/void_overseer/core"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1004
+      },
+      "model": "exea:item/void_overseer/head_options"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1005
+      },
+      "model": "exea:item/void_overseer/head_1_riftarbiter"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1006
+      },
+      "model": "exea:item/void_overseer/head_2_singularitymonolith"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1007
+      },
+      "model": "exea:item/void_overseer/head_3_voidreaper"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1008
+      },
+      "model": "exea:item/void_overseer/shoulder_l"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1009
+      },
+      "model": "exea:item/void_overseer/shoulder_r"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1010
+      },
+      "model": "exea:item/void_overseer/arm_l"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1011
+      },
+      "model": "exea:item/void_overseer/hand_l"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1012
+      },
+      "model": "exea:item/void_overseer/thumb_l"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1013
+      },
+      "model": "exea:item/void_overseer/index_l"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1014
+      },
+      "model": "exea:item/void_overseer/middle_l"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1015
+      },
+      "model": "exea:item/void_overseer/ring_l"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1016
+      },
+      "model": "exea:item/void_overseer/arm_r"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1017
+      },
+      "model": "exea:item/void_overseer/hand_r"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1018
+      },
+      "model": "exea:item/void_overseer/thumb_r"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1019
+      },
+      "model": "exea:item/void_overseer/index_r"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1020
+      },
+      "model": "exea:item/void_overseer/middle_r"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1021
+      },
+      "model": "exea:item/void_overseer/ring_r"
+    },
+    {
+      "predicate": {
+        "custom_model_data": 1022
+      },
+      "model": "exea:item/void_overseer/orbiters"
+    }
+  ]
+}

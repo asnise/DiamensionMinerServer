@@ -19,6 +19,9 @@ import java.util.stream.Collectors;
 
 public class CustomItemCommand implements CommandExecutor, TabCompleter {
 
+    /** Declared in plugin.yml with default: op. */
+    public static final String ADMIN_PERMISSION = "dimensionalminer.admin";
+
     private final DimensionalMinerCore plugin;
 
     public CustomItemCommand(DimensionalMinerCore plugin) {
@@ -27,6 +30,13 @@ public class CustomItemCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        // Every /dm subcommand is admin-only: give creates items, reload swaps the registry,
+        // list exposes unreleased content IDs.
+        if (!sender.hasPermission(ADMIN_PERMISSION)) {
+            sender.sendMessage(ChatColor.RED + "You do not have permission to use this command.");
+            return true;
+        }
+
         if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
             sendHelp(sender, label);
             return true;
@@ -102,6 +112,9 @@ public class CustomItemCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!sender.hasPermission(ADMIN_PERMISSION)) {
+            return Collections.emptyList();
+        }
         if (args.length == 1) {
             return filter(Arrays.asList("list", "give", "reload"), args[0]);
         }

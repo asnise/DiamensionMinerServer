@@ -1,0 +1,166 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:custom_model_data",
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/leather_horse_armor"
+    },
+    "entries": [
+      {
+        "threshold": 1001,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/body"
+        }
+      },
+      {
+        "threshold": 1002,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/torso"
+        }
+      },
+      {
+        "threshold": 1003,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/core"
+        }
+      },
+      {
+        "threshold": 1004,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/head_options"
+        }
+      },
+      {
+        "threshold": 1005,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/head_1_riftarbiter"
+        }
+      },
+      {
+        "threshold": 1006,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/head_2_singularitymonolith"
+        }
+      },
+      {
+        "threshold": 1007,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/head_3_voidreaper"
+        }
+      },
+      {
+        "threshold": 1008,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/shoulder_l"
+        }
+      },
+      {
+        "threshold": 1009,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/shoulder_r"
+        }
+      },
+      {
+        "threshold": 1010,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/arm_l"
+        }
+      },
+      {
+        "threshold": 1011,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/hand_l"
+        }
+      },
+      {
+        "threshold": 1012,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/thumb_l"
+        }
+      },
+      {
+        "threshold": 1013,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/index_l"
+        }
+      },
+      {
+        "threshold": 1014,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/middle_l"
+        }
+      },
+      {
+        "threshold": 1015,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/ring_l"
+        }
+      },
+      {
+        "threshold": 1016,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/arm_r"
+        }
+      },
+      {
+        "threshold": 1017,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/hand_r"
+        }
+      },
+      {
+        "threshold": 1018,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/thumb_r"
+        }
+      },
+      {
+        "threshold": 1019,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/index_r"
+        }
+      },
+      {
+        "threshold": 1020,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/middle_r"
+        }
+      },
+      {
+        "threshold": 1021,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/ring_r"
+        }
+      },
+      {
+        "threshold": 1022,
+        "model": {
+          "type": "minecraft:model",
+          "model": "exea:item/void_overseer/orbiters"
+        }
+      }
+    ]
+  }
+}

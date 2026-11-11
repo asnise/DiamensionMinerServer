@@ -1,7 +1,11 @@
 import { ok, fail, readJson, isUuid } from "@/lib/api";
 import { gamePool } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+
   try {
     const res = await gamePool.query(`
       SELECT product_id, name, description, price_coin, items, is_active, time_limited_until, created_at
@@ -15,6 +19,9 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+
   const parsed = await readJson(request);
   if (!parsed.ok) return fail(parsed.error, 400);
 

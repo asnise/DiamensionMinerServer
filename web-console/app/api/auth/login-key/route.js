@@ -1,82 +1,62 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { PLAYER_COOKIE, PLAYER_TTL_SECONDS, clientIp, sessionCookieOptions, signToken } from '@/lib/auth';
+import { hit } from '@/lib/rate-limit';
 
-export async function POST(req) {
-  try {
-    const body = await req.json().catch(() => ({}));
-    const key = (body.key || body.code || '').trim().toUpperCase();
+export const runtime = 'nodejs';
 
-    if (!key) {
-      return NextResponse.json({ error: 'Please enter a valid login key.' }, { status: 400 });
-    }
+const KEY_RE = /^[A-Z0-9]{4,32}$/;
+const MAX_ATTEMPTS = 10;
+const WINDOW_MS = 10 * 60 * 1000;
 
-    const res = await pool.query(
-      `SELECT w.key_code, w.player_id, w.expires_at, p.username, p.status
-       FROM web_login_keys w
-       JOIN players p ON p.player_id = w.player_id
-       WHERE UPPER(w.key_code) = $1 AND w.expires_at > now() AND w.used_at IS NULL
-       LIMIT 1`,
-      [key]
+// Redeems a one-time key from /weblogin and starts a signed player session (httpOnly cookie).
+// POST only: a GET would put the key in server logs and browser history.
+export async function POST(request) {
+  const limit = hit(`login-key:${clientIp(request)}`, MAX_ATTEMPTS, WINDOW_MS);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: `Too many attempts. Try again in ${Math.ceil(limit.retryAfterSeconds / 60)} minute(s).` },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
     );
-
-    if (res.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Invalid or expired login key. Type /weblogin in Minecraft to get a fresh key.' },
-        { status: 400 }
-      );
-    }
-
-    const row = res.rows[0];
-    await pool.query('UPDATE web_login_keys SET used_at = now() WHERE key_code = $1', [row.key_code]).catch(() => {});
-
-    return NextResponse.json({
-      success: true,
-      player_id: row.player_id,
-      username: row.username,
-      status: row.status,
-      expires_at: row.expires_at,
-    });
-  } catch (err) {
-    return NextResponse.json({ error: 'Internal server error: ' + err.message }, { status: 500 });
   }
-}
 
-export async function GET(req) {
+  const body = await request.json().catch(() => ({}));
+  const key = String(body.key || body.code || '').trim().toUpperCase();
+  if (!KEY_RE.test(key)) {
+    return NextResponse.json({ error: 'Please enter a valid login key.' }, { status: 400 });
+  }
+
   try {
-    const { searchParams } = new URL(req.url);
-    const key = (searchParams.get('key') || searchParams.get('code') || '').trim().toUpperCase();
-
-    if (!key) {
-      return NextResponse.json({ error: 'Key is required.' }, { status: 400 });
-    }
-
-    const res = await pool.query(
-      `SELECT w.key_code, w.player_id, w.expires_at, p.username, p.status
-       FROM web_login_keys w
-       JOIN players p ON p.player_id = w.player_id
-       WHERE UPPER(w.key_code) = $1 AND w.expires_at > now() AND w.used_at IS NULL
-       LIMIT 1`,
+    // Check-and-consume in one statement: two concurrent requests cannot both redeem the key.
+    const redeemed = await pool.query(
+      `UPDATE web_login_keys
+          SET used_at = now()
+        WHERE UPPER(key_code) = $1 AND expires_at > now() AND used_at IS NULL
+        RETURNING player_id`,
       [key]
     );
-
-    if (res.rows.length === 0) {
+    if (redeemed.rows.length === 0) {
       return NextResponse.json(
         { error: 'Invalid or expired login key. Type /weblogin in Minecraft to get a fresh key.' },
         { status: 400 }
       );
     }
 
-    const row = res.rows[0];
-    await pool.query('UPDATE web_login_keys SET used_at = now() WHERE key_code = $1', [row.key_code]).catch(() => {});
+    const playerId = redeemed.rows[0].player_id;
+    const prof = await pool.query('SELECT username, status FROM players WHERE player_id = $1', [playerId]);
+    const player = prof.rows[0] || {};
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       success: true,
-      player_id: row.player_id,
-      username: row.username,
-      status: row.status,
-      expires_at: row.expires_at,
+      player_id: playerId,
+      username: player.username || null,
+      status: player.status || null,
     });
+    res.cookies.set(PLAYER_COOKIE, signToken({ role: 'player', sub: playerId }, PLAYER_TTL_SECONDS),
+      sessionCookieOptions(PLAYER_TTL_SECONDS));
+    return res;
   } catch (err) {
-    return NextResponse.json({ error: 'Internal server error: ' + err.message }, { status: 500 });
+    console.error('[login-key]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,0 +1,15 @@
+name: EXeaEntityCore
+version: 1.0.0
+main: com.exea.entity.EXeaEntityPlugin
+api-version: '1.21'
+author: EXea
+description: Ultra-lightweight standalone commercial 3D entity and animation engine.
+commands:
+  exea:
+    description: Master administrative command for EXeaEntityCore
+    aliases: [ex]
+    permission: exea.admin
+permissions:
+  exea.admin:
+    description: Full administrative control over EXeaEntityCore
+    default: op

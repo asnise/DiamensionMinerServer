@@ -1,32 +1,28 @@
 import { NextResponse } from 'next/server';
+import { ADMIN_COOKIE, isAdminToken } from '@/lib/auth';
 
-const LOGIN_PATH = '/admin/login';
+const LOGIN_PAGE = '/admin/login';
+// Must stay reachable without a session.
+const PUBLIC_ADMIN_API = new Set(['/api/admin/login', '/api/admin/logout']);
 
+// First line of defence for /admin pages and /api/admin routes. Every protected route handler
+// also calls requireAdmin() itself, so a matcher mistake here does not open anything up.
 export function proxy(request) {
   const { pathname } = request.nextUrl;
-  if (!pathname.startsWith('/admin')) {
-    return NextResponse.next();
+  const authed = isAdminToken(request.cookies.get(ADMIN_COOKIE)?.value);
+
+  if (pathname.startsWith('/api/admin')) {
+    if (PUBLIC_ADMIN_API.has(pathname) || authed) return NextResponse.next();
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const adminPwd = process.env.ADMIN_PASSWORD || 'admin123';
-  const expected = Buffer.from(`admin:${adminPwd}`).toString('base64');
-  const token = request.cookies.get('dm_admin')?.value;
-  const authed = token === expected;
-
-  if (pathname === LOGIN_PATH) {
-    if (authed) {
-      return NextResponse.redirect(new URL('/admin/editor', request.url));
-    }
-    return NextResponse.next();
+  if (pathname === LOGIN_PAGE) {
+    return authed ? NextResponse.redirect(new URL('/admin/editor', request.url)) : NextResponse.next();
   }
 
-  if (!authed) {
-    return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
-  }
-
-  return NextResponse.next();
+  return authed ? NextResponse.next() : NextResponse.redirect(new URL(LOGIN_PAGE, request.url));
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };

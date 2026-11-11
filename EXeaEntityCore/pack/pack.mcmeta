@@ -1,0 +1,10 @@
+{
+  "pack": {
+    "pack_format": 46,
+    "supported_formats": {
+      "min_inclusive": 15,
+      "max_inclusive": 65
+    },
+    "description": "EXeaEntityCore 3D Entity Models"
+  }
+}

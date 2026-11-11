@@ -22,30 +22,55 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import net.kyori.adventure.text.Component;
 
 /**
- * Lightweight inventory sync between the game and the authoritative database.
+ * Inventory sync between the game and the authoritative database.
  *
- * Design (avoids loading the server):
- *  - the Bukkit inventory is only ever a projection; rows in PostgreSQL are source of truth
- *  - no per-tick writes: a per-player hash of all 41 slots is kept in memory;
- *    a snapshot is taken periodically (and on quit/inventory close) and ONLY slots whose
- *    hash changed are written, batched in ONE transaction (1 commit, 1 round trip)
- *  - idempotent: each batch references an operation id with a unique idempotency_key
- *  - single-writer fencing: player_sessions.epoch is bumped on every save so a stale
- *    game node can never overwrite a newer one
- *  - an outbox event (inventory.updated) is inserted in the same transaction so the web
- *    console and other consumers observe the change atomically
+ * <ul>
+ *   <li>Rows in PostgreSQL are the source of truth; the Bukkit inventory is a projection.</li>
+ *   <li>A per-player hash of all 41 slots is kept in memory. Snapshots are taken every 15s
+ *       (timer in {@code onEnable}), on quit, and after mailbox claims; only slots whose hash
+ *       changed are written, in one transaction per snapshot.</li>
+ *   <li>All DB work for one player (load and every save) runs through a per-player chain on
+ *       {@link #ioExecutor}, so it commits in the order it was captured. A rejoin's load waits
+ *       for the quit save. Different players still run in parallel.</li>
+ *   <li>Nothing is saved for a player until their load has succeeded; otherwise an empty
+ *       pre-load inventory would delete their DB rows. A failed load kicks the player.</li>
+ *   <li>{@link #shutdown()} flushes and waits for every pending write before the pool closes.</li>
+ * </ul>
+ *
+ * Not covered yet: only definition id + amount are stored (no enchants/durability/NBT), and
+ * player_sessions.epoch is bumped but not checked, so two servers writing the same player is
+ * not fenced (see Task.md R16, 10.2).
  */
 public final class InventorySync implements Listener {
 
     private static final int SLOT_OFFHAND = 40;
+    private static final int IO_THREADS = 4;
+    private static final long SHUTDOWN_WAIT_SECONDS = 20;
 
     private final DimensionalMinerCore plugin;
     private final String nodeId;
     private final Map<UUID, long[]> lastState = new ConcurrentHashMap<>();
+    /** Players whose inventory was loaded from the DB this session. Only these are ever saved. */
+    private final Set<UUID> loaded = ConcurrentHashMap.newKeySet();
+    /** Tail of each player's DB work chain. */
+    private final Map<UUID, CompletableFuture<Void>> chains = new ConcurrentHashMap<>();
+    private final ExecutorService ioExecutor = Executors.newFixedThreadPool(IO_THREADS, r -> {
+        Thread t = new Thread(r, "DMCore-InventorySync");
+        t.setDaemon(true);
+        return t;
+    });
 
     private record SlotItem(int index, String container, int slot, String defId, int quantity, boolean empty) {}
 
@@ -58,14 +83,15 @@ public final class InventorySync implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        plugin.getDatabaseManager().upsertPlayer(player);
-        loadAsync(player);
+        loadAsync(event.getPlayer());
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        snapshotAndMaybeSave(event.getPlayer());
+        Player player = event.getPlayer();
+        snapshotAndMaybeSave(player);
+        loaded.remove(player.getUniqueId());
+        lastState.remove(player.getUniqueId());
     }
 
     @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
@@ -79,47 +105,95 @@ public final class InventorySync implements Listener {
     // ---------- lifecycle ----------
 
     public void loadAsync(Player player) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        final UUID playerId = player.getUniqueId();
+        enqueue(playerId, () -> {
+            Map<Integer, ItemStack> fromDb;
             try {
-                Map<Integer, ItemStack> loaded = loadInventory(player.getUniqueId());
+                plugin.getDatabaseManager().upsertPlayer(player);
+                fromDb = loadInventory(playerId);
+            } catch (Exception e) {
+                plugin.getLogger().severe("Inventory load failed for " + player.getName() + ": " + e.getMessage());
                 Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (!player.isOnline()) return;
-                    player.getInventory().clear();
-                    for (Map.Entry<Integer, ItemStack> e : loaded.entrySet()) {
-                        int idx = e.getKey();
-                        if (idx >= 0 && idx <= SLOT_OFFHAND) player.getInventory().setItem(idx, e.getValue());
+                    // Playing on without a loaded inventory would let the next save wipe the DB copy.
+                    if (player.isOnline()) {
+                        player.kick(Component.text("Could not load your inventory from the database. Please rejoin in a moment."));
                     }
-                    lastState.put(player.getUniqueId(), hashes(player));
                 });
-            } catch (SQLException e) {
-                plugin.getLogger().warning("Inventory load failed for " + player.getName() + ": " + e.getMessage());
+                return;
             }
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline()) return;
+                player.getInventory().clear();
+                for (Map.Entry<Integer, ItemStack> e : fromDb.entrySet()) {
+                    int idx = e.getKey();
+                    if (idx >= 0 && idx <= SLOT_OFFHAND) player.getInventory().setItem(idx, e.getValue());
+                }
+                lastState.put(playerId, hashes(player));
+                loaded.add(playerId);
+            });
         });
     }
 
-    /** Call on the main thread only. Captures a snapshot; if nothing changed, does nothing. */
+    /**
+     * Call on the main thread only. Captures the changed slots now and queues the write
+     * behind any earlier load/save of the same player. Does nothing before the load succeeded.
+     */
     public void snapshotAndMaybeSave(Player player) {
+        final UUID playerId = player.getUniqueId();
+        if (!loaded.contains(playerId)) return;
+
         long[] current = hashes(player);
-        long[] previous = lastState.get(player.getUniqueId());
+        long[] previous = lastState.get(playerId);
         if (previous != null && Arrays.equals(previous, current)) return;
 
         List<SlotItem> changed = collectChanged(player, previous, current);
-        lastState.put(player.getUniqueId(), current);
-
+        lastState.put(playerId, current);
         if (changed.isEmpty()) return;
-        final UUID playerId = player.getUniqueId();
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            int rows;
+        enqueue(playerId, () -> {
             try {
-                rows = saveBatch(playerId, changed);
+                int rows = saveBatch(playerId, changed);
                 if (rows > 0) {
                     plugin.getLogger().info("Saved " + rows + " slot(s) -> " + playerId);
                 }
             } catch (SQLException e) {
-                plugin.getLogger().warning("Inventory save failed for " + playerId + ": " + e.getMessage());
+                plugin.getLogger().severe("Inventory save failed for " + playerId + ": " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Call from onDisable before the DB pool is closed. Snapshots every online player, then
+     * blocks until all queued loads/saves have finished (bounded wait).
+     */
+    public void shutdown() {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            snapshotAndMaybeSave(p);
+        }
+        // Wait on the chains first: a link that has not started yet is only submitted to the
+        // executor when its predecessor finishes, so shutting the executor down early would reject it.
+        CompletableFuture<?>[] pending = chains.values().toArray(new CompletableFuture<?>[0]);
+        try {
+            CompletableFuture.allOf(pending).get(SHUTDOWN_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            plugin.getLogger().severe("Inventory saves still running after " + SHUTDOWN_WAIT_SECONDS
+                    + "s at shutdown; recent changes may be lost.");
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error while waiting for inventory saves at shutdown: " + e.getMessage());
+        }
+        ioExecutor.shutdown();
+    }
+
+    /** Runs {@code task} on the IO pool after every earlier task of the same player. */
+    private void enqueue(UUID playerId, Runnable task) {
+        CompletableFuture<Void> tail = chains.compute(playerId, (id, prev) -> {
+            CompletableFuture<Void> base = prev != null ? prev : CompletableFuture.completedFuture(null);
+            return base.thenRunAsync(task, ioExecutor).exceptionally(ex -> {
+                plugin.getLogger().severe("Inventory task failed for " + id + ": " + ex);
+                return null;
+            });
+        });
+        tail.whenComplete((r, ex) -> chains.remove(playerId, tail));
     }
 
     // ---------- snapshot helpers (main thread, no I/O) ----------

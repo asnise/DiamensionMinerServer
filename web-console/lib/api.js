@@ -4,8 +4,16 @@ export function ok(data, init) {
   return NextResponse.json(data, init);
 }
 
+/**
+ * Error response. 4xx messages are meant for the user and are passed through;
+ * 5xx details (Postgres errors, table names) are logged server-side only.
+ */
 export function fail(err, status = 500) {
-  const message = err?.message || String(err || 'Internal server error');
+  if (status >= 500) {
+    console.error('[api]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status });
+  }
+  const message = err?.message || String(err || 'Bad request');
   return NextResponse.json({ error: message }, { status });
 }
 

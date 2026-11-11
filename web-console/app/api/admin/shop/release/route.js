@@ -1,7 +1,11 @@
 import { ok, fail, readJson, isUuid } from "@/lib/api";
 import { gamePool } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export async function POST(request) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+
   const parsed = await readJson(request);
   if (!parsed.ok) return fail(parsed.error, 400);
 

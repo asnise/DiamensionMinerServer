@@ -1,11 +1,13 @@
 export default async function AdminLoginPage({ searchParams }) {
   const params = await searchParams;
   const error = params?.error === "1";
+  const locked = params?.error === "locked";
 
   return (
     <div className="login-box">
       <h1>Admin login</h1>
       {error && <p className="login-error">Invalid username or password.</p>}
+      {locked && <p className="login-error">Too many attempts. Try again in 15 minutes.</p>}
       <form action="/api/admin/login" method="POST">
         <div>
           <label htmlFor="username">Username</label>

@@ -32,6 +32,7 @@ commands:
     description: Manage custom items and content definitions
     usage: /dm <list|give|reload>
     aliases: [customitem, dmitem]
+    permission: dimensionalminer.admin
   party:
     description: Party management system
     usage: /party <create|invite|accept|leave|info|disband>
@@ -48,3 +49,8 @@ commands:
     description: Leave current dungeon instance and return to town
     usage: /exitdungeon
     aliases: [leavedungeon, dungeonleave]
+
+permissions:
+  dimensionalminer.admin:
+    description: Admin commands (/dm give, /dm reload, /dm list)
+    default: op

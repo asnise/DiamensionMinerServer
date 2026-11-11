@@ -1,0 +1,15 @@
+# Default config bundled into the plugin jar. Do NOT put real passwords here.
+# Real credentials go in server/plugins/DimensionalMinerCore/config.yml (not in git).
+database:
+  profile: "cloud" # Switch between "local" and "cloud"
+
+databases:
+  local:
+    jdbcUrl: "jdbc:postgresql://localhost:5432/dimensional_game"
+    username: "postgres"
+    password: "123456"
+
+  cloud:
+    jdbcUrl: "jdbc:postgresql://ep-broad-dream-b32si870-pooler.c-4.ap-southeast-1.aws.neon.tech:5432/dimensional_game?sslmode=require"
+    username: "neondb_owner"
+    password: "CHANGE_ME"

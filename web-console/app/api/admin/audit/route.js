@@ -1,7 +1,11 @@
 import { ok, fail } from "@/lib/api";
 import { gamePool } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export async function GET(request) {
+  const denied = requireAdmin(request);
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type") || "all"; // "all" | "currency" | "item"
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)));

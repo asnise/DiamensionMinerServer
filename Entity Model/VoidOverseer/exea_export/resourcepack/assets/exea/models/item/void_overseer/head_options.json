@@ -1,0 +1,22 @@
+{
+  "credit": "EXeaEntityCore Blockbench Exporter",
+  "textures": {
+    "0": "exea:item/void_overseer/void_overseer",
+    "particle": "exea:item/void_overseer/void_overseer"
+  },
+  "elements": [],
+  "display": {
+    "head": {
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    }
+  }
+}

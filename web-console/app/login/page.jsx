@@ -5,7 +5,19 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Key, ShieldCheck, Loader2 } from "lucide-react";
 import { useToast } from "@/components/Toast";
-import { usePlayerSession, isUuid } from "@/lib/session";
+import { usePlayerSession } from "@/lib/session";
+
+// Redeems the one-time key; the server sets an httpOnly session cookie on success.
+async function redeemKey(key) {
+  const res = await fetch("/api/auth/login-key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Invalid or expired key");
+  return data;
+}
 
 export default function LoginPage({ searchParams }) {
   const router = useRouter();
@@ -25,38 +37,24 @@ export default function LoginPage({ searchParams }) {
     if (!queryCode || hasExecutedRef.current) return;
     hasExecutedRef.current = true;
 
-    fetch(`/api/auth/login-key?key=${encodeURIComponent(queryCode)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setLoading(false);
-        if (data.error) {
-          setErrorMsg(data.error);
-          toast.error(data.error, "Login Failed");
-        } else {
-          login(data.player_id);
-          toast.success(`Welcome back, ${data.username}!`, "Login Successful");
-          router.replace("/profile");
-        }
+    redeemKey(queryCode)
+      .then(async (data) => {
+        await login();
+        toast.success(`Welcome back, ${data.username}!`, "Login Successful");
+        router.replace("/profile");
       })
       .catch((err) => {
-        setLoading(false);
         setErrorMsg(err.message || "Network error");
-        toast.error("Could not verify key.", "Error");
-      });
+        toast.error(err.message || "Could not verify key.", "Login Failed");
+      })
+      .finally(() => setLoading(false));
   }, [queryCode, login, router, toast]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const clean = inputCode.trim().toUpperCase();
     if (!clean) {
-      toast.warning("Please enter your Web Key or UUID", "Input Required");
-      return;
-    }
-
-    if (isUuid(clean.toLowerCase())) {
-      login(clean.toLowerCase());
-      toast.success("Player UUID connected", "Connected");
-      router.replace("/profile");
+      toast.warning("Please enter your Web Login Key", "Input Required");
       return;
     }
 
@@ -64,18 +62,8 @@ export default function LoginPage({ searchParams }) {
     setErrorMsg(null);
 
     try {
-      const res = await fetch("/api/auth/login-key", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: clean }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Invalid or expired key");
-      }
-
-      login(data.player_id);
+      const data = await redeemKey(clean);
+      await login();
       toast.success(`Welcome back, ${data.username}!`, "Connected");
       router.replace("/profile");
     } catch (err) {

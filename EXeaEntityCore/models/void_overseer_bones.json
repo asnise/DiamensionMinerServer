@@ -1,0 +1,398 @@
+[
+  {
+    "name": "body",
+    "original_name": "body",
+    "parent": null,
+    "origin": [
+      0,
+      24,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "custom_model_data": 1001,
+    "element_count": 0,
+    "visible": true
+  },
+  {
+    "name": "torso",
+    "original_name": "torso",
+    "parent": "body",
+    "origin": [
+      0,
+      24,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "custom_model_data": 1002,
+    "element_count": 12,
+    "visible": true
+  },
+  {
+    "name": "core",
+    "original_name": "core",
+    "parent": "torso",
+    "origin": [
+      0,
+      29.2,
+      -1.6
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "custom_model_data": 1003,
+    "element_count": 5,
+    "visible": true
+  },
+  {
+    "name": "head_options",
+    "original_name": "head_options",
+    "parent": "torso",
+    "origin": [
+      0,
+      40,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "custom_model_data": 1004,
+    "element_count": 0,
+    "visible": true
+  },
+  {
+    "name": "head_1_riftarbiter",
+    "original_name": "Head_1_RiftArbiter",
+    "parent": "head_options",
+    "origin": [
+      0,
+      40,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "custom_model_data": 1005,
+    "element_count": 9,
+    "visible": false
+  },
+  {
+    "name": "head_2_singularitymonolith",
+    "original_name": "Head_2_SingularityMonolith",
+    "parent": "head_options",
+    "origin": [
+      0,
+      40,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "custom_model_data": 1006,
+    "element_count": 8,
+    "visible": false
+  },
+  {
+    "name": "head_3_voidreaper",
+    "original_name": "Head_3_VoidReaper",
+    "parent": "head_options",
+    "origin": [
+      0,
+      40,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "custom_model_data": 1007,
+    "element_count": 9,
+    "visible": true
+  },
+  {
+    "name": "shoulder_l",
+    "original_name": "shoulder_l",
+    "parent": "torso",
+    "origin": [
+      9,
+      39,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      -10
+    ],
+    "custom_model_data": 1008,
+    "element_count": 4,
+    "visible": true
+  },
+  {
+    "name": "shoulder_r",
+    "original_name": "shoulder_r",
+    "parent": "torso",
+    "origin": [
+      -9,
+      39,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      10
+    ],
+    "custom_model_data": 1009,
+    "element_count": 4,
+    "visible": true
+  },
+  {
+    "name": "arm_l",
+    "original_name": "arm_l",
+    "parent": "torso",
+    "origin": [
+      13,
+      35,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      -5
+    ],
+    "custom_model_data": 1010,
+    "element_count": 3,
+    "visible": true
+  },
+  {
+    "name": "hand_l",
+    "original_name": "hand_l",
+    "parent": "arm_l",
+    "origin": [
+      13,
+      19,
+      0
+    ],
+    "rotation": [
+      8,
+      -5,
+      0
+    ],
+    "custom_model_data": 1011,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "thumb_l",
+    "original_name": "thumb_l",
+    "parent": "hand_l",
+    "origin": [
+      10,
+      13.6,
+      -0.5
+    ],
+    "rotation": [
+      -6.73641,
+      -17.60605,
+      -26.13589
+    ],
+    "custom_model_data": 1012,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "index_l",
+    "original_name": "index_l",
+    "parent": "hand_l",
+    "origin": [
+      11.52186,
+      14.8888,
+      -2.61801
+    ],
+    "rotation": [
+      18,
+      0,
+      0
+    ],
+    "custom_model_data": 1013,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "middle_l",
+    "original_name": "middle_l",
+    "parent": "hand_l",
+    "origin": [
+      13.62186,
+      14.8888,
+      -2.61801
+    ],
+    "rotation": [
+      14,
+      0,
+      0
+    ],
+    "custom_model_data": 1014,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "ring_l",
+    "original_name": "ring_l",
+    "parent": "hand_l",
+    "origin": [
+      16.02186,
+      14.8888,
+      -2.61801
+    ],
+    "rotation": [
+      9.54682,
+      0.11553,
+      1.10971
+    ],
+    "custom_model_data": 1015,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "arm_r",
+    "original_name": "arm_r",
+    "parent": "torso",
+    "origin": [
+      -13,
+      35,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      5
+    ],
+    "custom_model_data": 1016,
+    "element_count": 3,
+    "visible": true
+  },
+  {
+    "name": "hand_r",
+    "original_name": "hand_r",
+    "parent": "arm_r",
+    "origin": [
+      -13,
+      19,
+      0
+    ],
+    "rotation": [
+      8,
+      5,
+      0
+    ],
+    "custom_model_data": 1017,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "thumb_r",
+    "original_name": "thumb_r",
+    "parent": "hand_r",
+    "origin": [
+      -10,
+      13.6,
+      -0.5
+    ],
+    "rotation": [
+      -6.73641,
+      17.60605,
+      26.13589
+    ],
+    "custom_model_data": 1018,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "index_r",
+    "original_name": "index_r",
+    "parent": "hand_r",
+    "origin": [
+      -11.52186,
+      14.8888,
+      -2.61801
+    ],
+    "rotation": [
+      18,
+      0,
+      0
+    ],
+    "custom_model_data": 1019,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "middle_r",
+    "original_name": "middle_r",
+    "parent": "hand_r",
+    "origin": [
+      -13.62186,
+      14.8888,
+      -2.61801
+    ],
+    "rotation": [
+      14,
+      0,
+      0
+    ],
+    "custom_model_data": 1020,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "ring_r",
+    "original_name": "ring_r",
+    "parent": "hand_r",
+    "origin": [
+      -16.02186,
+      14.8888,
+      -2.61801
+    ],
+    "rotation": [
+      9.54682,
+      -0.11553,
+      -1.10971
+    ],
+    "custom_model_data": 1021,
+    "element_count": 2,
+    "visible": true
+  },
+  {
+    "name": "orbiters",
+    "original_name": "orbiters",
+    "parent": "body",
+    "origin": [
+      0,
+      28,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "custom_model_data": 1022,
+    "element_count": 4,
+    "visible": true
+  }
+]

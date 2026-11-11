@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EXea 3D Model & Animation Inspector</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Local Three.js & Controls for 100% offline & file:// support -->
+    <script src="libs/three.min.js"></script>
+    <script src="libs/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- TOP NAVIGATION & CONTROLS -->
+        <header id="top-bar">
+            <div class="logo-group">
+                <div class="brand-badge">EXEA</div>
+                <div class="title-wrap">
+                    <h1>3D Model & Animation Inspector</h1>
+                    <span class="subtitle" id="model-subtitle">Void Overseer (Default Preset)</span>
+                </div>
+            </div>
+
+            <div class="header-badges">
+                <div class="stat-pill" title="Total bones in hierarchy">
+                    <span class="stat-label">Bones</span>
+                    <span class="stat-val" id="stat-bones">0</span>
+                </div>
+                <div class="stat-pill success" title="ItemDisplays created in Minecraft">
+                    <span class="stat-label">Displays</span>
+                    <span class="stat-val" id="stat-displays">0</span>
+                </div>
+                <div class="stat-pill warning" title="Total cube elements">
+                    <span class="stat-label">Elements</span>
+                    <span class="stat-val" id="stat-elements">0</span>
+                </div>
+                <div class="stat-pill info" title="Available animations">
+                    <span class="stat-label">Animations</span>
+                    <span class="stat-val" id="stat-anims">0</span>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div class="view-mode-selector">
+                    <label>View Mode:</label>
+                    <select id="select-view-mode" title="Switch between Minecraft simulation and Blockbench raw view">
+                        <option value="exea_mc">Minecraft In-Game Parity (ItemDisplay)</option>
+                        <option value="bb_raw">Blockbench Raw Mesh</option>
+                        <option value="skeleton_only">Skeleton & Bones Only</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-secondary" id="btn-open-import" title="Import .bbmodel or exported files">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Import Model...
+                </button>
+                <button class="btn btn-primary" id="btn-reset-preset" title="Reset to Void Overseer preset">
+                    Reset Preset
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT (LEFT SIDEBAR + VIEWPORT + RIGHT INSPECTOR) -->
+        <main id="workspace">
+            <!-- LEFT PANEL: BONE HIERARCHY TREE -->
+            <aside id="left-sidebar" class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        <span>Bone Hierarchy</span>
+                    </div>
+                    <div class="tree-tools">
+                        <button id="btn-expand-all" class="btn-icon" title="Expand All">⤢</button>
+                        <button id="btn-collapse-all" class="btn-icon" title="Collapse All">⤡</button>
+                    </div>
+                </div>
+
+                <div class="panel-search">
+                    <input type="text" id="bone-search" placeholder="Search bone or mesh..." />
+                </div>
+
+                <div class="tree-filter-bar">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="rendered">Rendered Only</button>
+                    <button class="filter-btn" data-filter="hidden">Hidden Only</button>
+                </div>
+
+                <div id="bone-tree-container" class="tree-scroll">
+                    <!-- Dynamic Bone Tree Nodes -->
+                </div>
+
+                <div class="tree-legend">
+                    <span class="legend-item"><span class="dot dot-green"></span> Rendered (In-Game)</span>
+                    <span class="legend-item"><span class="dot dot-red"></span> Hidden Bone</span>
+                    <span class="legend-item"><span class="dot dot-blue"></span> Selected</span>
+                </div>
+            </aside>
+
+            <!-- CENTER VIEWPORT -->
+            <section id="viewport-container">
+                <canvas id="render-canvas"></canvas>
+
+                <!-- FLOATING VIEWPORT TOOLBAR -->
+                <div id="viewport-toolbar">
+                    <div class="tool-group">
+                        <button class="vtool-btn active" id="toggle-grid" title="Toggle Grid & Floor">Grid</button>
+                        <button class="vtool-btn active" id="toggle-bones" title="Toggle Bone Skeletons & Pivots">Bones</button>
+                        <button class="vtool-btn" id="toggle-wireframe" title="Toggle Wireframe overlay">Wireframe</button>
+                        <button class="vtool-btn active" id="toggle-bbox" title="Toggle Selection Bounding Box">BBox</button>
+                        <button class="vtool-btn active" id="toggle-textures" title="Toggle Textures">Texture</button>
+                    </div>
+                    <div class="tool-group">
+                        <button class="vtool-btn" id="btn-camera-front" title="Front View">Front</button>
+                        <button class="vtool-btn" id="btn-camera-side" title="Side View">Side</button>
+                        <button class="vtool-btn" id="btn-camera-top" title="Top View">Top</button>
+                        <button class="vtool-btn" id="btn-camera-reset" title="Reset Camera">Reset Cam</button>
+                    </div>
+                </div>
+
+                <!-- FLOATING HUD INFO -->
+                <div id="viewport-hud">
+                    <div class="hud-item"><span class="hud-label">FPS:</span> <span id="hud-fps">60</span></div>
+                    <div class="hud-item"><span class="hud-label">Cam:</span> <span id="hud-cam-pos">0, 24, 60</span></div>
+                    <div class="hud-item"><span class="hud-label">Selected:</span> <span id="hud-selected-bone" class="highlight">None</span></div>
+                </div>
+            </section>
+
+            <!-- RIGHT PANEL: INSPECTOR & DIAGNOSTICS -->
+            <aside id="right-sidebar" class="panel">
+                <div class="tabs-header">
+                    <button class="tab-btn active" data-tab="tab-transform">Transform</button>
+                    <button class="tab-btn" data-tab="tab-elements">Elements (<span id="tab-elem-count">0</span>)</button>
+                    <button class="tab-btn" data-tab="tab-diagnostics">Minecraft Audit <span id="audit-badge" class="badge-count">0</span></button>
+                </div>
+
+                <!-- TAB 1: TRANSFORM & PIVOT -->
+                <div id="tab-transform" class="tab-content active">
+                    <div class="prop-group">
+                        <div class="prop-group-title">Bone Identity</div>
+                        <div class="prop-row"><span class="prop-label">Name:</span> <strong id="insp-bone-name">-</strong></div>
+                        <div class="prop-row"><span class="prop-label">Parent:</span> <span id="insp-bone-parent">-</span></div>
+                        <div class="prop-row"><span class="prop-label">ItemModel / CMD:</span> <span id="insp-bone-cmd">-</span></div>
+                        <div class="prop-row"><span class="prop-label">Visibility:</span> <span id="insp-bone-vis" class="status-tag">-</span></div>
+                    </div>
+
+                    <div class="prop-group">
+                        <div class="prop-group-title">Rest Pivot & Rotation (Origin)</div>
+                        <div class="vector-input-group">
+                            <label>Origin (Pivot):</label>
+                            <div class="vector-row">
+                                <span class="axis-badge x">X</span><input type="text" id="insp-orig-x" readonly value="0.0">
+                                <span class="axis-badge y">Y</span><input type="text" id="insp-orig-y" readonly value="0.0">
+                                <span class="axis-badge z">Z</span><input type="text" id="insp-orig-z" readonly value="0.0">
+                            </div>
+                        </div>
+                        <div class="vector-input-group">
+                            <label>Default Rotation (°):</label>
+                            <div class="vector-row">
+                                <span class="axis-badge x">X</span><input type="text" id="insp-rot-x" readonly value="0.0">
+                                <span class="axis-badge y">Y</span><input type="text" id="insp-rot-y" readonly value="0.0">
+                                <span class="axis-badge z">Z</span><input type="text" id="insp-rot-z" readonly value="0.0">
+                            </div>
+                        </div>
+                        <div class="vector-input-group">
+                            <label>Relative Pivot to Parent (Blocks):</label>
+                            <div class="vector-row">
+                                <span class="axis-badge x">X</span><input type="text" id="insp-relp-x" readonly value="0.0">
+                                <span class="axis-badge y">Y</span><input type="text" id="insp-relp-y" readonly value="0.0">
+                                <span class="axis-badge z">Z</span><input type="text" id="insp-relp-z" readonly value="0.0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="prop-group">
+                        <div class="prop-group-title">Live Forward Kinematics (FK) Result</div>
+                        <div class="vector-input-group">
+                            <label>Animated Pos Offset (px):</label>
+                            <div class="vector-row">
+                                <span class="axis-badge x">X</span><input type="text" id="insp-anim-pos-x" readonly value="0.0">
+                                <span class="axis-badge y">Y</span><input type="text" id="insp-anim-pos-y" readonly value="0.0">
+                                <span class="axis-badge z">Z</span><input type="text" id="insp-anim-pos-z" readonly value="0.0">
+                            </div>
+                        </div>
+                        <div class="vector-input-group">
+                            <label>Animated Rotation (° Euler):</label>
+                            <div class="vector-row">
+                                <span class="axis-badge x">X</span><input type="text" id="insp-anim-rot-x" readonly value="0.0">
+                                <span class="axis-badge y">Y</span><input type="text" id="insp-anim-rot-y" readonly value="0.0">
+                                <span class="axis-badge z">Z</span><input type="text" id="insp-anim-rot-z" readonly value="0.0">
+                            </div>
+                        </div>
+                        <div class="vector-input-group">
+                            <label>Animated Scale:</label>
+                            <div class="vector-row">
+                                <span class="axis-badge x">X</span><input type="text" id="insp-anim-scale-x" readonly value="1.0">
+                                <span class="axis-badge y">Y</span><input type="text" id="insp-anim-scale-y" readonly value="1.0">
+                                <span class="axis-badge z">Z</span><input type="text" id="insp-anim-scale-z" readonly value="1.0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: ELEMENTS IN CURRENT BONE -->
+                <div id="tab-elements" class="tab-content">
+                    <div class="elements-list-header">
+                        <span id="elements-count-summary">0 Elements in Selected Bone</span>
+                    </div>
+                    <div id="elements-list-container" class="elements-scroll">
+                        <!-- Dynamic Element Cards -->
+                    </div>
+                </div>
+
+                <!-- TAB 3: MINECRAFT AUDIT & DIAGNOSTICS -->
+                <div id="tab-diagnostics" class="tab-content">
+                    <div class="audit-summary-box" id="audit-summary-box">
+                        <div class="audit-status" id="audit-headline">Model Checked</div>
+                        <p id="audit-description">Checking for Minecraft 1.20+ item model and animation constraints...</p>
+                    </div>
+                    <div id="audit-cards-container" class="audit-list">
+                        <!-- Dynamic audit findings -->
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- BOTTOM TIMELINE CONTROLLER -->
+        <footer id="bottom-timeline" class="panel">
+            <div class="timeline-controls-bar">
+                <div class="playback-buttons">
+                    <button class="tbtn" id="btn-stop" title="Stop & Rewind">⏹</button>
+                    <button class="tbtn" id="btn-step-prev" title="Step Back (-1 Tick)">⏮</button>
+                    <button class="tbtn primary" id="btn-play-pause" title="Play / Pause">▶ Play</button>
+                    <button class="tbtn" id="btn-step-next" title="Step Forward (+1 Tick)">⏭</button>
+                </div>
+
+                <div class="anim-selector-group">
+                    <label for="select-animation">Clip:</label>
+                    <select id="select-animation">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+
+                <div class="time-readout">
+                    <span id="time-current">0.00s</span> / <span id="time-total">0.00s</span>
+                    <span class="tick-readout">(Tick <span id="tick-current">0</span> / <span id="tick-total">0</span>)</span>
+                </div>
+
+                <div class="speed-selector-group">
+                    <label>Speed:</label>
+                    <select id="select-speed">
+                        <option value="0.25">0.25x</option>
+                        <option value="0.5">0.5x</option>
+                        <option value="1.0" selected>1.0x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2.0">2.0x</option>
+                    </select>
+                </div>
+
+                <div class="loop-mode-group">
+                    <label>Loop:</label>
+                    <span id="loop-mode-badge" class="badge-loop">LOOP</span>
+                </div>
+            </div>
+
+            <!-- SCRUBBABLE TIMELINE TRACK -->
+            <div class="timeline-track-wrap" id="timeline-track-wrap">
+                <div class="timeline-ruler" id="timeline-ruler"></div>
+                <div class="timeline-rail" id="timeline-rail">
+                    <div class="timeline-progress-fill" id="timeline-progress-fill"></div>
+                    <div class="timeline-thumb" id="timeline-thumb"></div>
+                    <!-- Event Markers & Keyframe Markers will be positioned here -->
+                    <div id="timeline-event-markers"></div>
+                    <div id="timeline-kf-markers"></div>
+                </div>
+            </div>
+        </footer>
+
+        <!-- IMPORT MODAL -->
+        <div id="import-modal" class="modal-overlay hidden">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h2>Import Model, Animations & Textures</h2>
+                    <button class="modal-close-btn" id="btn-close-modal">&times;</button>
+                </div>
+
+                <div class="modal-body">
+                    <!-- DRAG & DROP ZONE -->
+                    <div id="drop-zone" class="drop-area">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <div class="drop-title">Drag & Drop Files Here</div>
+                        <div class="drop-sub">Drop <strong>.bbmodel</strong>, <strong>*_bones.json</strong>, <strong>*_anims.json</strong>, or <strong>texture .png</strong></div>
+                    </div>
+
+                    <div class="modal-divider"><span>OR SELECT INDIVIDUAL FILES</span></div>
+
+                    <div class="import-options-grid">
+                        <div class="import-card">
+                            <h4>1. Blockbench File (.bbmodel)</h4>
+                            <p>Directly imports all cubes, UVs, textures, bones hierarchy, and animations.</p>
+                            <input type="file" id="file-bbmodel" accept=".bbmodel" style="display:none;" />
+                            <button class="btn btn-outline" onclick="document.getElementById('file-bbmodel').click()">Choose .bbmodel...</button>
+                            <span class="file-name-label" id="name-bbmodel">No file chosen</span>
+                        </div>
+
+                        <div class="import-card">
+                            <h4>2. Exported Bones JSON</h4>
+                            <p>Model bone hierarchy exported for EXeaEntityCore.</p>
+                            <input type="file" id="file-bones" accept=".json" style="display:none;" />
+                            <button class="btn btn-outline" onclick="document.getElementById('file-bones').click()">Choose Bones JSON...</button>
+                            <span class="file-name-label" id="name-bones">No file chosen</span>
+                        </div>
+
+                        <div class="import-card">
+                            <h4>3. Exported Anims JSON</h4>
+                            <p>Animation timelines exported for EXeaEntityCore.</p>
+                            <input type="file" id="file-anims" accept=".json" style="display:none;" />
+                            <button class="btn btn-outline" onclick="document.getElementById('file-anims').click()">Choose Anims JSON...</button>
+                            <span class="file-name-label" id="name-anims">No file chosen</span>
+                        </div>
+
+                        <div class="import-card">
+                            <h4>4. Texture Image (.png)</h4>
+                            <p>Texture file used for UV painting.</p>
+                            <input type="file" id="file-texture" accept=".png,image/png" style="display:none;" />
+                            <button class="btn btn-outline" onclick="document.getElementById('file-texture').click()">Choose Texture PNG...</button>
+                            <span class="file-name-label" id="name-texture">No file chosen</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="btn-load-preset-modal">Load Default (Void Overseer)</button>
+                    <button class="btn btn-primary" id="btn-apply-import">Apply & Load Model</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT MODULES -->
+    <script src="js/default_model_data.js"></script>
+    <script src="js/model_loader.js"></script>
+    <script src="js/animation_engine.js"></script>
+    <script src="js/viewport3d.js"></script>
+    <script src="js/ui_controller.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

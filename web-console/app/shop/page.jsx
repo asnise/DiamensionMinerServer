@@ -102,13 +102,16 @@ export default function ShopPage() {
       const res = await fetch("/api/shop/buy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          player_id: playerId,
-          product_id: product.product_id,
-        }),
+        // The buyer comes from the session cookie on the server.
+        body: JSON.stringify({ product_id: product.product_id }),
       });
 
       const json = await res.json();
+      if (res.status === 401) {
+        toast.warning(json.error || "Your session expired. Please log in again.", "Login Required");
+        router.push("/login");
+        return;
+      }
       if (!res.ok) {
         throw new Error(json.error || "Purchase failed");
       }

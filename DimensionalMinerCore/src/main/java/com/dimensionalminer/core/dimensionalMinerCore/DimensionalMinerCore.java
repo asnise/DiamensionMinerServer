@@ -34,6 +34,7 @@ public final class DimensionalMinerCore extends JavaPlugin {
 
         inventorySync = new InventorySync(this);
         getServer().getPluginManager().registerEvents(inventorySync, this);
+        getServer().getPluginManager().registerEvents(new GrantsMenu.MenuListener(), this);
         getServer().getPluginManager().registerEvents(new CraftingRestrictionListener(this), this);
         getServer().getPluginManager().registerEvents(new MapProtectionListener(this), this);
 
@@ -91,9 +92,8 @@ public final class DimensionalMinerCore extends JavaPlugin {
     @Override
     public void onDisable() {
         if (inventorySync != null) {
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                inventorySync.snapshotAndMaybeSave(p);
-            }
+            // Blocks until queued saves are committed; must run before the pool is closed.
+            inventorySync.shutdown();
         }
         if (databaseManager != null) {
             databaseManager.close();

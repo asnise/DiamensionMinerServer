@@ -1,0 +1,149 @@
+================================================================================
+VOID OVERSEER - BASE HAND ANATOMY REFERENCE (HAND_R & MIRROR SPECIFICATION)
+================================================================================
+Generated: 2026-09-17T22:49:17.149Z
+
+DESCRIPTION:
+This document records the official golden anatomy base parameters for the 4-fingered
+open hand (Thumb, Index, Middle, Ring).
+These exact parameters define the natural blocky golem hand layout and its 
+symmetrical mirror configuration.
+
+COORDINATE CONVENTIONS (Blockbench / Minecraft):
+- X-Axis: Lateral (+X = Left Side, -X = Right Side)
+- Y-Axis: Vertical (+Y = Upwards, -Y = Downwards)
+- Z-Axis: Depth (+Z = Backward, -Z = Forward / Facing)
+
+MIRROR FORMULA (Right Hand -> Left Hand across X=0):
+- Group Origin:   [-origin.X, origin.Y, origin.Z]
+- Group Rotation: [rotation.X, -rotation.Y, -rotation.Z]
+- Cube bounds:    from.X' = -to.X, to.X' = -from.X (Y and Z stay identical)
+- Cube Origin:    [-origin.X, origin.Y, origin.Z]
+- Cube Rotation:  [rotation.X, -rotation.Y, -rotation.Z]
+
+================================================================================
+1. RIGHT HAND (hand_r) MASTER PARAMETERS
+================================================================================
+Group Name: hand_r
+Origin:     [-13, 19, 0]
+Rotation:   [8, 5, 0]
+
+PALM CUBES:
+* Cube: palm_block_r
+  From:   [-16.5, 14, -3]
+  To:     [-10.5, 19, 3]
+  Size:   [6, 5, 6]
+  Origin: [-13.5, 16.5, 0]
+  Rot:    [0, 0, 0]
+
+* Cube: palm_guard_r
+  From:   [-17.4, 14.5, -2.5]
+  To:     [-16.2, 18.5, 2.5]
+  Size:   [1.2, 4, 5]
+  Origin: [-16.8, 16.5, 0]
+  Rot:    [0, 0, 0]
+
+FINGER GROUPS (4 ARTICULATED DIGITS):
+--------------------------------------------------------------------------------
+Sub-Group: thumb_r
+Origin:    [-10, 13.6, -0.5]
+Rotation:  [-6.736, 17.606, 26.136]
+
+Cubes:
+  * Cube: thumb_seg_base_r
+    From:   [-10.5, 11.6, -1.5]
+    To:     [-8.5, 15.1, 0.5]
+    Size:   [2, 3.5, 2]
+    Origin: [-10, 13.6, -0.5]
+    Rot:    [0, 0, 0]
+
+  * Cube: thumb_claw_glow_r
+    From:   [-10.6, 8.6, -1.3]
+    To:     [-8.6, 11.6, 0.3]
+    Size:   [2, 3, 1.6]
+    Origin: [-9.8, 11, -0.5]
+    Rot:    [0, 0, -30]
+
+--------------------------------------------------------------------------------
+Sub-Group: index_r
+Origin:    [-11.522, 14.889, -2.618]
+Rotation:  [18, 0, 0]
+
+Cubes:
+  * Cube: index_seg_base_r
+    From:   [-12.322, 9.889, -3.618]
+    To:     [-10.722, 14.889, -1.618]
+    Size:   [1.6, 5, 2]
+    Origin: [-11.522, 14.889, -2.618]
+    Rot:    [0, 0, 0]
+
+  * Cube: index_claw_glow_r
+    From:   [-12.122, 5.889, -4.318]
+    To:     [-10.722, 9.889, -2.318]
+    Size:   [1.4, 4, 2]
+    Origin: [-11.422, 10.889, -3.018]
+    Rot:    [-36.725, 0.688, 2.422]
+
+--------------------------------------------------------------------------------
+Sub-Group: middle_r
+Origin:    [-13.622, 14.889, -2.618]
+Rotation:  [14, 0, 0]
+
+Cubes:
+  * Cube: middle_seg_base_r
+    From:   [-14.422, 8.889, -3.618]
+    To:     [-12.822, 14.889, -1.618]
+    Size:   [1.6, 6, 2]
+    Origin: [-13.622, 14.889, -2.618]
+    Rot:    [0, 0, 0]
+
+  * Cube: middle_claw_glow_r
+    From:   [-14.322, 3.889, -5.318]
+    To:     [-12.922, 8.889, -3.318]
+    Size:   [1.4, 5, 2]
+    Origin: [-13.622, 10.889, -4.018]
+    Rot:    [-36.704, 0.776, 0.439]
+
+--------------------------------------------------------------------------------
+Sub-Group: ring_r
+Origin:    [-16.022, 14.889, -2.618]
+Rotation:  [9.547, -0.116, -1.11]
+
+Cubes:
+  * Cube: ring_seg_base_r
+    From:   [-16.822, 9.889, -3.618]
+    To:     [-15.222, 14.889, -1.618]
+    Size:   [1.6, 5, 2]
+    Origin: [-16.022, 14.889, -2.618]
+    Rot:    [0, 0, 0]
+
+  * Cube: ring_claw_glow_r
+    From:   [-16.722, 5.889, -4.318]
+    To:     [-15.322, 9.889, -2.318]
+    Size:   [1.4, 4, 2]
+    Origin: [-16.022, 10.889, -3.018]
+    Rot:    [-37.289, 0.113, -4.078]
+
+================================================================================
+2. ANATOMICAL SPREAD AND DIGIT RATIOS
+================================================================================
+1. Thumb (นิ้วโป้ง - thumb_r / thumb_l):
+   - Location: Mounted medial/inner face of palm.
+   - Orientation: Opposing angle [10, 25, -20] for grasping.
+   - Length: Shortest digit (~5.5 units), terminating in a glowing cyan energy claw.
+
+2. Index Finger (นิ้วชี้ - index_r / index_l):
+   - Location: Anteromedial knuckle, adjacent to thumb.
+   - Orientation: Semi-flexed forward [18, 0, 0].
+   - Length: 9.0 units total.
+
+3. Middle Finger (นิ้วกลาง - middle_r / middle_l):
+   - Location: Center digit of the hand.
+   - Orientation: Reaches lowest downward [14, 0, 0].
+   - Length: Longest digit (11.0 units total), reaching down to Y ~ 3.
+
+4. Ring Finger (นิ้วนาง - ring_r / ring_l):
+   - Location: Lateral outermost knuckle.
+   - Orientation: Flared outward [10, 0, 8] for natural open-hand silhouette.
+   - Length: 9.0 units total.
+================================================================================

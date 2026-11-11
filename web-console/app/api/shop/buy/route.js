@@ -1,14 +1,21 @@
 import { ok, fail, readJson, isUuid } from '@/lib/api';
 import pool from '@/lib/db';
 import crypto from 'crypto';
+import { getSessionPlayerId } from '@/lib/auth';
 
 export async function POST(request) {
+  // The buyer is whoever the signed session cookie says; any player_id in the body is ignored.
+  const player_id = getSessionPlayerId(request);
+  if (!player_id) {
+    return fail(new Error('Please log in with /weblogin before buying.'), 401);
+  }
+
   const { ok: jsonOk, body, error } = await readJson(request);
   if (!jsonOk) return fail(new Error(error), 400);
 
-  const { player_id, product_id } = body;
-  if (!isUuid(player_id) || !isUuid(product_id)) {
-    return fail(new Error('Invalid player_id or product_id'), 400);
+  const { product_id } = body;
+  if (!isUuid(product_id)) {
+    return fail(new Error('Invalid product_id'), 400);
   }
 
   const client = await pool.connect();
@@ -105,7 +112,7 @@ export async function POST(request) {
       product_name: product.name,
     });
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     return fail(err);
   } finally {
     client.release();
