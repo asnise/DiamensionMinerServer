@@ -49,8 +49,9 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class CombatService implements Listener {
 
+    /** dealt = damage that actually landed (capped by the victim's HP); weaponId = launcher of a projectile, else null. */
     public record Hit(LivingEntity attacker, LivingEntity victim, double raw, boolean crit, double defense, double damage,
-                      EntityDamageEvent.DamageCause cause) {}
+                      EntityDamageEvent.DamageCause cause, double dealt, String weaponId) {}
 
     /** Combat stats of a player from equipped gear (main hand + armor + off-hand). */
     public record PlayerStats(boolean gearWeapon, double attack, double critChance, double defense) {}
@@ -65,6 +66,11 @@ public final class CombatService implements Listener {
     private final CombatConfig cfg;
     private final NamespacedKey kAtk, kDef, kProjAtk, kProjCrit, kProjSafe, kProjPvp;
     private com.dimensionalminer.core.dimensionalMinerCore.zone.ZoneManager zones;
+    private EffectEngine effects;
+    private NamespacedKey kProjWeapon;
+    /** Set while a proc deals its damage: that hit skips the pipeline and never procs again. */
+    private record ProcHit(LivingEntity target, double amount, boolean burst) {}
+    private ProcHit pendingProc;
     private final Map<UUID, Charge> charge = new HashMap<>();
     /** victim → attacker → damage dealt (for World Boss / dungeon rewards later). */
     private final Map<UUID, Map<UUID, Double>> contribution = new HashMap<>();
@@ -85,6 +91,33 @@ public final class CombatService implements Listener {
         this.zones = zones;
     }
 
+    public void setEffects(EffectEngine effects) {
+        this.effects = effects;
+        this.kProjWeapon = new NamespacedKey(plugin, "proj_weapon");
+        effects.attach(this);
+    }
+
+    /**
+     * Damage from a Unique Effect: goes through defense, counts as the wearer's damage (contribution),
+     * shows a purple number, and never triggers procs, wear or the normal pipeline.
+     */
+    void dealProc(Player source, LivingEntity target, double amount, boolean burst) {
+        if (amount <= 0 || !target.isValid() || target.isDead()) return;
+        if (safe(target.getLocation()) || safe(source.getLocation())) return;
+        if (target instanceof Player && !cfg.pvp() && !(pvp(source.getLocation()) && pvp(target.getLocation()))) return;
+        double def = target instanceof Player tp ? playerStats(tp).defense() : mobDefense(target);
+        double dmg = amount * cfg.defenseK() / (cfg.defenseK() + Math.max(0, def));
+        int iframes = target.getNoDamageTicks();
+        target.setNoDamageTicks(0);
+        pendingProc = new ProcHit(target, dmg, burst);
+        try {
+            target.damage(dmg, source);
+        } finally {
+            pendingProc = null;
+            target.setNoDamageTicks(Math.max(target.getNoDamageTicks(), iframes));
+        }
+    }
+
     private boolean safe(Location l) { return zones != null && zones.isSafe(l); }
 
     private boolean pvp(Location l) { return zones != null && zones.isPvp(l); }
@@ -103,6 +136,8 @@ public final class CombatService implements Listener {
         pdc.set(kProjCrit, PersistentDataType.DOUBLE, s.critChance());
         pdc.set(kProjSafe, PersistentDataType.BYTE, (byte) (safe(p.getLocation()) ? 1 : 0));
         pdc.set(kProjPvp, PersistentDataType.BYTE, (byte) (pvp(p.getLocation()) ? 1 : 0));
+        String weapon = gear.definitionId(p.getInventory().getItemInMainHand());
+        if (weapon != null && kProjWeapon != null) pdc.set(kProjWeapon, PersistentDataType.STRING, weapon);
         if (s.gearWeapon()) gear.wear(p, org.bukkit.inventory.EquipmentSlot.HAND, 1);
     }
 
@@ -173,6 +208,12 @@ public final class CombatService implements Listener {
             crit += s.getOrDefault("crit_chance", 0.0);
             def += s.getOrDefault("defense", 0.0);
         }
+        if (effects != null) {
+            Map<String, Double> set = effects.setStats(p);
+            if (gearWeapon) attack += set.getOrDefault("attack_damage", 0.0);
+            crit += set.getOrDefault("crit_chance", 0.0);
+            def += set.getOrDefault("defense", 0.0);
+        }
         return new PlayerStats(gearWeapon, attack, crit, def);
     }
 
@@ -200,6 +241,7 @@ public final class CombatService implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         charge.remove(event.getPlayer().getUniqueId());
+        if (effects != null) effects.forget(event.getPlayer());
     }
 
     // ------------------------------------------------------------------ pipeline
@@ -217,6 +259,18 @@ public final class CombatService implements Listener {
     public void onDamage(EntityDamageByEntityEvent event) {
         if (!cfg.enabled()) return;
         if (!(event.getEntity() instanceof LivingEntity victim) || victim instanceof ArmorStand) return;
+        ProcHit procHit = pendingProc;
+        if (procHit != null && procHit.target() == victim) {
+            event.setDamage(EntityDamageEvent.DamageModifier.BASE, procHit.amount());
+            if (event.isApplicable(EntityDamageEvent.DamageModifier.ARMOR)) event.setDamage(EntityDamageEvent.DamageModifier.ARMOR, 0);
+            if (event.isApplicable(EntityDamageEvent.DamageModifier.MAGIC)) event.setDamage(EntityDamageEvent.DamageModifier.MAGIC, 0);
+            if (event.getDamager() instanceof Player src) {
+                double dealt = Math.min(procHit.amount(), victim.getHealth() + victim.getAbsorptionAmount());
+                contribution.computeIfAbsent(victim.getUniqueId(), k -> new HashMap<>()).merge(src.getUniqueId(), dealt, Double::sum);
+            }
+            if (cfg.indicators()) indicator(victim, procHit.amount(), false, procHit.burst() ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.GOLD);
+            return;
+        }
         LivingEntity attacker = owner(event.getDamager());
         if (attacker == null) return;
         boolean byPlayer = attacker instanceof Player, toPlayer = victim instanceof Player;
@@ -267,6 +321,7 @@ public final class CombatService implements Listener {
             raw = weaponHit ? difficultyScaled(mobAttack(attacker), victim.getWorld().getDifficulty()) : event.getDamage();
             defense = playerStats((Player) victim).defense();
         }
+        if (effects != null) raw *= effects.outgoingMultiplier(attacker); // WEAKEN
         double damage = raw * (crit ? cfg.critMultiplier() : 1) * cfg.defenseK() / (cfg.defenseK() + Math.max(0, defense));
 
         event.setDamage(EntityDamageEvent.DamageModifier.BASE, damage);
@@ -282,21 +337,22 @@ public final class CombatService implements Listener {
             for (org.bukkit.inventory.EquipmentSlot slot : ARMOR) gear.wear(v, slot, 1);
         }
 
-        Hit hit = new Hit(attacker, victim, raw, crit, defense, damage, cause);
+        double dealt = Math.min(damage, victim.getHealth() + victim.getAbsorptionAmount());
+        boolean killed = damage >= victim.getHealth() + victim.getAbsorptionAmount();
+        String weaponId = ppdc != null && kProjWeapon != null ? ppdc.get(kProjWeapon, PersistentDataType.STRING) : null;
+        Hit hit = new Hit(attacker, victim, raw, crit, defense, damage, cause, dealt, weaponId);
         if (byPlayer) {
-            double dealt = Math.min(damage, victim.getHealth() + victim.getAbsorptionAmount());
             contribution.computeIfAbsent(victim.getUniqueId(), k -> new HashMap<>()).merge(attacker.getUniqueId(), dealt, Double::sum);
-            if (cfg.indicators()) indicator(victim, damage, crit);
+            if (cfg.indicators()) indicator(victim, damage, crit, null);
         }
-        proc(hit);
+        // Proc (3.4): Unique Effects and set effects, once per resolved hit (proc damage never gets here).
+        if (effects != null && weaponHit) effects.onHit(hit, killed);
     }
-
-    /** Hook for Unique Effects (Task 3.4): runs once per resolved hit, never for its own damage. */
-    private void proc(Hit hit) {}
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(EntityDeathEvent event) {
         contribution.remove(event.getEntity().getUniqueId());
+        if (effects != null && !(event.getEntity() instanceof Player)) effects.forgetEntity(event.getEntity().getUniqueId());
     }
 
     /** Damage dealt to a living entity by each attacker so far (read before it dies). */
@@ -306,12 +362,12 @@ public final class CombatService implements Listener {
 
     // ------------------------------------------------------------------ damage numbers
 
-    private void indicator(LivingEntity victim, double damage, boolean crit) {
+    private void indicator(LivingEntity victim, double damage, boolean crit, NamedTextColor procColor) {
         ThreadLocalRandom r = ThreadLocalRandom.current();
         Location at = victim.getLocation().add(r.nextDouble(-0.4, 0.4), victim.getHeight() + 0.2, r.nextDouble(-0.4, 0.4));
         String num = String.format(Locale.ROOT, damage >= 10 ? "%.0f" : "%.1f", damage);
-        Component text = crit
-                ? Component.text("✦ " + num, NamedTextColor.GOLD).decorate(TextDecoration.BOLD)
+        Component text = procColor != null ? Component.text("✧ " + num, procColor)
+                : crit ? Component.text("✦ " + num, NamedTextColor.GOLD).decorate(TextDecoration.BOLD)
                 : Component.text(num, NamedTextColor.WHITE);
         TextDisplay d = victim.getWorld().spawn(at, TextDisplay.class, t -> {
             t.text(text);

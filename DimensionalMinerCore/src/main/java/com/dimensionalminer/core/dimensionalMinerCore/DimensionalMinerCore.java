@@ -85,6 +85,7 @@ public final class DimensionalMinerCore extends JavaPlugin {
         combatService = new com.dimensionalminer.core.dimensionalMinerCore.combat.CombatService(this, gearItems,
                 com.dimensionalminer.core.dimensionalMinerCore.combat.CombatConfig.from(getConfig()));
         combatService.setZones(zoneManager);
+        combatService.setEffects(new com.dimensionalminer.core.dimensionalMinerCore.combat.EffectEngine(this, gearItems, contentRegistryManager));
         getServer().getPluginManager().registerEvents(combatService, this);
         getServer().getPluginManager().registerEvents(new com.dimensionalminer.core.dimensionalMinerCore.combat.DeathListener(this, gearItems), this);
         resourcePacks = new com.dimensionalminer.core.dimensionalMinerCore.craft.ResourcePackManager(this);

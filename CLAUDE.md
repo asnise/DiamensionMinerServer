@@ -109,6 +109,8 @@ The web console never writes to the player's live inventory. Shop purchases (`ap
 
 - Zones (`zone/ZoneManager`, `/zone`, `zones.yml`): SAFE and PVP cuboids on the hub map, applied in every channel world. CombatService cancels any hit where the attacker (a projectile uses its launch zone) or the victim is in a SAFE zone; PvP needs both in a PVP zone unless `combat.pvp`. Player projectiles snapshot weapon ATK/crit and zone at launch (anti weapon-swap).
 
+- Unique Effects / sets: ItemBase `unique_effects` (`UniqueEffect`) and content kind `GearSet` (`GearSet`, `ContentRegistryManager.getSetOf`). `EffectEngine` fires them from `CombatService` once per resolved hit (chance, per-wearer cooldown, stacking group). Proc damage goes through `CombatService.dealProc`, which marks the hit so it skips the pipeline and never procs again. Broken gear gives no effects and doesn't count for sets.
+
 ### EXeaEntityCore
 
 Renders Blockbench models as hierarchies of `ItemDisplay` bones that ride a root driver mob (Husk/ArmorStand). The pieces:

@@ -95,6 +95,8 @@ combat:
   damage_indicators: true
   # Mob attack follows the world difficulty like vanilla: Easy = min(a/2+1, a), Normal = a, Hard = a x 1.5.
   scale_by_difficulty: true
+  # Unique Effects / set effects: LIFESTEAL heals at most this much HP per hit.
+  effects: { lifesteal_cap: 4 }
   # Death outside a dungeon: nothing is lost except durability of equipped gear; respawn at the hub.
   death: { durability_loss_percent: 10, respawn_world: overworld_t0 }
   # hp is optional (omit = vanilla max health). Dungeon SUMMON actions can override with "stats".

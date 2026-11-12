@@ -1,0 +1,23 @@
+{
+  "definition_id": "weapon_test_ember_blade",
+  "kind": "ItemBase",
+  "payload": {
+    "name": "Ember Blade",
+    "display": "[TEST] Ember Blade",
+    "icon": "golden_sword",
+    "category": "WEAPON",
+    "rarity": "RARE",
+    "binding": "UNBOUND",
+    "stack": 1,
+    "description": "Test weapon for Unique Effects: burn, lightning on crit, lifesteal, frost.",
+    "base_stats": { "attack_damage": 6, "crit_chance": 15 },
+    "upgrade_material": "prim_metal",
+    "unique_effects": [
+      { "id": "ember_burn", "name": "Ember", "trigger": "ON_HIT", "chance": 30, "cooldown": 4, "group": "fire", "action": "BURN", "value": 1.5, "duration": 3 },
+      { "id": "ember_spark", "name": "Spark", "trigger": "ON_CRIT", "chance": 100, "cooldown": 2, "group": "burst", "action": "EXTRA_DAMAGE", "value": 4 },
+      { "id": "ember_drain", "name": "Drain", "trigger": "ON_HIT", "chance": 100, "cooldown": 0, "group": "drain", "action": "LIFESTEAL", "value": 15 },
+      { "id": "ember_frost", "name": "Frost", "trigger": "ON_HIT", "chance": 15, "cooldown": 6, "group": "control", "action": "SLOW", "value": 2, "duration": 3 },
+      { "id": "ember_sap", "name": "Sap", "trigger": "ON_CRIT", "chance": 50, "cooldown": 8, "group": "control2", "action": "WEAKEN", "value": 40, "duration": 4 }
+    ]
+  }
+}

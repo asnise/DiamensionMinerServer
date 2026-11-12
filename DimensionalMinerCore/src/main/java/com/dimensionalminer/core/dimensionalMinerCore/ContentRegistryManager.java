@@ -32,6 +32,9 @@ public class ContentRegistryManager {
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType> oreRegistry = Map.of();
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> lootRegistry = Map.of();
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> recipeRegistry = Map.of();
+    private volatile Map<String, GearSet> setRegistry = Map.of();
+    /** piece definition id → its set. */
+    private volatile Map<String, GearSet> setByPiece = Map.of();
     private final DecimalFormat df = new DecimalFormat("#.##");
 
     /** Everything parsed from one registry file; swapped in as a unit. */
@@ -39,8 +42,9 @@ public class ContentRegistryManager {
                           Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeons,
                           Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType> ores,
                           Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> loot,
-                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> recipes) {
-        Parsed() { this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new java.util.LinkedHashMap<>()); }
+                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> recipes,
+                          Map<String, GearSet> sets) {
+        Parsed() { this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new java.util.LinkedHashMap<>(), new HashMap<>()); }
     }
 
     public ContentRegistryManager(DimensionalMinerCore plugin) {
@@ -97,9 +101,20 @@ public class ContentRegistryManager {
         oreRegistry = Map.copyOf(parsed.ores());
         lootRegistry = Map.copyOf(parsed.loot());
         recipeRegistry = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(parsed.recipes()));
+        Map<String, GearSet> byPiece = new HashMap<>();
+        for (GearSet set : parsed.sets().values()) {
+            for (String piece : set.pieces()) {
+                if (!parsed.items().containsKey(piece))
+                    plugin.getLogger().warning("[ContentRegistry] GearSet/" + set.id() + ": unknown piece '" + piece + "'");
+                GearSet prev = byPiece.put(piece, set);
+                if (prev != null) plugin.getLogger().warning("[ContentRegistry] " + piece + " is in two sets (" + prev.id() + ", " + set.id() + "); using " + set.id());
+            }
+        }
+        setRegistry = Map.copyOf(parsed.sets());
+        setByPiece = Map.copyOf(byPiece);
         plugin.getLogger().info("[ContentRegistry] Loaded " + parsed.items().size() + " items, " + parsed.dungeons().size()
                 + " dungeons, " + parsed.ores().size() + " ore types, " + parsed.loot().size() + " loot tables, "
-                + parsed.recipes().size() + " recipes from " + file.getPath());
+                + parsed.recipes().size() + " recipes, " + parsed.sets().size() + " gear sets from " + file.getPath());
         return true;
     }
 
@@ -112,6 +127,15 @@ public class ContentRegistryManager {
     private boolean warnRecipe(com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe r, String item) {
         plugin.getLogger().warning("[ContentRegistry] Recipe/" + r.id() + " skipped: unknown item '" + item + "'");
         return true;
+    }
+
+    /** The set a piece belongs to, or null. */
+    public GearSet getSetOf(String pieceId) {
+        return pieceId == null ? null : setByPiece.get(pieceId.toLowerCase(Locale.ROOT));
+    }
+
+    public Collection<GearSet> getAllSets() {
+        return setRegistry.values();
     }
 
     public com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe getRecipe(String id) {
@@ -204,6 +228,8 @@ public class ContentRegistryManager {
                             out.ores().put(key, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType.fromJson(defId, payload));
                         } else if (kind.equalsIgnoreCase("LootTable")) {
                             out.loot().put(key, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable.fromJson(defId, payload));
+                        } else if (kind.equalsIgnoreCase("GearSet")) {
+                            out.sets().put(key, GearSet.fromJson(key, payload, w -> plugin.getLogger().warning("[ContentRegistry] " + w)));
                         } else if (kind.equalsIgnoreCase("Recipe")) {
                             out.recipes().put(key, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe.fromJson(defId, payload));
                         } else {
@@ -222,7 +248,8 @@ public class ContentRegistryManager {
     }
 
     private ItemDefinition parseDefinition(String id, String kind, JsonObject p) {
-        if (kind.equalsIgnoreCase("LootTable") || kind.equalsIgnoreCase("Recipe") || kind.equalsIgnoreCase("Generator")) {
+        if (kind.equalsIgnoreCase("LootTable") || kind.equalsIgnoreCase("Recipe") || kind.equalsIgnoreCase("Generator")
+                || kind.equalsIgnoreCase("GearSet")) {
             return null;
         }
 
@@ -284,7 +311,8 @@ public class ContentRegistryManager {
         }
 
         return new ItemDefinition(id, kind, name, display, icon, category, rarity, binding, stack, durability, description, stats)
-                .withForgeData(growth, upgradeMaterial).withEngrave(engrave);
+                .withForgeData(growth, upgradeMaterial).withEngrave(engrave)
+                .withEffects(UniqueEffect.listFrom(id, p.get("unique_effects"), w -> plugin.getLogger().warning("[ContentRegistry] " + w)));
     }
 
     public ItemStack createItemStack(String definitionId, int amount) {

@@ -372,6 +372,81 @@
         },
         "description": "\"Thing Sword\" Yup something like a sword"
       }
+    },
+    {
+      "definition_id": "weapon_test_ember_blade",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Ember Blade",
+        "display": "[TEST] Ember Blade",
+        "icon": "golden_sword",
+        "category": "WEAPON",
+        "rarity": "RARE",
+        "binding": "UNBOUND",
+        "stack": 1,
+        "description": "Test weapon for Unique Effects: burn, lightning on crit, lifesteal, frost.",
+        "base_stats": {
+          "attack_damage": 6,
+          "crit_chance": 15
+        },
+        "upgrade_material": "prim_metal",
+        "unique_effects": [
+          {
+            "id": "ember_burn",
+            "name": "Ember",
+            "trigger": "ON_HIT",
+            "chance": 30,
+            "cooldown": 4,
+            "group": "fire",
+            "action": "BURN",
+            "value": 1.5,
+            "duration": 3
+          },
+          {
+            "id": "ember_spark",
+            "name": "Spark",
+            "trigger": "ON_CRIT",
+            "chance": 100,
+            "cooldown": 2,
+            "group": "burst",
+            "action": "EXTRA_DAMAGE",
+            "value": 4
+          },
+          {
+            "id": "ember_drain",
+            "name": "Drain",
+            "trigger": "ON_HIT",
+            "chance": 100,
+            "cooldown": 0,
+            "group": "drain",
+            "action": "LIFESTEAL",
+            "value": 15
+          },
+          {
+            "id": "ember_frost",
+            "name": "Frost",
+            "trigger": "ON_HIT",
+            "chance": 15,
+            "cooldown": 6,
+            "group": "control",
+            "action": "SLOW",
+            "value": 2,
+            "duration": 3
+          },
+          {
+            "id": "ember_sap",
+            "name": "Sap",
+            "trigger": "ON_CRIT",
+            "chance": 50,
+            "cooldown": 8,
+            "group": "control2",
+            "action": "WEAKEN",
+            "value": 40,
+            "duration": 4
+          }
+        ]
+      }
     }
   ],
   "LootTable": [
@@ -478,6 +553,60 @@
         "loot_table": "loot_ore_prim_metal",
         "respawn_seconds": 20,
         "required_tool_tier": "STONE"
+      }
+    }
+  ],
+  "GearSet": [
+    {
+      "definition_id": "set_test_prim_plate",
+      "version": 1,
+      "kind": "GearSet",
+      "payload": {
+        "name": "Prim Plate",
+        "pieces": [
+          "armor_test_prim_helmet",
+          "armor_test_prim_chestplate",
+          "armor_test_prim_leggings",
+          "armor_test_prim_boots"
+        ],
+        "bonuses": [
+          {
+            "count": 2,
+            "stats": {
+              "defense": 4
+            }
+          },
+          {
+            "count": 4,
+            "stats": {
+              "defense": 4,
+              "crit_chance": 5
+            },
+            "unique_effects": [
+              {
+                "id": "prim_bulwark",
+                "name": "Bulwark",
+                "trigger": "ON_HURT",
+                "chance": 25,
+                "cooldown": 15,
+                "group": "shield",
+                "action": "SHIELD",
+                "value": 6,
+                "duration": 6
+              },
+              {
+                "id": "prim_thorns",
+                "name": "Thorns",
+                "trigger": "ON_HURT",
+                "chance": 35,
+                "cooldown": 1,
+                "group": "reflect",
+                "action": "REFLECT",
+                "value": 50
+              }
+            ]
+          }
+        ]
       }
     }
   ]

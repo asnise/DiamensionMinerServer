@@ -291,6 +291,24 @@ public final class GearItems {
                     ? text(" ◆ " + data.engraves().get(i) + " (unknown)", NamedTextColor.DARK_GRAY)
                     : text(" ◆ " + f.getDisplay() + " ", NamedTextColor.LIGHT_PURPLE).append(text(describe(f.getEngrave()), NamedTextColor.GRAY)));
         }
+        boolean off = broken(def, data);
+        if (!def.getEffects().isEmpty()) {
+            lore.add(Component.empty());
+            for (com.dimensionalminer.core.dimensionalMinerCore.UniqueEffect e : def.getEffects())
+                lore.add(text("✦ " + e.name() + ": ", off ? NamedTextColor.DARK_GRAY : NamedTextColor.GOLD)
+                        .append(text(e.describe() + (off ? " (broken)" : ""), NamedTextColor.GRAY)));
+        }
+        com.dimensionalminer.core.dimensionalMinerCore.GearSet set = registry.getSetOf(def.getId());
+        if (set != null) {
+            lore.add(Component.empty());
+            lore.add(text("Set: " + set.name() + " (" + set.pieces().size() + " pieces)", NamedTextColor.AQUA));
+            for (com.dimensionalminer.core.dimensionalMinerCore.GearSet.Bonus b : set.bonuses()) {
+                List<String> parts = new ArrayList<>();
+                b.stats().forEach((k, v) -> parts.add((v >= 0 ? "+" : "") + fmt(v) + " " + statLabel(k)));
+                for (com.dimensionalminer.core.dimensionalMinerCore.UniqueEffect e : b.effects()) parts.add(e.name() + " (" + e.describe() + ")");
+                lore.add(text(" (" + b.count() + ") " + String.join(", ", parts), NamedTextColor.DARK_AQUA));
+            }
+        }
         if (def.getDescription() != null && !def.getDescription().isBlank()) {
             lore.add(Component.empty());
             lore.add(text(def.getDescription(), NamedTextColor.DARK_GRAY).decorate(TextDecoration.ITALIC));

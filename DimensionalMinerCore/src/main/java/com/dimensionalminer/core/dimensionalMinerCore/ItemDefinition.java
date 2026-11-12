@@ -23,6 +23,8 @@ public class ItemDefinition {
     private String upgradeMaterial;
     /** Set when this item is an Engrave fragment (payload "engrave"). */
     private Engrave engrave;
+    /** Unique Effects of this gear (payload "unique_effects"). */
+    private java.util.List<UniqueEffect> effects = java.util.List.of();
 
     /**
      * What an Engrave fragment adds to a gear piece. flat = stat units, percentBp = basis points
@@ -121,6 +123,9 @@ public class ItemDefinition {
     public Engrave getEngrave() {
         return engrave;
     }
+    public java.util.List<UniqueEffect> getEffects() {
+        return effects;
+    }
     public boolean isFragment() {
         return engrave != null;
     }
@@ -138,6 +143,10 @@ public class ItemDefinition {
     }
     ItemDefinition withEngrave(Engrave engrave) {
         this.engrave = engrave;
+        return this;
+    }
+    ItemDefinition withEffects(java.util.List<UniqueEffect> effects) {
+        this.effects = effects != null ? java.util.List.copyOf(effects) : java.util.List.of();
         return this;
     }
 }

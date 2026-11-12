@@ -1,0 +1,16 @@
+{
+  "definition_id": "set_test_prim_plate",
+  "kind": "GearSet",
+  "payload": {
+    "name": "Prim Plate",
+    "pieces": ["armor_test_prim_helmet", "armor_test_prim_chestplate", "armor_test_prim_leggings", "armor_test_prim_boots"],
+    "bonuses": [
+      { "count": 2, "stats": { "defense": 4 } },
+      { "count": 4, "stats": { "defense": 4, "crit_chance": 5 },
+        "unique_effects": [
+          { "id": "prim_bulwark", "name": "Bulwark", "trigger": "ON_HURT", "chance": 25, "cooldown": 15, "group": "shield", "action": "SHIELD", "value": 6, "duration": 6 },
+          { "id": "prim_thorns", "name": "Thorns", "trigger": "ON_HURT", "chance": 35, "cooldown": 1, "group": "reflect", "action": "REFLECT", "value": 50 }
+        ] }
+    ]
+  }
+}

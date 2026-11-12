@@ -28,7 +28,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 |---|---|---|---|---|---|
 | 1 | มิติและ Channel | 3 | 1 | 0 | 1 |
 | 2 | Node เหมืองแร่ | 0 | 0 | 0 | 5 |
-| 3 | อุปกรณ์และสเตตัส | 2 | 1 | 1 | 1 |
+| 3 | อุปกรณ์และสเตตัส | 0 | 1 | 1 | 3 |
 | 4 | Crafting & ตีบวก | 0 | 0 | 0 | 6 |
 | 5 | ต่อสู้และความตาย | 0 | 0 | 0 | 4 |
 | 6 | Instance Dungeon | 0 | 3 | 0 | 1 |
@@ -147,8 +147,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | 3.1 | โครงสร้างไอเทม (UUID, Rarity, Advancement, Refine, Engrave, Socket) | 🟡 | `core/craft/GearItems.java` (`GearData`), `core/ItemDefinition.java` | ทำไปพร้อมหมวด 4: gear มี UUID ถาวร, Advancement, Refine, pity, Quality, Engrave (≤3) เก็บใน PDC ของ ItemStack และประวัติทุกครั้งอยู่ใน `item_transactions` · **ยังขาด:** Socket, durability ของ gear, และยังไม่ได้เขียนลงตาราง `items` (ตอนนี้ของทั้งหมดถูก sync เป็น `material_stacks.item_data`) |
 | 3.2 | คำนวณสเตตัส (GearMath: `Core_s`, `Final_s`) | 🔍 | `core/craft/GearMath.java`, `core/craft/GearItems.java` (`stats`) | ทำไปพร้อมหมวด 4: fixed-point ตาม GDD, golden test ATK 280.5 รันทุกครั้งที่เปิดเซิร์ฟ · Core = (Base×Quality + Adv×Growth)×(1+RefineBonus) · Final รวม Flat/Percent ของ Engrave แล้ว (Socket/Set ยังเป็น 0 จนกว่าจะมีระบบ) · **วิธีตรวจ:** log ตอนเปิดเซิร์ฟไม่มี error GearMath, ดู lore ของดาบที่ตีบวก/ฝัง fragment · ค่ายังแสดงใน lore เท่านั้น ใช้จริงเมื่อมี 5.1 |
 | 3.3 | ป้องกัน/เกราะ และการคำนวณดาเมจที่ได้รับ | ✅ | `core/combat/CombatService.java` (`playerStats`, `onDamage`) | `Damage = Raw × K/(K+Defense)` (K = `combat.defense_k` 50) · Defense ผู้เล่น = ผลรวม stat `defense` ของ gear ในมือหลัก + เกราะ 4 ช่อง + มือรอง · เกราะ/enchant Protection ของ vanilla ไม่ลดดาเมจซ้ำ (ตั้ง modifier ARMOR/MAGIC เป็น 0) · Resistance potion ยังมีผล · **วิธีตรวจ:** ใส่เกราะเพชร vanilla แล้วให้ซอมบี้ตี → ยังโดน 3 เท่าเดิม (เกราะ vanilla ไม่ช่วย) · ตอนนี้ยังไม่มี content เกราะที่มี `defense` ให้ลองค่าลด |
-| 3.4 | Unique Effect (Cooldown, Proc, ห้าม trigger ตัวเอง) | ⬜ | — | |
-| 3.5 | Set effect (เช็คเฉพาะช่องที่สวมจริง) | ⬜ | — | |
+| 3.4 | Unique Effect (Cooldown, Proc, ห้าม trigger ตัวเอง) | ✅ | `core/UniqueEffect.java`, `core/combat/EffectEngine.java`, `core/combat/CombatService.java` (`dealProc`, proc hook), payload `unique_effects` | trigger ON_HIT / ON_CRIT / ON_KILL / ON_HURT · action EXTRA_DAMAGE, BURN (DoT ทุกวินาที, ใส่ซ้ำ = รีเฟรช), LIFESTEAL (% ของดาเมจจริง, สูงสุด `combat.effects.lifesteal_cap` 4 HP/ครั้ง), SLOW, WEAKEN (เป้าทำดาเมจลด %), SHIELD (absorption ชั่วคราว), REFLECT (สะท้อน % ดาเมจ) · ทุกเอฟเฟกต์มี chance + cooldown ต่อผู้สวม + stacking group (กลุ่มเดียวกันติดได้ 1 ต่อครั้ง) · ดาเมจจาก proc ไม่ trigger proc ต่อ (ไม่มี chain), ผ่านเกราะ, นับ contribution, เลขสีม่วง · ชิ้นที่พัง (durability 0) ไม่มีเอฟเฟกต์ · ลูกธนูใช้เอฟเฟกต์ของธนูที่ยิง · lore แสดงเอฟเฟกต์ · **วิธีตรวจ:** รีสตาร์ทเซิร์ฟ → `/dm give <ชื่อ> weapon_test_ember_blade` → ตีซอมบี้: เห็นไฟ/เลขสีทองทุกวิ (Ember), คริแล้วสายฟ้า + เลขม่วง (Spark), HP คืน (Drain), ซอมบี้ช้า (Frost) · action bar ขึ้นชื่อเอฟเฟกต์ที่ติด |
+| 3.5 | Set effect (เช็คเฉพาะช่องที่สวมจริง) | ✅ | `core/GearSet.java` (content kind ใหม่ `GearSet`), `ContentRegistryManager` (`getSetOf`), `EffectEngine.setStats/activeBonuses`, `database/test-content/set_test_prim_plate.json` | นับเฉพาะชิ้นที่สวมจริง (เกราะ 4 ช่อง + มือหลัก + มือรอง) ที่ไม่พัง และชิ้นเดียวกันนับครั้งเดียว · โบนัสตามจำนวนชิ้น: สเตตัส (บวกเข้าค่ารวมของผู้เล่น) + Unique Effect · lore ของแต่ละชิ้นบอกชื่อ set และโบนัส · `GearSet` เพิ่มใน KINDS ของ `app/api/content/[kind]` และ `load_content_file.mjs` แล้ว · **วิธีตรวจ:** ใส่เกราะ Prim ครบ 4 ชิ้น (DEF 16 + 8 จาก set = 24) → ให้ซอมบี้ตี: บางครั้งได้โล่ทอง (Bulwark) และซอมบี้โดนสะท้อน (Thorns) · ถอด 2 ชิ้น → เหลือแค่ DEF +4 · **ข้อจำกัด:** web editor ยังไม่มีหน้าแก้ GearSet / unique_effects (แก้ผ่านไฟล์ JSON + `load_content_file.mjs`) · lore ของชิ้นที่มีอยู่แล้วอัปเดตเมื่อชิ้นนั้นถูกเขียนใหม่ (ตี/ซ่อม) |
 
 ## 4. ระบบ Crafting & ตีบวก
 
@@ -268,6 +268,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | วันที่ | ID | สิ่งที่ทำ | ค้าง / ข้อควรระวัง |
 |---|---|---|---|
+| 2026-11-12 | 3.4 + 3.5 | ผู้ใช้ทดสอบในเกมผ่าน (Ember Blade, Prim Plate set) → ✅ | — |
+| 2026-11-12 | 3.4 + 3.5 Unique Effect / Set | 7 action, 4 trigger, cooldown/chance/group, proc ไม่ chain · content kind ใหม่ GearSet · test content: `weapon_test_ember_blade`, `set_test_prim_plate` (โหลดแล้ว) · คอมไพล์ผ่าน | เซิร์ฟเปิดอยู่ตอนบิลด์ → ต้องรีสตาร์ท · ยังไม่ได้ boot test/ทดสอบในเกม |
 | 2026-11-12 | 1.5 + 5.2 | ผู้ใช้ทดสอบในเกมผ่าน (Safe/PvP Zone, วงกลม/หลายเหลี่ยม, ม็อบเลิกไล่, ลบโซน, กรอบ debug) → ✅ · หมวด 5 ครบ | — |
 | 2026-11-12 | 1.5 โซน: รูปทรง + ม็อบไล่ตาม | ม็อบที่ไล่อยู่แล้วเลิกไล่เมื่อผู้เล่นเข้า Safe Zone (เช็คทุก 0.5 วิ) · โซนวงกลม `/zone circle <ชื่อ> <safe|pvp> <รัศมี>` · หลายเหลี่ยม `/zone point` ทีละมุม แล้ว `/zone poly <ชื่อ> <safe|pvp>` · `/zone remove` (ไม่ใส่ชื่อ = ลบโซนที่ยืนอยู่) · กรอบ particle รองรับทุกรูปทรง + จุดที่กำลังวาง (เหลือง) | ต้องรีสตาร์ทเซิร์ฟ · ยังไม่ได้ทดสอบในเกม |
 | 2026-11-12 | fix: ตายบ่อย + debug โซน | ดาเมจม็อบปรับตามความยากแบบ vanilla (`combat.scale_by_difficulty`, Easy 3→2.5) · เกราะทดสอบ `armor_test_prim_*` (DEF 3/6/5/2, ครบชุด 16 = โดน 76%) · ถือ `/dmb wand` → เห็นกรอบ particle ของ selection (pos1 เขียว, pos2 แดง) + action bar จากไหนไปไหน/ขนาด · `/zone show` เปิดกรอบโซน (SAFE เขียว, PVP แดง) | ต้องรีสตาร์ทเซิร์ฟ · ยังไม่ได้ทดสอบในเกม · ควรสร้าง Safe Zone ครอบจุดเกิด Hub (54 91 -19) |
