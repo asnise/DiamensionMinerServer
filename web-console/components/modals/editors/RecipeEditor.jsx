@@ -4,7 +4,15 @@ import { useState } from "react";
 import { Hammer, Plus, Trash2 } from "lucide-react";
 import ItemSelect from "@/components/ItemSelect";
 
-export default function RecipeEditor({ payload = {}, onChange }) {
+const DEFAULT_STATIONS = [
+  { id: "CRAFTING_TABLE", label: "Crafting Table" },
+  { id: "FURNACE", label: "Furnace / Smelter" },
+  { id: "DIMENSIONAL_FORGE", label: "Dimensional Forge" },
+  { id: "ALCHEMICAL_ALTAR", label: "Alchemical Altar" },
+];
+
+// stations: optional [{id,label}] (ProcessingRecipe passes the workspace machines).
+export default function RecipeEditor({ payload = {}, onChange, stations }) {
   const rawInputs = Array.isArray(payload.inputs)
     ? payload.inputs.map((inp) => ({
         item: inp.item || inp.item_id || inp.id || "",
@@ -22,7 +30,7 @@ export default function RecipeEditor({ payload = {}, onChange }) {
 
   const [form, setForm] = useState({
     name: payload.name || payload.display || "",
-    station: payload.station || "CRAFTING_TABLE",
+    station: payload.station || (stations || DEFAULT_STATIONS)[0].id,
     duration_seconds: payload.duration_seconds ?? 0,
     required_level: payload.required_level ?? 1,
     inputs: rawInputs.length > 0 ? rawInputs : [{ item: "", qty: 1 }],
@@ -79,10 +87,9 @@ export default function RecipeEditor({ payload = {}, onChange }) {
               onChange={(e) => updateField("station", e.target.value)}
               style={inputStyle}
             >
-              <option value="CRAFTING_TABLE">Crafting Table</option>
-              <option value="FURNACE">Furnace / Smelter</option>
-              <option value="DIMENSIONAL_FORGE">Dimensional Forge</option>
-              <option value="ALCHEMICAL_ALTAR">Alchemical Altar</option>
+              {(stations || DEFAULT_STATIONS).map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
             </select>
           </div>
           <div>

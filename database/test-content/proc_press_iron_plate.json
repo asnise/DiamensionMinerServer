@@ -1,0 +1,16 @@
+{
+  "definition_id": "proc_press_iron_plate",
+  "kind": "ProcessingRecipe",
+  "payload": {
+    "name": "[TEST] Press Iron Plates",
+    "station": "PRESS",
+    "inputs": [
+      { "item": "iron_ingot", "qty": 3 }
+    ],
+    "outputs": [
+      { "item": "iron_block", "qty": 1, "chance": 100 }
+    ],
+    "duration_seconds": 60,
+    "required_level": 1
+  }
+}

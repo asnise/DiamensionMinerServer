@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, User, ShoppingBag } from "lucide-react";
+import { Home, User, ShoppingBag, Store, Factory } from "lucide-react";
 import { ToastProvider } from "@/components/Toast";
 
 const NAV = [
@@ -17,6 +17,18 @@ const NAV = [
     icon: ShoppingBag,
     label: "Online Shop",
     match: (p) => p.startsWith("/shop"),
+  },
+  {
+    href: "/market",
+    icon: Store,
+    label: "Market",
+    match: (p) => p.startsWith("/market"),
+  },
+  {
+    href: "/jobs",
+    icon: Factory,
+    label: "Workspace Jobs",
+    match: (p) => p.startsWith("/jobs"),
   },
   {
     href: "/profile",

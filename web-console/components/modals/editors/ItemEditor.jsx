@@ -111,6 +111,8 @@ export default function ItemEditor({ payload = {}, onChange }) {
               <option value="TOOL">Mining Tool</option>
               <option value="MATERIAL">Crafting Material</option>
               <option value="CONSUMABLE">Consumable</option>
+              <option value="FRAGMENT">Engrave Fragment</option>
+              <option value="KEY">Dungeon Key</option>
             </select>
           </div>
           <div>

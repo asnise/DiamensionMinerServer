@@ -63,7 +63,8 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
             for (DungeonDefinition def : plugin.getContentRegistryManager().getAllDungeons()) {
                 sender.sendMessage(ChatColor.YELLOW + "- " + ChatColor.AQUA + def.getDisplayName()
                         + ChatColor.GRAY + " (ID: " + def.getDefinitionId() + ") "
-                        + ChatColor.DARK_GRAY + "[Lv." + def.getRequiredLevel() + " | " + (def.getTimeLimitSeconds() / 60) + "m]");
+                        + ChatColor.DARK_GRAY + "[Lv." + def.getRequiredLevel() + " | " + (def.getTimeLimitSeconds() / 60) + "m"
+                        + " | entry: " + instanceManager.describeEntryCost(def) + "]");
             }
 
             Map<String, DungeonInstanceSession> sessions = instanceManager.getActiveSessions();
@@ -124,7 +125,7 @@ public class DungeonCommand implements CommandExecutor, TabCompleter {
             }
 
             player.sendMessage(ChatColor.GREEN + "[Dungeon] Provisioning instance: " + def.getDisplayName() + "...");
-            instanceManager.createDungeonInstance(def, party.getPartyId(), party.getLeaderId(), party.getMembers())
+            instanceManager.createDungeonInstance(def, party.getPartyId(), player, party.getMembers())
                     .thenAccept(session -> {
                         player.sendMessage(ChatColor.GREEN + "[Dungeon] Instance ready! Session ID: " + ChatColor.GOLD + session.getSessionId());
                         player.sendMessage(ChatColor.AQUA + "Others can join using: " + ChatColor.YELLOW + "/dungeon join " + session.getSessionId());

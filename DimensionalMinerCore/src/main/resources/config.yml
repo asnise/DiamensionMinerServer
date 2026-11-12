@@ -131,3 +131,55 @@ progression:
     kill_cap_per_hour: 300   # anti-farm
     craft_energy_per_xp: 10  # crafting / forging: 1 Server XP per 10 Energy spent
     dungeon_clear: 100       # when the dungeon's final_rewards has no SERVER_XP
+
+# Tiers (1.1 / 1.2). Tier 0 is the hub (overworld_t0). Tier k: "map" is a folder (path from the server
+# folder) with the map: a dimension folder (has region/) or a level folder (dimensions/minecraft/overworld).
+# It is copied once into the hub level as overworld_tk, then channels 2..N are cloned from it.
+# (Delete overworld_t0/dimensions/minecraft/overworld_tk* to re-copy after changing the map.)
+# Unlock = server_level AND every flag (player_unlocks): clear:<dungeon_id> is granted by clearing that
+# dungeon; quest:<id> is granted with /tier grant until the quest system exists.
+channels:
+  per_tier: 3
+  max_per_tier: 9          # extra channels open when every open one is full
+  max_players: 50          # per channel (admins may exceed)
+  extra_idle_minutes: 10   # an extra channel closes after this long empty
+tiers:
+  1:
+    name: "Tier 1"
+    map: "../Map/OverWorld_t1"
+    icon: IRON_PICKAXE
+    server_level: 2
+    flags: ["clear:dungeon_test_training"]
+# Warp (1.4): prepare without moving or taking damage, then a cooldown.
+warp:
+  prepare_seconds: 5
+  cooldown_seconds: 30
+
+# Economy (Task.md 8.3 / 8.4 / 8.5)
+economy:
+  market:
+    tax_basis_points: 500       # 5% of the price, taken from the seller (floor)
+    listing_hours: 48
+    max_listings_per_player: 10
+    min_price: 1
+    max_price: 10000000
+  buyback:                      # Market Clerk buys these for COIN (capped COIN source)
+    daily_coin_cap: 500         # per account per day
+    prices:
+      prim_metal: 4
+      raw_iron: 2
+      coal: 1
+  trade:
+    max_distance: 8             # blocks; both players must be in a Safe Zone
+
+# Workspaces (Task.md 8.1 / 8.2)
+workspace:
+  template: ws_template          # world folder in the server root; missing = a flat world
+  unload_after_seconds: 60
+  # Offsets "x,y,z" from the world spawn (standing level). One station per pad.
+  pads: ["3,0,-2", "3,0,0", "3,0,2", "5,0,-2", "5,0,0", "5,0,2"]
+  stash_offset: "-3,0,0"
+  stations:                      # TYPE (ProcessingRecipe.station) -> block
+    SMELTER: BLAST_FURNACE
+    PRESS: SMITHING_TABLE
+    REFINERY: BREWING_STAND

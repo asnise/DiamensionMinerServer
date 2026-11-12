@@ -35,10 +35,19 @@ public class DungeonInstanceManager {
     private final Set<UUID> provisioningParties = ConcurrentHashMap.newKeySet();
     /** sessionId -> first time the watchdog saw nobody from the roster inside the instance. */
     private final Map<String, Long> emptySince = new ConcurrentHashMap<>();
+    /** instance_runs / run_members and the entry-cost escrow (6.1 / 6.2). */
+    private final DungeonRunStore runs;
+    /** False until runs left open by the last stop have been settled (refund / close). */
+    private volatile boolean recovered = false;
 
     // Constructors
     public DungeonInstanceManager(DimensionalMinerCore plugin) {
         this.plugin = plugin;
+        this.runs = new DungeonRunStore(plugin);
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            runs.recover();
+            recovered = true;
+        });
         // Watchdog: enforces time_limit_seconds and closes instances nobody is in any more.
         Bukkit.getScheduler().runTaskTimer(plugin, this::watchdogTick, WATCHDOG_PERIOD_TICKS, WATCHDOG_PERIOD_TICKS);
         // One tick after enable (worlds are loaded by then): remove instance folders left by a crash.
@@ -56,9 +65,25 @@ public class DungeonInstanceManager {
         return false;
     }
 
-    public CompletableFuture<DungeonInstanceSession> createDungeonInstance(DungeonDefinition def, UUID partyId, UUID leaderId, Set<UUID> members) {
+    /**
+     * Opens a run for the leader's party (6.1 / 6.2):
+     * <ol>
+     *   <li>main thread: checks, then the key items of the entry cost are taken from the leader's inventory;</li>
+     *   <li>async: one transaction records the run (RESERVED) with its escrow and charges the currency cost;</li>
+     *   <li>async: the template is copied (LOADING); main thread: the world loads, the party goes in (ACTIVE,
+     *       cost consumed).</li>
+     * </ol>
+     * If anything fails before ACTIVE the cost is refunded: items back to the inventory (mailbox if the
+     * leader went offline), currency back through the ledger.
+     */
+    public CompletableFuture<DungeonInstanceSession> createDungeonInstance(DungeonDefinition def, UUID partyId, Player leader, Set<UUID> members) {
         CompletableFuture<DungeonInstanceSession> future = new CompletableFuture<>();
+        UUID leaderId = leader.getUniqueId();
 
+        if (!recovered) {
+            future.completeExceptionally(new IllegalStateException("The dungeon system is still starting up, try again in a moment."));
+            return future;
+        }
         // One run per party, and nobody may be in two runs at once.
         if (isPartyBusy(partyId)) {
             future.completeExceptionally(new IllegalStateException("Your party already has a dungeon running or starting."));
@@ -71,8 +96,11 @@ public class DungeonInstanceManager {
                 return future;
             }
         }
-        provisioningParties.add(partyId);
-        future.whenComplete((s, ex) -> provisioningParties.remove(partyId));
+        if (members.size() > def.getMaxPlayers()) {
+            future.completeExceptionally(new IllegalStateException("Your party has " + members.size() + " players; this dungeon allows "
+                    + def.getMaxPlayers() + "."));
+            return future;
+        }
 
         final Set<UUID> roster = Set.copyOf(members);
         String sessionId = UUID.randomUUID().toString().substring(0, 8);
@@ -89,7 +117,39 @@ public class DungeonInstanceManager {
             return future;
         }
 
+        // ---- entry cost (6.2): the leader pays. Key items are taken now and held until the run starts.
+        Map<String, Integer> keyItems = new java.util.LinkedHashMap<>();
+        Map<String, Long> currencies = new java.util.LinkedHashMap<>();
+        for (DungeonDefinition.EntryCost c : def.getEntryCost()) {
+            if (c.isItem()) keyItems.merge(c.item(), (int) c.amount(), Integer::sum);
+            else currencies.merge(c.currency(), c.amount(), Long::sum);
+        }
+        var craft = plugin.getCraftService();
+        for (Map.Entry<String, Integer> k : keyItems.entrySet()) {
+            int have = craft.count(leader, k.getKey());
+            if (have < k.getValue()) {
+                future.completeExceptionally(new IllegalStateException("You need " + k.getValue() + "x " + craft.displayName(k.getKey())
+                        + " to open this dungeon (you have " + have + ")."));
+                return future;
+            }
+        }
+        final List<org.bukkit.inventory.ItemStack> taken = keyItems.isEmpty() ? List.of() : craft.take(leader, keyItems);
+        if (!taken.isEmpty()) craft.persist(leader);
+
+        provisioningParties.add(partyId);
+        future.whenComplete((s, ex) -> provisioningParties.remove(partyId));
+        final UUID runId = UUID.randomUUID();
+
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            DungeonRunStore.ReserveResult res = runs.reserve(runId, def, partyId, leaderId, roster, keyItems, currencies);
+            if (res.status() != DungeonRunStore.Reserve.OK) {
+                // Nothing was written: hand the key items straight back.
+                Bukkit.getScheduler().runTask(plugin, () -> giveBack(leaderId, taken));
+                future.completeExceptionally(new IllegalStateException(res.status() == DungeonRunStore.Reserve.NO_FUNDS
+                        ? "Not enough " + res.shortCurrency() + " (you have " + res.balance() + ", need " + currencies.get(res.shortCurrency()) + ")."
+                        : "The run could not be recorded (database error). Nothing was charged."));
+                return;
+            }
             try {
                 // Paper 26.x loads extra worlds as dimensions of the main level
                 // (server log: "level 'minecraft:<name>'"), i.e. from
@@ -102,30 +162,35 @@ public class DungeonInstanceManager {
                 } catch (IOException cleanup) {
                     plugin.getLogger().warning("Could not remove half-copied " + dimensionRuntimeDir + "; it is removed on next start.");
                 }
-                future.completeExceptionally(new IllegalStateException("Could not copy the template map: " + e.getMessage(), e));
+                refundRun(runId, leaderId, taken, future, "Could not copy the template map: " + e.getMessage());
                 return;
             }
+            runs.markLoading(runId);
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 try {
                     WorldCreator wc = new WorldCreator(runtimeWorldName);
                     World world = wc.createWorld();
                     if (world == null) {
-                        future.completeExceptionally(new IllegalStateException("Failed to load instance world: " + runtimeWorldName));
+                        refundRun(runId, leaderId, taken, future, "Failed to load instance world: " + runtimeWorldName);
                         return;
                     }
 
                     world.setAutoSave(false);
                     world.setGameRule(org.bukkit.GameRule.KEEP_INVENTORY, true);
 
-                    DungeonInstanceSession session = new DungeonInstanceSession(plugin, sessionId, def, runtimeWorldName, world, partyId, leaderId, roster);
+                    DungeonInstanceSession session = new DungeonInstanceSession(plugin, sessionId, runId, def, runtimeWorldName, world, partyId, leaderId, roster);
                     activeSessions.put(sessionId, session);
                     for (UUID mId : roster) {
                         playerToSession.put(mId, sessionId);
                     }
+                    Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> runs.markActive(runId));
 
                     broadcastParty(roster, ChatColor.AQUA + "[Dungeon] Entering " + def.getDisplayName()
                             + ChatColor.GRAY + " (time limit " + (def.getTimeLimitSeconds() / 60) + " min)");
+                    if (!def.getEntryCost().isEmpty()) {
+                        broadcastParty(roster, ChatColor.GRAY + "[Dungeon] Entry paid by " + leader.getName() + ": " + describeEntryCost(def));
+                    }
 
                     for (UUID mId : roster) {
                         Player p = Bukkit.getPlayer(mId);
@@ -137,12 +202,53 @@ public class DungeonInstanceManager {
                     session.start();
                     future.complete(session);
                 } catch (Exception e) {
-                    future.completeExceptionally(e);
+                    refundRun(runId, leaderId, taken, future, e.getMessage());
                 }
             });
         });
 
         return future;
+    }
+
+    private String describeCost(DungeonDefinition.EntryCost c) {
+        return c.isItem() ? c.amount() + "x " + plugin.getCraftService().displayName(c.item()) : c.amount() + " " + c.currency();
+    }
+
+    /** "1x Training Key, 100 COIN": the entry cost of a dungeon for chat ("free" if none). */
+    public String describeEntryCost(DungeonDefinition def) {
+        if (def.getEntryCost().isEmpty()) return "free";
+        return String.join(", ", def.getEntryCost().stream().map(this::describeCost).toList());
+    }
+
+    /**
+     * Any thread. The run never started: refund it in the DB, then give back the held key items.
+     * If the DB refund fails the items are kept back on purpose: the run stays RESERVED and the next
+     * start refunds it by mail ({@link DungeonRunStore#recover}), so nothing is paid back twice.
+     */
+    private void refundRun(UUID runId, UUID leaderId, List<org.bukkit.inventory.ItemStack> taken,
+                           CompletableFuture<DungeonInstanceSession> future, String why) {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            boolean ok = runs.refund(runId, false);
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (ok) giveBack(leaderId, taken);
+                future.completeExceptionally(new IllegalStateException(why + (ok
+                        ? " The entry cost was refunded."
+                        : " The refund could not be recorded now; it is retried (by mailbox) on the next server start.")));
+            });
+        });
+    }
+
+    /** Main thread. Held key items back to the leader (inventory, or the mailbox if offline). */
+    private void giveBack(UUID leaderId, List<org.bukkit.inventory.ItemStack> taken) {
+        if (taken.isEmpty()) return;
+        var craft = plugin.getCraftService();
+        Player p = Bukkit.getPlayer(leaderId);
+        if (p != null && p.isOnline()) {
+            craft.give(p, taken);
+            craft.persist(p);
+        } else {
+            craft.returnOffline(leaderId, taken, "DUNGEON_KEY_REFUND");
+        }
     }
 
     /**
@@ -174,6 +280,7 @@ public class DungeonInstanceManager {
 
         session.addMember(playerId);
         playerToSession.put(playerId, sessionId);
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> runs.memberJoined(session.getRunId(), playerId));
         player.teleportAsync(session.getWorld().getSpawnLocation());
         player.sendMessage(ChatColor.GREEN + "[Dungeon] Joined instance: " + session.getDefinition().getDisplayName());
         broadcastParty(session.getMembers(), ChatColor.YELLOW + player.getName() + " has entered the dungeon!");
@@ -187,6 +294,8 @@ public class DungeonInstanceManager {
             DungeonInstanceSession session = activeSessions.get(sessionId);
             if (session != null) {
                 session.removeMember(player.getUniqueId());
+                UUID pid = player.getUniqueId();
+                Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> runs.memberLeft(session.getRunId(), pid));
                 broadcastParty(session.getMembers(), ChatColor.YELLOW + player.getName() + " left the dungeon.");
             }
         }
@@ -199,6 +308,7 @@ public class DungeonInstanceManager {
             DungeonInstanceSession session = activeSessions.remove(sessionId);
             if (session == null) continue;
             session.cleanup();
+            runs.close(session.getRunId(), session.getOutcome() != null ? session.getOutcome() : "ABORTED"); // blocking: schedulers are stopped
             World world = session.getWorld();
             if (world != null && Bukkit.getWorld(world.getUID()) != null) {
                 for (Player p : List.copyOf(world.getPlayers())) evacuateNow(p);
@@ -222,7 +332,7 @@ public class DungeonInstanceManager {
             if (limitMillis > 0 && now - session.getStartedAtMillis() > limitMillis) {
                 broadcastParty(session.getMembers(), ChatColor.RED + "[Dungeon] Time is up! The instance is closing.");
                 emptySince.remove(id);
-                destroyInstance(id);
+                destroyInstance(id, "FAILED");
                 continue;
             }
 
@@ -241,7 +351,7 @@ public class DungeonInstanceManager {
                 if (now - since > EMPTY_GRACE_MILLIS) {
                     plugin.getLogger().info("[Dungeon] Closing empty instance " + session.getRuntimeWorldName());
                     emptySince.remove(id);
-                    destroyInstance(id);
+                    destroyInstance(id, "FAILED");
                 }
             }
         }
@@ -312,6 +422,14 @@ public class DungeonInstanceManager {
      * The future completes with true when the folders were deleted.
      */
     public CompletableFuture<Boolean> destroyInstance(String sessionId) {
+        return destroyInstance(sessionId, "ABORTED");
+    }
+
+    /**
+     * @param outcome recorded on the run unless the session already has one (a clear = SUCCEEDED):
+     *                FAILED for time up / everyone gone, ABORTED for an admin destroy
+     */
+    public CompletableFuture<Boolean> destroyInstance(String sessionId, String outcome) {
         CompletableFuture<Boolean> future = new CompletableFuture<>();
         DungeonInstanceSession session = activeSessions.remove(sessionId);
         emptySince.remove(sessionId);
@@ -319,6 +437,9 @@ public class DungeonInstanceManager {
             future.complete(false);
             return future;
         }
+        String finalOutcome = session.getOutcome() != null ? session.getOutcome() : outcome;
+        UUID runId = session.getRunId();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> runs.close(runId, finalOutcome));
 
         // Forget everyone mapped to this session, including players who joined late.
         playerToSession.values().removeIf(sessionId::equals);
@@ -402,6 +523,8 @@ public class DungeonInstanceManager {
         }
         return Optional.empty();
     }
+
+    public DungeonRunStore getRunStore() { return runs; }
 
     public Map<String, DungeonInstanceSession> getActiveSessions() {
         return Collections.unmodifiableMap(activeSessions);

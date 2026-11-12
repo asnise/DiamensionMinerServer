@@ -88,8 +88,7 @@ public final class BuildManager {
 
     /** The hub map's channel worlds if the world is one of them, otherwise just the world itself. */
     public List<String> familyOf(String world) {
-        List<String> channels = plugin.getChannelManager() != null ? plugin.getChannelManager().getChannelWorldNames() : List.of();
-        return channels.contains(world) ? channels : List.of(world);
+        return plugin.getChannelManager() != null ? plugin.getChannelManager().familyOf(world) : List.of(world);
     }
 
     /**

@@ -168,5 +168,6 @@ cd DimensionalMinerCore
 | `/forge npc <add\|remove\|list>` | (admin) วาง/ลบ NPC Blacksmith (ซ่อม gear ด้วย COIN) ที่ตำแหน่งที่ยืน ในทุก channel |
 | `/forge energy <amount> [player]` | (admin) เติม Energy ผ่าน ledger สำหรับทดสอบ |
 | `/zone create <ชื่อ> <safe\|pvp> [3d]` · `/zone circle <ชื่อ> <safe\|pvp> <รัศมี>` · `/zone point` + `/zone poly <ชื่อ> <safe\|pvp>` · `/zone remove [ชื่อ]` · `list` · `here` · `show` | (admin) โซนสี่เหลี่ยม (จาก `/dmb wand`), วงกลม (รอบตัว), หลายเหลี่ยม (ปักมุมทีละจุด) · SAFE = ไม่มีการต่อสู้/ม็อบไม่เกิด/เลิกไล่, PVP = ผู้เล่นตีกันได้ · ครอบทุกความสูง ใช้ทุก channel · `show` แสดงกรอบ particle |
+| `/tier` (หรือ `/dim`) · `/tier <เลข\|hub>` | หน้าต่างเลือกมิติ (Tier) พร้อมเงื่อนไขปลดล็อก แล้ววาร์ป (เตรียม 5 วิ, ขยับ/โดนตี = ยกเลิก, คูลดาวน์ 30 วิ) · admin: `/tier grant\|revoke <ผู้เล่น> <flag>`, `/tier flags <ผู้เล่น>` |
 | `/level` (หรือ `/core`) | ดู Server Level, XP ถึงเลเวลถัดไป และ Energy · แถบ EXP ปกติแสดงยอด Energy, tab list แสดง Server Level |
 | `/weblogin` | สร้างรหัส OTP 6 ตัวอักษร สำหรับล็อกอินเข้าใช้งาน Web Console |

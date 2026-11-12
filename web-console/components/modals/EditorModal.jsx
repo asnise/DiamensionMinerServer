@@ -11,6 +11,13 @@ import UpgradeEditor from "./editors/UpgradeEditor";
 import RecipeEditor from "./editors/RecipeEditor";
 import LootTableEditor from "./editors/LootTableEditor";
 import DungeonEditor from "./editors/DungeonEditor";
+import WorldBossEditor from "./editors/WorldBossEditor";
+
+const PROCESSING_STATIONS = [
+  { id: "SMELTER", label: "Smelter" },
+  { id: "PRESS", label: "Press" },
+  { id: "REFINERY", label: "Refinery" },
+];
 import GenericEditor from "./editors/GenericEditor";
 
 export default function EditorModal({ kind = "ItemBase", initialData, onClose }) {
@@ -101,11 +108,18 @@ export default function EditorModal({ kind = "ItemBase", initialData, onClose })
     if (kind === "Recipe") {
       return <RecipeEditor payload={payload} onChange={handlePayloadChange} />;
     }
+    if (kind === "ProcessingRecipe") {
+      // Workspace machines (config workspace.stations); duration is real time and runs while offline.
+      return <RecipeEditor payload={payload} onChange={handlePayloadChange} stations={PROCESSING_STATIONS} />;
+    }
     if (kind === "LootTable") {
       return <LootTableEditor payload={payload} onChange={handlePayloadChange} />;
     }
     if (kind === "Dungeon") {
       return <DungeonEditor payload={payload} onChange={handlePayloadChange} />;
+    }
+    if (kind === "WorldBoss") {
+      return <WorldBossEditor payload={payload} onChange={handlePayloadChange} />;
     }
     return <GenericEditor payload={payload} onChange={handlePayloadChange} />;
   };

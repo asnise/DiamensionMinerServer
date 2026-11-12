@@ -62,6 +62,25 @@ commands:
     description: Admin tools for mining nodes
     usage: /mine <types|node add <ore>|node remove|info|list [radius]|respawn>
     permission: dimensionalminer.admin
+  ah:
+    description: Auction House - browse and buy (list items at a Market Clerk)
+    usage: /ah [mine]
+    aliases: [market, auction]
+  ws:
+    description: Your workspace - stations, stash, offline processing jobs
+    usage: /ws [home|visit <player>|leave|manage|allow|deny|access|jobs]
+    aliases: [workspace]
+  trade:
+    description: Trade items and COIN with a nearby player (Safe Zone)
+    usage: /trade <player> | accept <player> | deny <player>
+  wboss:
+    description: World Boss admin - list, spawn, despawn
+    usage: /wboss list | spawn <id> [here] | despawn [id|all]
+    aliases: [worldboss]
+  tier:
+    description: Dimensions (Tiers) - see unlocks and warp; admins grant unlock flags
+    usage: /tier [hub|<number>|grant|revoke|flags]
+    aliases: [dimension, dim, tiers]
   level:
     description: Show your Server Level (Core) and Energy
     usage: /level

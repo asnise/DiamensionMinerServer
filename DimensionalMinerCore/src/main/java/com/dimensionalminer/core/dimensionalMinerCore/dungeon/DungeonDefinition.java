@@ -19,11 +19,21 @@ public class DungeonDefinition {
     private final int maxPlayers;
     private final List<DungeonStep> steps;
     private final JsonObject finalRewards;
+    /** What the party leader pays to open a run (6.2): key items and/or currency. Empty = free. */
+    private final List<EntryCost> entryCost;
+
+    /** One entry cost: an item ({@code item} + amount) or a currency ({@code currency} + amount). */
+    public record EntryCost(String item, String currency, long amount) {
+        public boolean isItem() { return item != null; }
+        public String describe() { return amount + (isItem() ? "x " + item : " " + currency); }
+    }
+
+    public static final java.util.Set<String> COST_CURRENCIES = java.util.Set.of("COIN", "ENERGY");
 
     // Constructors
     public DungeonDefinition(String definitionId, String displayName, String description,
                              String templateMap, int requiredLevel, int timeLimitSeconds,
-                             int maxPlayers, List<DungeonStep> steps, JsonObject finalRewards) {
+                             int maxPlayers, List<DungeonStep> steps, JsonObject finalRewards, List<EntryCost> entryCost) {
         this.definitionId = definitionId;
         this.displayName = displayName;
         this.description = description;
@@ -33,6 +43,7 @@ public class DungeonDefinition {
         this.maxPlayers = maxPlayers;
         this.steps = steps;
         this.finalRewards = finalRewards;
+        this.entryCost = List.copyOf(entryCost);
     }
 
     // Public Methods
@@ -57,7 +68,33 @@ public class DungeonDefinition {
         JsonObject finalRewards = payload.has("final_rewards") && payload.get("final_rewards").isJsonObject()
                 ? payload.getAsJsonObject("final_rewards") : new JsonObject();
 
-        return new DungeonDefinition(defId, displayName, description, templateMap, requiredLevel, timeLimitSeconds, maxPlayers, stepList, finalRewards);
+        return new DungeonDefinition(defId, displayName, description, templateMap, requiredLevel, timeLimitSeconds, maxPlayers,
+                stepList, finalRewards, parseEntryCost(defId, payload.get("entry_cost")));
+    }
+
+    /**
+     * "entry_cost": one object or an array of them, each {"item": id, "qty": n} or
+     * {"currency": "COIN"|"ENERGY", "amount": n}. Invalid entries are skipped with a warning.
+     */
+    private static List<EntryCost> parseEntryCost(String defId, JsonElement el) {
+        List<EntryCost> out = new ArrayList<>();
+        if (el == null || el.isJsonNull()) return out;
+        List<JsonElement> list = new ArrayList<>();
+        if (el.isJsonArray()) el.getAsJsonArray().forEach(list::add); else list.add(el);
+        for (JsonElement e : list) {
+            if (!e.isJsonObject()) continue;
+            JsonObject o = e.getAsJsonObject();
+            if (o.has("item") && !o.get("item").getAsString().isBlank()) {
+                int qty = o.has("qty") ? o.get("qty").getAsInt() : o.has("amount") ? o.get("amount").getAsInt() : 1;
+                if (qty > 0) out.add(new EntryCost(o.get("item").getAsString().toLowerCase(java.util.Locale.ROOT), null, qty));
+            } else if (o.has("currency")) {
+                String cur = o.get("currency").getAsString().toUpperCase(java.util.Locale.ROOT);
+                long amount = o.has("amount") ? o.get("amount").getAsLong() : 0;
+                if (COST_CURRENCIES.contains(cur) && amount > 0) out.add(new EntryCost(null, cur, amount));
+                else java.util.logging.Logger.getLogger("DimensionalMinerCore").warning("[Dungeon] " + defId + ": invalid entry_cost " + o);
+            }
+        }
+        return out;
     }
 
     public String getDefinitionId() { return definitionId; }
@@ -69,4 +106,10 @@ public class DungeonDefinition {
     public int getMaxPlayers() { return maxPlayers; }
     public List<DungeonStep> getSteps() { return steps; }
     public JsonObject getFinalRewards() { return finalRewards; }
+    public List<EntryCost> getEntryCost() { return entryCost; }
+
+    /** content_definitions.version of this definition (instance_runs.config_version). */
+    private int version = 1;
+    public int getVersion() { return version; }
+    public void setVersion(int version) { this.version = Math.max(1, version); }
 }

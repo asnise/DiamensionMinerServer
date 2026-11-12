@@ -113,6 +113,25 @@ The web console never writes to the player's live inventory. Shop purchases (`ap
 
 - Progression (`progression/ProgressionService`): EXP orbs become ENERGY (vanilla XP stays 0, the XP bar shows Energy via `sendExperienceChange`). SERVER_XP (Server Level, also called Core) is a separate ledger fed by mining, kills (hourly cap), Energy spent on crafting/forging, and dungeon clears. Gains are batched and committed every 3 s (system accounts `WORLD_XP`, `SERVER_XP_SOURCE`).
 
+- Tiers (`tier/TierManager`, `tier/WarpService`, `/tier`): Tier 0 = hub `overworld_t0`; Tier k = `overworld_tk`, copied once from `tiers.k.map`, plus channels `overworld_tk_chN` (`ChannelManager` families, `familyOf(world)`). Unlock = Server Level + `player_unlocks` flags (`clear:<dungeon>` from the dungeon reward transaction, `quest:<id>` via `/tier grant`), re-checked on every teleport into a tier world. Channels (1.3, `ChannelManager`):
+  - `channels.per_tier` channels are always open, with at most `channels.max_players` each.
+  - Join and tier warps use `pick()`: a party member's channel if it has room, else the least busy one.
+  - When every channel is full an extra one opens (up to `max_per_tier`) and gets channel 1's ore nodes via `MineNodeManager.cloneWorldNodes`. Extras close after `extra_idle_minutes` empty.
+  - Code that lists channels must read `familyWorlds()` / `getChannelWorldNames()` each time, not cache them.
+
+  `DatabaseManager` merges new default config keys into an existing config.yml at startup.
+
+- Dungeon runs & keys (`dungeon/runtime/DungeonRunStore`): every run is an `instance_runs` row (RESERVED → LOADING → ACTIVE → SUCCEEDED → CLOSED + outcome) with `run_members`. Dungeon `entry_cost` (key items and/or COIN/ENERGY) is paid by the party leader. Items are held in memory, currency goes to the `DUNGEON_ENTRY` escrow, and the escrow is stored in the run's `operations.response`. The cost is refunded only if the run never reaches ACTIVE (load failure; server stop, which `recover()` settles on startup).
+
+- World Boss (`worldboss/`, content kind `WorldBoss`, `/wboss`): spawns every `interval_minutes` in each channel of its tier (`world_encounters`, unique per channel + boss + window). Damage is counted at MONITOR. Standard rewards go to every eligible player, rare rewards to Top 3 ∪ Last Shot. Server XP is split from a pool by largest remainder. Payouts are capped per window across channels via `reward_claim_scopes`.
+
+- Economy (`market/`): the Auction House is browsed with `/ah` anywhere outside dungeons, but listing needs a Market Clerk NPC (`/ah npc add`, `market_npcs.yml`). A listed item goes into escrow as the full ItemStack: `asset_locations` MARKET_ESCROW + `material_stacks.item_data`. A buy is one transaction (5% tax to `MARKET_TAX`), and the item reaches the buyer via a grant whose items carry `item_data` (base64); `GrantsMenu` restores it exactly. The Market Clerk also buys materials (`economy.buyback`, daily COIN cap). `/trade` is P2P: Safe Zone only, no tax, offers held in memory, COIN moved as a net amount. **Ledger rule:** at most one `ledger_entries` row per (operation, wallet) (`uq_ledger_operation_account`). Use `applyDelta` per wallet when one wallet pays several parties.
+
+- Workspaces (`workspace/`, `/ws`): every player has one.
+  - The world `ws_<12 hex>` is a copy of `workspace.template` (a flat world if that folder is missing). It is loaded on entry and unloaded and deleted after 60 s empty.
+  - Persistent state lives in the DB: stations on pads (`workspaces.layout`), the stash (`asset_locations` STASH, container `ws:<id>`), the ACL (`workspace_acl` VISIT / USE_STATION / STORAGE) and jobs.
+  - Processing jobs use content kind `ProcessingRecipe` (Recipe payload, station = `workspace.stations` TYPE). Inputs are escrowed exactly and outputs are rolled at start. An async worker turns due jobs READY and creates the output grant once (`FOR UPDATE SKIP LOCKED`), so jobs finish while players are offline.
+
 ### EXeaEntityCore
 
 Renders Blockbench models as hierarchies of `ItemDisplay` bones that ride a root driver mob (Husk/ArmorStand). The pieces:

@@ -129,10 +129,9 @@ public class MineCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    /** A node placed in the hub map is placed in every channel copy of it; other worlds stand alone. */
+    /** A node placed in a tier map (hub included) is placed in every channel copy of it; other worlds stand alone. */
     private List<String> familyOf(String world) {
-        List<String> channels = plugin.getChannelManager() != null ? plugin.getChannelManager().getChannelWorldNames() : List.of();
-        return channels.contains(world) ? channels : List.of(world);
+        return plugin.getChannelManager() != null ? plugin.getChannelManager().familyOf(world) : List.of(world);
     }
 
     private Block target(Player player) {

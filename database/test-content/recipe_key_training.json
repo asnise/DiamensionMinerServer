@@ -1,0 +1,17 @@
+{
+  "definition_id": "recipe_key_training",
+  "kind": "Recipe",
+  "payload": {
+    "name": "Training Key",
+    "inputs": [
+      { "item": "prim_metal", "qty": 3 },
+      { "item": "iron_ingot", "qty": 1 }
+    ],
+    "outputs": [
+      { "item": "key_training", "qty": 1, "chance": 100 }
+    ],
+    "station": "CRAFTING_TABLE",
+    "required_level": 1,
+    "duration_seconds": 3
+  }
+}

@@ -122,6 +122,9 @@ public final class CraftCommand implements TabExecutor, Listener {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getHand() != EquipmentSlot.HAND || event.getClickedBlock() == null) return;
         Player p = event.getPlayer();
         if (p.isSneaking() && p.isOp() && p.getGameMode() == GameMode.CREATIVE) return;
+        // Workspace stations (smithing table = PRESS, ...) are handled by WorkspaceManager.
+        var ws = service.plugin().getWorkspaces();
+        if (ws != null && ws.isWorkspaceWorld(p.getWorld())) return;
         Material type = event.getClickedBlock().getType();
         if (type == Material.CRAFTING_TABLE) {
             event.setCancelled(true);

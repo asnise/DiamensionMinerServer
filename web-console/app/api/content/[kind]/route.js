@@ -3,7 +3,7 @@ import { listDefinitions, upsertDefinition } from '@/lib/content';
 import { requireAdmin } from '@/lib/auth';
 
 // Content kinds the admin editor manages (see app/admin/editor TABS and docs/database-schema.md).
-const KINDS = new Set(['ItemBase', 'PassiveGenerator', 'UpgradeTree', 'Recipe', 'LootTable', 'Dungeon', 'OreType', 'GearSet']);
+const KINDS = new Set(['ItemBase', 'PassiveGenerator', 'UpgradeTree', 'Recipe', 'LootTable', 'Dungeon', 'OreType', 'GearSet', 'WorldBoss', 'ProcessingRecipe']);
 const DEFINITION_ID_RE = /^[a-z0-9_]{1,64}$/;
 
 // Admin-only: definitions include unreleased content, and writes change live item stats.

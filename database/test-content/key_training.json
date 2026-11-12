@@ -1,0 +1,14 @@
+{
+  "definition_id": "key_training",
+  "kind": "ItemBase",
+  "payload": {
+    "name": "Training Key",
+    "display": "Training Key",
+    "icon": "tripwire_hook",
+    "category": "KEY",
+    "rarity": "UNCOMMON",
+    "binding": "UNBOUND",
+    "stack": 16,
+    "description": "Opens the [TEST] Training Grounds. The party leader spends one per run."
+  }
+}

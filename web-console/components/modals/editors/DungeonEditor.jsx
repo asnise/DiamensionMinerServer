@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  KeyRound,
 } from "lucide-react";
 import ItemSelect from "@/components/ItemSelect";
 
@@ -52,6 +53,12 @@ export default function DungeonEditor({ payload = {}, onChange }) {
     required_level: payload.required_level ?? 1,
     time_limit_seconds: payload.time_limit_seconds ?? 900,
     max_players: payload.max_players ?? 4,
+    // 6.2: what the party leader pays to open a run. Item keys and/or COIN / ENERGY.
+    entry_cost: Array.isArray(payload.entry_cost)
+      ? payload.entry_cost
+      : payload.entry_cost && typeof payload.entry_cost === "object"
+        ? [payload.entry_cost]
+        : [],
     steps: Array.isArray(payload.steps) && payload.steps.length > 0
       ? payload.steps.map((s, idx) => ({
           step_id: s.step_id || `step_${idx + 1}`,
@@ -125,6 +132,7 @@ export default function DungeonEditor({ payload = {}, onChange }) {
       required_level: Number(updated.required_level) || 1,
       time_limit_seconds: Number(updated.time_limit_seconds) || 900,
       max_players: Number(updated.max_players) || 4,
+      entry_cost: updated.entry_cost,
       steps: updated.steps,
       final_rewards: updated.final_rewards,
     });
@@ -315,6 +323,72 @@ export default function DungeonEditor({ payload = {}, onChange }) {
               onChange={(e) => updateField("time_limit_seconds", e.target.value)}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Entry Cost (keys) */}
+      <div className="card" style={{ padding: 18 }}>
+        <h4 style={{ margin: "0 0 6px", fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+          <KeyRound size={16} /> Entry Cost ({form.entry_cost.length})
+        </h4>
+        <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-secondary)" }}>
+          Paid by the party leader when the run opens. Refunded only if the instance fails to load or the server
+          stops before the run starts. Empty = free entry.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {form.entry_cost.map((c, cIdx) => {
+            const isItem = c.currency === undefined;
+            const setCost = (next) => {
+              const list = [...form.entry_cost];
+              list[cIdx] = next;
+              updateField("entry_cost", list);
+            };
+            return (
+              <div key={cIdx} style={{ display: "grid", gridTemplateColumns: "1fr 3fr 1fr 40px", gap: 8, alignItems: "center" }}>
+                <select
+                  value={isItem ? "item" : "currency"}
+                  onChange={(e) =>
+                    setCost(e.target.value === "item" ? { item: "", qty: 1 } : { currency: "COIN", amount: 100 })
+                  }
+                >
+                  <option value="item">Key item</option>
+                  <option value="currency">Currency</option>
+                </select>
+                {isItem ? (
+                  <ItemSelect value={c.item || ""} onChange={(val) => setCost({ ...c, item: val })} />
+                ) : (
+                  <select value={c.currency} onChange={(e) => setCost({ ...c, currency: e.target.value })}>
+                    <option value="COIN">COIN</option>
+                    <option value="ENERGY">ENERGY</option>
+                  </select>
+                )}
+                <input
+                  type="number"
+                  min="1"
+                  value={isItem ? c.qty || 1 : c.amount || 1}
+                  onChange={(e) => {
+                    const n = Math.max(1, Number(e.target.value) || 1);
+                    setCost(isItem ? { ...c, qty: n } : { ...c, amount: n });
+                  }}
+                />
+                <button
+                  type="button"
+                  style={{ background: "transparent", border: "none", color: "var(--text-tertiary)", cursor: "pointer" }}
+                  onClick={() => updateField("entry_cost", form.entry_cost.filter((_, i) => i !== cIdx))}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            );
+          })}
+          <button
+            type="button"
+            className="btn btn-sm btn-outline"
+            style={{ alignSelf: "flex-start", marginTop: 6 }}
+            onClick={() => updateField("entry_cost", [...form.entry_cost, { item: "", qty: 1 }])}
+          >
+            <Plus size={14} /> Add Cost
+          </button>
         </div>
       </div>
 

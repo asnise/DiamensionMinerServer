@@ -269,6 +269,14 @@ public final class GrantsMenu implements InventoryHolder {
             for (JsonElement el : arr) {
                 if (!el.isJsonObject()) return null;
                 JsonObject it = el.getAsJsonObject();
+                // Exact item (market purchase, trade return): the full serialized ItemStack, so gear keeps
+                // its Advancement / Refine / Engraves / durability.
+                if (it.has("item_data") && !it.get("item_data").isJsonNull()) {
+                    ItemStack exact = ItemStack.deserializeBytes(java.util.Base64.getDecoder().decode(it.get("item_data").getAsString()));
+                    if (exact == null || exact.isEmpty()) return null;
+                    out.add(exact);
+                    continue;
+                }
                 String itemId = firstString(it, "item_id", "item", "definition_id", "id", "material");
                 int amount = firstInt(it, 1, "amount", "qty", "quantity");
                 if (itemId == null || amount <= 0 || amount > MAX_AMOUNT_PER_ENTRY) return null;

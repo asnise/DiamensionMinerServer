@@ -33,6 +33,9 @@ public class ContentRegistryManager {
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> lootRegistry = Map.of();
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> recipeRegistry = Map.of();
     private volatile Map<String, GearSet> setRegistry = Map.of();
+    private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.worldboss.WorldBossDefinition> worldBossRegistry = Map.of();
+    /** Content kind ProcessingRecipe (8.2): same payload as Recipe, station = a workspace machine. */
+    private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> processingRegistry = Map.of();
     /** piece definition id → its set. */
     private volatile Map<String, GearSet> setByPiece = Map.of();
     private final DecimalFormat df = new DecimalFormat("#.##");
@@ -43,8 +46,10 @@ public class ContentRegistryManager {
                           Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType> ores,
                           Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> loot,
                           Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> recipes,
-                          Map<String, GearSet> sets) {
-        Parsed() { this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new java.util.LinkedHashMap<>(), new HashMap<>()); }
+                          Map<String, GearSet> sets,
+                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.worldboss.WorldBossDefinition> bosses,
+                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> processing) {
+        Parsed() { this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new java.util.LinkedHashMap<>(), new HashMap<>(), new java.util.LinkedHashMap<>(), new java.util.LinkedHashMap<>()); }
     }
 
     public ContentRegistryManager(DimensionalMinerCore plugin) {
@@ -95,6 +100,11 @@ public class ContentRegistryManager {
             for (var out : r.outputs()) if (!isKnownItem(parsed.items(), out.item())) return warnRecipe(r, out.item());
             return false;
         });
+        parsed.processing().values().removeIf(r -> {
+            for (var in : r.inputs()) if (!isKnownItem(parsed.items(), in.item())) return warnRecipe(r, in.item());
+            for (var out : r.outputs()) if (!isKnownItem(parsed.items(), out.item())) return warnRecipe(r, out.item());
+            return false;
+        });
 
         registry = Map.copyOf(parsed.items());
         dungeonRegistry = Map.copyOf(parsed.dungeons());
@@ -111,10 +121,13 @@ public class ContentRegistryManager {
             }
         }
         setRegistry = Map.copyOf(parsed.sets());
+        worldBossRegistry = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(parsed.bosses()));
+        processingRegistry = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(parsed.processing()));
         setByPiece = Map.copyOf(byPiece);
         plugin.getLogger().info("[ContentRegistry] Loaded " + parsed.items().size() + " items, " + parsed.dungeons().size()
                 + " dungeons, " + parsed.ores().size() + " ore types, " + parsed.loot().size() + " loot tables, "
-                + parsed.recipes().size() + " recipes, " + parsed.sets().size() + " gear sets from " + file.getPath());
+                + parsed.recipes().size() + " recipes, " + parsed.sets().size() + " gear sets, " + parsed.bosses().size()
+                + " world bosses, " + parsed.processing().size() + " processing recipes from " + file.getPath());
         return true;
     }
 
@@ -136,6 +149,22 @@ public class ContentRegistryManager {
 
     public Collection<GearSet> getAllSets() {
         return setRegistry.values();
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.worldboss.WorldBossDefinition getWorldBoss(String id) {
+        return id == null ? null : worldBossRegistry.get(id.toLowerCase(Locale.ROOT));
+    }
+
+    public Collection<com.dimensionalminer.core.dimensionalMinerCore.worldboss.WorldBossDefinition> getAllWorldBosses() {
+        return worldBossRegistry.values();
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe getProcessingRecipe(String id) {
+        return id == null ? null : processingRegistry.get(id.toLowerCase(Locale.ROOT));
+    }
+
+    public Collection<com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> getAllProcessingRecipes() {
+        return processingRegistry.values();
     }
 
     public com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe getRecipe(String id) {
@@ -223,11 +252,17 @@ public class ContentRegistryManager {
                         if (kind.equalsIgnoreCase("Dungeon")) {
                             com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition d =
                                     com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition.fromJson(defId, payload);
+                            if (obj.has("version")) d.setVersion(obj.get("version").getAsInt());
                             out.dungeons().put(d.getDefinitionId().toLowerCase(Locale.ROOT), d);
                         } else if (kind.equalsIgnoreCase("OreType")) {
                             out.ores().put(key, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType.fromJson(defId, payload));
                         } else if (kind.equalsIgnoreCase("LootTable")) {
                             out.loot().put(key, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable.fromJson(defId, payload));
+                        } else if (kind.equalsIgnoreCase("ProcessingRecipe")) {
+                            out.processing().put(key, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe.fromJson(defId, payload));
+                        } else if (kind.equalsIgnoreCase("WorldBoss")) {
+                            int ver = obj.has("version") ? obj.get("version").getAsInt() : 1;
+                            out.bosses().put(key, com.dimensionalminer.core.dimensionalMinerCore.worldboss.WorldBossDefinition.fromJson(defId, ver, payload));
                         } else if (kind.equalsIgnoreCase("GearSet")) {
                             out.sets().put(key, GearSet.fromJson(key, payload, w -> plugin.getLogger().warning("[ContentRegistry] " + w)));
                         } else if (kind.equalsIgnoreCase("Recipe")) {

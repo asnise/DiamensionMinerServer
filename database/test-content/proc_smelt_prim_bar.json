@@ -1,0 +1,18 @@
+{
+  "definition_id": "proc_smelt_prim_bar",
+  "kind": "ProcessingRecipe",
+  "payload": {
+    "name": "[TEST] Smelt Prim Bars",
+    "station": "SMELTER",
+    "inputs": [
+      { "item": "prim_metal", "qty": 4 },
+      { "item": "coal", "qty": 1 }
+    ],
+    "outputs": [
+      { "item": "iron_ingot", "qty": 3, "chance": 100 },
+      { "item": "key_training", "qty": 1, "chance": 25 }
+    ],
+    "duration_seconds": 120,
+    "required_level": 1
+  }
+}

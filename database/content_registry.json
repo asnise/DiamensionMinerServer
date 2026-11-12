@@ -186,7 +186,13 @@
               "qty": 3
             }
           ]
-        }
+        },
+        "entry_cost": [
+          {
+            "item": "key_training",
+            "qty": 1
+          }
+        ]
       }
     }
   ],
@@ -336,6 +342,21 @@
       }
     },
     {
+      "definition_id": "key_training",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Training Key",
+        "display": "Training Key",
+        "icon": "tripwire_hook",
+        "category": "KEY",
+        "rarity": "UNCOMMON",
+        "binding": "UNBOUND",
+        "stack": 16,
+        "description": "Opens the [TEST] Training Grounds. The party leader spends one per run."
+      }
+    },
+    {
       "definition_id": "prim_metal",
       "version": 1,
       "kind": "ItemBase",
@@ -476,6 +497,12 @@
             "weight": 5,
             "min_qty": 1,
             "max_qty": 1
+          },
+          {
+            "item": "key_training",
+            "weight": 3,
+            "min_qty": 1,
+            "max_qty": 1
           }
         ]
       }
@@ -538,6 +565,34 @@
         "station": "CRAFTING_TABLE",
         "required_level": 1,
         "duration_seconds": 5
+      }
+    },
+    {
+      "definition_id": "recipe_key_training",
+      "version": 1,
+      "kind": "Recipe",
+      "payload": {
+        "name": "Training Key",
+        "inputs": [
+          {
+            "item": "prim_metal",
+            "qty": 3
+          },
+          {
+            "item": "iron_ingot",
+            "qty": 1
+          }
+        ],
+        "outputs": [
+          {
+            "item": "key_training",
+            "qty": 1,
+            "chance": 100
+          }
+        ],
+        "station": "CRAFTING_TABLE",
+        "required_level": 1,
+        "duration_seconds": 3
       }
     }
   ],
@@ -607,6 +662,145 @@
             ]
           }
         ]
+      }
+    }
+  ],
+  "WorldBoss": [
+    {
+      "definition_id": "worldboss_test_colossus",
+      "version": 1,
+      "kind": "WorldBoss",
+      "payload": {
+        "display_name": "[TEST] Stone Colossus",
+        "tier": 0,
+        "vanilla_type": "IRON_GOLEM",
+        "stats": {
+          "hp": 300,
+          "attack": 8,
+          "defense": 15
+        },
+        "spawn": {
+          "x": 89,
+          "y": 91,
+          "z": 29
+        },
+        "leash_radius": 24,
+        "interval_minutes": 30,
+        "lifetime_minutes": 10,
+        "eligibility": {
+          "min_damage_percent": 1,
+          "min_active_seconds": 10
+        },
+        "server_xp_pool": 300,
+        "rewards": {
+          "standard": [
+            {
+              "item": "prim_metal",
+              "qty": 3
+            },
+            {
+              "currency": "COIN",
+              "amount": 20
+            }
+          ],
+          "rare": [
+            {
+              "item": "key_training",
+              "qty": 1
+            },
+            {
+              "currency": "COIN",
+              "amount": 100
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "ProcessingRecipe": [
+    {
+      "definition_id": "proc_press_iron_plate",
+      "version": 1,
+      "kind": "ProcessingRecipe",
+      "payload": {
+        "name": "[TEST] Press Iron Plates",
+        "station": "PRESS",
+        "inputs": [
+          {
+            "item": "iron_ingot",
+            "qty": 3
+          }
+        ],
+        "outputs": [
+          {
+            "item": "iron_block",
+            "qty": 1,
+            "chance": 100
+          }
+        ],
+        "duration_seconds": 60,
+        "required_level": 1
+      }
+    },
+    {
+      "definition_id": "proc_refine_raw_iron",
+      "version": 1,
+      "kind": "ProcessingRecipe",
+      "payload": {
+        "name": "[TEST] Refine Raw Iron",
+        "station": "REFINERY",
+        "inputs": [
+          {
+            "item": "raw_iron",
+            "qty": 4
+          },
+          {
+            "item": "coal",
+            "qty": 1
+          }
+        ],
+        "outputs": [
+          {
+            "item": "prim_metal",
+            "qty": 2,
+            "chance": 100
+          }
+        ],
+        "duration_seconds": 90,
+        "required_level": 1
+      }
+    },
+    {
+      "definition_id": "proc_smelt_prim_bar",
+      "version": 1,
+      "kind": "ProcessingRecipe",
+      "payload": {
+        "name": "[TEST] Smelt Prim Bars",
+        "station": "SMELTER",
+        "inputs": [
+          {
+            "item": "prim_metal",
+            "qty": 4
+          },
+          {
+            "item": "coal",
+            "qty": 1
+          }
+        ],
+        "outputs": [
+          {
+            "item": "iron_ingot",
+            "qty": 3,
+            "chance": 100
+          },
+          {
+            "item": "key_training",
+            "qty": 1,
+            "chance": 25
+          }
+        ],
+        "duration_seconds": 120,
+        "required_level": 1
       }
     }
   ]

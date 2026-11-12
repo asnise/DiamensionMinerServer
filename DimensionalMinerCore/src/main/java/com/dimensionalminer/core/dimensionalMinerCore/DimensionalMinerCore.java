@@ -14,10 +14,15 @@ public final class DimensionalMinerCore extends JavaPlugin {
     private com.dimensionalminer.core.dimensionalMinerCore.dungeon.runtime.DungeonInstanceManager dungeonInstanceManager;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.ResourcePackManager resourcePacks;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.CraftService craftService;
+    private com.dimensionalminer.core.dimensionalMinerCore.worldboss.WorldBossManager worldBosses;
     private com.dimensionalminer.core.dimensionalMinerCore.combat.CombatService combatService;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems gearItems;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.BlacksmithNpcs blacksmiths;
     private com.dimensionalminer.core.dimensionalMinerCore.zone.ZoneManager zoneManager;
+    private com.dimensionalminer.core.dimensionalMinerCore.market.MarketManager market;
+    private com.dimensionalminer.core.dimensionalMinerCore.market.TradeManager trades;
+    private com.dimensionalminer.core.dimensionalMinerCore.workspace.WorkspaceManager workspaces;
+    private com.dimensionalminer.core.dimensionalMinerCore.mining.MineNodeManager mineNodeManager;
     private com.dimensionalminer.core.dimensionalMinerCore.progression.ProgressionService progression;
 
     @Override
@@ -57,6 +62,14 @@ public final class DimensionalMinerCore extends JavaPlugin {
 
         partyManager = new com.dimensionalminer.core.dimensionalMinerCore.party.PartyManager(this);
         channelManager = new com.dimensionalminer.core.dimensionalMinerCore.channel.ChannelManager(this);
+        getServer().getPluginManager().registerEvents(channelManager, this); // 1.3: join → least busy channel
+        // Tiers (1.1 / 1.2) and warps (1.4)
+        var warps = new com.dimensionalminer.core.dimensionalMinerCore.tier.WarpService(this);
+        getServer().getPluginManager().registerEvents(warps, this);
+        var tierManager = new com.dimensionalminer.core.dimensionalMinerCore.tier.TierManager(this, warps);
+        getServer().getPluginManager().registerEvents(tierManager, this);
+        getCommand("tier").setExecutor(tierManager);
+        getCommand("tier").setTabCompleter(tierManager);
         dungeonInstanceManager = new com.dimensionalminer.core.dimensionalMinerCore.dungeon.runtime.DungeonInstanceManager(this);
 
         getServer().getPluginManager().registerEvents(new com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonEventListener(this, dungeonInstanceManager), this);
@@ -66,9 +79,16 @@ public final class DimensionalMinerCore extends JavaPlugin {
         com.dimensionalminer.core.dimensionalMinerCore.mining.MineNodeManager mineNodes =
                 new com.dimensionalminer.core.dimensionalMinerCore.mining.MineNodeManager(this);
         getServer().getPluginManager().registerEvents(mineNodes, this);
+        mineNodeManager = mineNodes;
         var mineCmd = new com.dimensionalminer.core.dimensionalMinerCore.mining.MineCommand(this, mineNodes);
         getCommand("mine").setExecutor(mineCmd);
         getCommand("mine").setTabCompleter(mineCmd);
+
+        // World Boss (7.x): scheduled bosses per Tier channel, contribution, Top 3 / Last Shot, quota
+        worldBosses = new com.dimensionalminer.core.dimensionalMinerCore.worldboss.WorldBossManager(this);
+        getServer().getPluginManager().registerEvents(worldBosses, this);
+        getCommand("wboss").setExecutor(worldBosses);
+        getCommand("wboss").setTabCompleter(worldBosses);
 
         // World building for admins (/dmb, blueprints in plugins/DimensionalMinerCore/blueprints)
         var buildManager = new com.dimensionalminer.core.dimensionalMinerCore.build.BuildManager(this, mineNodes);
@@ -101,6 +121,20 @@ public final class DimensionalMinerCore extends JavaPlugin {
         blacksmiths = new com.dimensionalminer.core.dimensionalMinerCore.craft.BlacksmithNpcs(this, craftService);
         getServer().getPluginManager().registerEvents(blacksmiths, this);
         blacksmiths.spawnAll(); // channel clones that load later get theirs on WorldLoadEvent
+        // Economy (8.3 / 8.4 / 8.5): Auction House (/ah + Market Clerk NPC), merchant buyback, P2P trade
+        market = new com.dimensionalminer.core.dimensionalMinerCore.market.MarketManager(this);
+        getServer().getPluginManager().registerEvents(market, this);
+        market.spawnAll();
+        getCommand("ah").setExecutor(market);
+        getCommand("ah").setTabCompleter(market);
+        trades = new com.dimensionalminer.core.dimensionalMinerCore.market.TradeManager(this);
+        getCommand("trade").setExecutor(trades);
+        getCommand("trade").setTabCompleter(trades);
+        // Workspaces (8.1) + offline processing jobs (8.2)
+        workspaces = new com.dimensionalminer.core.dimensionalMinerCore.workspace.WorkspaceManager(this);
+        getServer().getPluginManager().registerEvents(workspaces, this);
+        getCommand("ws").setExecutor(workspaces);
+        getCommand("ws").setTabCompleter(workspaces);
         var craftCmd = new com.dimensionalminer.core.dimensionalMinerCore.craft.CraftCommand(craftService, resourcePacks, blacksmiths);
         getServer().getPluginManager().registerEvents(craftCmd, this);
         getCommand("craft").setExecutor(craftCmd);
@@ -157,10 +191,14 @@ public final class DimensionalMinerCore extends JavaPlugin {
     public void onDisable() {
         if (resourcePacks != null) resourcePacks.stop();
         if (blacksmiths != null) blacksmiths.despawnAll();
+        if (market != null) market.despawnAll();
+        if (trades != null) trades.shutdown(); // offered items go back before inventories are saved
+        if (workspaces != null) workspaces.shutdown(); // stash saved on close, players out, worlds unloaded
         if (dungeonInstanceManager != null) {
             // Moves players to the hub and removes instance worlds before inventories are flushed.
             dungeonInstanceManager.shutdownAll();
         }
+        if (worldBosses != null) worldBosses.shutdown(); // removes boss mobs, marks encounters ABORTED
         if (craftService != null) {
             // Forge Heat games hold crafting inputs in memory: give them back before inventories are saved.
             com.dimensionalminer.core.dimensionalMinerCore.craft.HeatMenu.refundAll(craftService);
@@ -185,6 +223,22 @@ public final class DimensionalMinerCore extends JavaPlugin {
 
     public com.dimensionalminer.core.dimensionalMinerCore.combat.CombatService getCombatService() {
         return combatService;
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.craft.CraftService getCraftService() {
+        return craftService;
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.mining.MineNodeManager getMineNodes() {
+        return mineNodeManager;
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.workspace.WorkspaceManager getWorkspaces() {
+        return workspaces;
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.zone.ZoneManager getZoneManager() {
+        return zoneManager;
     }
 
     public DatabaseManager getDatabaseManager() {

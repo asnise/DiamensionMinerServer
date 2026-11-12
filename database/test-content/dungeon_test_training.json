@@ -13,46 +13,113 @@
         "step_id": "test_step_1_kill",
         "name": "Kill 5 Husks",
         "on_start": [
-          { "action": "BROADCAST_TITLE", "title": "&eStep 1/3", "subtitle": "&7Kill 5 test husks" },
-          { "action": "SUMMON_GROUP", "mob_id": "test_husk", "vanilla_type": "HUSK", "amount": 5, "radius": 3, "center": { "x": 55, "y": 91, "z": -21 }, "delay_ticks": 60 }
+          {
+            "action": "BROADCAST_TITLE",
+            "title": "&eStep 1/3",
+            "subtitle": "&7Kill 5 test husks"
+          },
+          {
+            "action": "SUMMON_GROUP",
+            "mob_id": "test_husk",
+            "vanilla_type": "HUSK",
+            "amount": 5,
+            "radius": 3,
+            "center": {
+              "x": 55,
+              "y": 91,
+              "z": -21
+            },
+            "delay_ticks": 60
+          }
         ],
         "on_current": null,
-        "goal": { "type": "KILL_MOBS", "target_mob_id": "test_husk", "target_count": 5, "display_text": "Kill test husks" },
+        "goal": {
+          "type": "KILL_MOBS",
+          "target_mob_id": "test_husk",
+          "target_count": 5,
+          "display_text": "Kill test husks"
+        },
         "on_end": [
-          { "action": "BROADCAST_MESSAGE", "message": "&a[TEST] Step 1 on_end ran (must appear exactly ONCE)" }
+          {
+            "action": "BROADCAST_MESSAGE",
+            "message": "&a[TEST] Step 1 on_end ran (must appear exactly ONCE)"
+          }
         ]
       },
       {
         "step_id": "test_step_2_survive",
         "name": "Survive 10 seconds",
         "on_start": [
-          { "action": "BROADCAST_TITLE", "title": "&eStep 2/3", "subtitle": "&7Survive 10 seconds" }
+          {
+            "action": "BROADCAST_TITLE",
+            "title": "&eStep 2/3",
+            "subtitle": "&7Survive 10 seconds"
+          }
         ],
         "on_current": null,
-        "goal": { "type": "SURVIVE_TIME", "duration_seconds": 10 },
+        "goal": {
+          "type": "SURVIVE_TIME",
+          "duration_seconds": 10
+        },
         "on_end": [
-          { "action": "BROADCAST_MESSAGE", "message": "&a[TEST] Step 2 on_end ran (must appear exactly ONCE)" }
+          {
+            "action": "BROADCAST_MESSAGE",
+            "message": "&a[TEST] Step 2 on_end ran (must appear exactly ONCE)"
+          }
         ]
       },
       {
         "step_id": "test_step_3_boss",
         "name": "Defeat the Test Boss",
         "on_start": [
-          { "action": "BROADCAST_TITLE", "title": "&cStep 3/3", "subtitle": "&7Defeat the Test Boss" },
-          { "action": "SUMMON_BOSS", "boss_id": "test_boss", "vanilla_type": "VINDICATOR", "name": "&cTest Boss", "max_health": 40, "x": 55, "y": 91, "z": -21, "delay_ticks": 40 }
+          {
+            "action": "BROADCAST_TITLE",
+            "title": "&cStep 3/3",
+            "subtitle": "&7Defeat the Test Boss"
+          },
+          {
+            "action": "SUMMON_BOSS",
+            "boss_id": "test_boss",
+            "vanilla_type": "VINDICATOR",
+            "name": "&cTest Boss",
+            "max_health": 40,
+            "x": 55,
+            "y": 91,
+            "z": -21,
+            "delay_ticks": 40
+          }
         ],
         "on_current": null,
-        "goal": { "type": "KILL_BOSS", "boss_id": "test_boss", "display_text": "Defeat the Test Boss" },
+        "goal": {
+          "type": "KILL_BOSS",
+          "boss_id": "test_boss",
+          "display_text": "Defeat the Test Boss"
+        },
         "on_end": [
-          { "action": "BROADCAST_MESSAGE", "message": "&a[TEST] Step 3 on_end ran (must appear exactly ONCE)" }
+          {
+            "action": "BROADCAST_MESSAGE",
+            "message": "&a[TEST] Step 3 on_end ran (must appear exactly ONCE)"
+          }
         ]
       }
     ],
     "final_rewards": {
       "guaranteed": [
-        { "item": "prim_metal", "qty": 2 },
-        { "item": "bread", "qty": 3 }
+        {
+          "item": "prim_metal",
+          "qty": 2
+        },
+        {
+          "item": "bread",
+          "qty": 3
+        }
       ]
-    }
+    },
+    "entry_cost": [
+      {
+        "item": "key_training",
+        "qty": 1
+      }
+    ]
   }
 }

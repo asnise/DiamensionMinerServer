@@ -654,6 +654,25 @@ public final class MineNodeManager implements Listener {
         return byBlock.containsKey(new BlockKey(world, x, y, z));
     }
 
+    /**
+     * Channel 1.3: a channel opened at runtime gets the ore nodes of its channel 1 (positions and ore type,
+     * fresh generation). Nodes the target world already has (rows from an earlier opening) are left alone,
+     * so their generation keeps matching the DB.
+     */
+    public void cloneWorldNodes(String fromWorld, String toWorld) {
+        Map<String, List<Pos>> byOre = new HashMap<>();
+        for (Node n : byBlock.values()) {
+            if (!n.world.equals(fromWorld) || isNodeAt(toWorld, n.x, n.y, n.z)) continue;
+            byOre.computeIfAbsent(n.oreId, k -> new ArrayList<>()).add(new Pos(n.x, n.y, n.z));
+        }
+        for (Map.Entry<String, List<Pos>> e : byOre.entrySet()) {
+            addNodes(List.of(toWorld), e.getValue(), e.getKey(), err -> {
+                if (err != null) plugin.getLogger().warning("[Mining] Copying nodes to " + toWorld + " failed: " + err);
+                else plugin.getLogger().info("[Mining] Copied " + e.getValue().size() + " " + e.getKey() + " node(s) to " + toWorld);
+            });
+        }
+    }
+
     /** Test helper: depleted nodes in a world respawn on the next queue pass. */
     public int respawnNow(String world) {
         int count = 0;

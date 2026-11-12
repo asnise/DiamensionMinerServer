@@ -38,6 +38,10 @@ public class DungeonInstanceSession {
     // Variables/Fields
     private final DimensionalMinerCore plugin;
     private final String sessionId;
+    /** instance_runs.run_id of this run (6.1). */
+    private final UUID runId;
+    /** Set to SUCCEEDED once the goal is reached; destroyInstance records it as the run outcome. */
+    private volatile String outcome;
     private final DungeonDefinition definition;
     private final String runtimeWorldName;
     private final World world;
@@ -58,11 +62,12 @@ public class DungeonInstanceSession {
     private final long startedAtMillis;
 
     // Constructors
-    public DungeonInstanceSession(DimensionalMinerCore plugin, String sessionId,
+    public DungeonInstanceSession(DimensionalMinerCore plugin, String sessionId, UUID runId,
                                   DungeonDefinition definition, String runtimeWorldName,
                                   World world, UUID partyId, UUID leaderId, Set<UUID> members) {
         this.plugin = plugin;
         this.sessionId = sessionId;
+        this.runId = runId;
         this.definition = definition;
         this.runtimeWorldName = runtimeWorldName;
         this.world = world;
@@ -251,6 +256,7 @@ public class DungeonInstanceSession {
     public void finishDungeon() {
         if (completed) return; // rewards and the auto-destroy must only be scheduled once
         this.completed = true;
+        this.outcome = "SUCCEEDED";
         if (currentIntervalTask != null) currentIntervalTask.cancel();
         if (currentGoalTask != null) currentGoalTask.cancel();
 
@@ -263,6 +269,8 @@ public class DungeonInstanceSession {
             for (UUID mId : rewarded) {
                 results.put(mId, grantFinalRewards(mId));
             }
+            plugin.getDungeonInstanceManager().getRunStore().markSucceeded(runId,
+                    results.entrySet().stream().filter(e -> e.getValue() == null).map(java.util.Map.Entry::getKey).toList());
             Bukkit.getScheduler().runTask(plugin, () -> announceVictory(results));
         });
 
@@ -627,6 +635,15 @@ public class DungeonInstanceSession {
                     applyDelta(conn, opId, systemWallet, -c.getValue(), "DUNGEON_REWARD");
                 }
 
+                // Boss proof for Tier unlocks (1.2): "clear:<dungeon_id>", recorded with the rewards.
+                try (PreparedStatement u = conn.prepareStatement(
+                        "INSERT INTO player_unlocks (player_id, unlock_id, source_operation_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING")) {
+                    u.setObject(1, accountId);
+                    u.setString(2, "clear:" + definition.getDefinitionId().toLowerCase(Locale.ROOT));
+                    u.setObject(3, opId);
+                    u.executeUpdate();
+                }
+
                 conn.commit();
                 return null;
             } catch (SQLException e) {
@@ -708,6 +725,8 @@ public class DungeonInstanceSession {
     }
 
     public String getSessionId() { return sessionId; }
+    public UUID getRunId() { return runId; }
+    public String getOutcome() { return outcome; }
     public String getRuntimeWorldName() { return runtimeWorldName; }
     public World getWorld() { return world; }
     public Set<UUID> getMembers() { return members; }

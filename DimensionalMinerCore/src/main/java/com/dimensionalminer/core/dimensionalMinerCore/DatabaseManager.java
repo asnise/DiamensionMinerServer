@@ -33,6 +33,12 @@ public class DatabaseManager {
         }
 
         plugin.saveDefaultConfig();
+        // Add sections that newer versions introduced (tiers, combat.mobs, ...) to an existing config.yml.
+        // Bukkit does not read nested sections from the jar defaults, so they must be in the file.
+        // Values already in the file are never changed.
+        plugin.getConfig().options().copyDefaults(true);
+        plugin.saveConfig();
+        plugin.reloadConfig(); // read the merged file back so explicit-default lookups see the new keys
         String profile = plugin.getConfig().getString("database.profile", "cloud").toLowerCase();
 
         String prefix = "databases." + profile + ".";

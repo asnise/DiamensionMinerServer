@@ -12,6 +12,8 @@ import {
   ShoppingBag,
   ShieldCheck,
   Castle,
+  Skull,
+  Factory,
 } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import ShopManager from "@/components/ShopManager";
@@ -22,8 +24,10 @@ const TABS = [
   { id: "PassiveGenerator", label: "Passive Income", icon: Settings },
   { id: "UpgradeTree", label: "Upgrades & Skills", icon: Pickaxe },
   { id: "Recipe", label: "Crafting Recipes", icon: Hammer },
+  { id: "ProcessingRecipe", label: "Processing (Workspace)", icon: Factory },
   { id: "LootTable", label: "Loot Tables", icon: Gift },
   { id: "Dungeon", label: "Dungeons & Raids", icon: Castle },
+  { id: "WorldBoss", label: "World Bosses", icon: Skull },
 ];
 
 export default function Home() {
