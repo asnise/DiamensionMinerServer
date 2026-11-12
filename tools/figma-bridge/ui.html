@@ -1,0 +1,36 @@
+<style>
+  body { font: 12px sans-serif; margin: 10px; color: #222; }
+  input { width: 90px; }
+  #st { margin-top: 8px; }
+  .ok { color: #1a7f37; } .bad { color: #c62828; }
+</style>
+<div>Port <input id="port" value="3055"> Channel <input id="ch" value="flowux"></div>
+<button id="go" style="margin-top:8px">Connect</button>
+<div id="st" class="bad">disconnected</div>
+<div id="log" style="margin-top:4px;color:#666"></div>
+<script>
+let ws = null, channel = '', runs = 0;
+const st = document.getElementById('st'), log = document.getElementById('log');
+function setSt(t, ok) { st.textContent = t; st.className = ok ? 'ok' : 'bad'; }
+function connect() {
+  if (ws) try { ws.close(); } catch (e) {}
+  channel = document.getElementById('ch').value.trim();
+  ws = new WebSocket('ws://localhost:' + document.getElementById('port').value.trim());
+  ws.onopen = () => { ws.send(JSON.stringify({ type: 'join', channel })); setSt('connected: ' + channel, true); };
+  ws.onclose = () => { setSt('disconnected — retry in 3s', false); setTimeout(connect, 3000); };
+  ws.onmessage = (e) => {
+    let d; try { d = JSON.parse(e.data); } catch (x) { return; }
+    const m = d.message;
+    if (!m || m.command !== 'exec' || m.result !== undefined || m.error !== undefined) return;
+    log.textContent = 'run #' + (++runs) + ' ' + (m.label || '');
+    parent.postMessage({ pluginMessage: { type: 'exec', id: m.id, code: m.params.code } }, '*');
+  };
+}
+window.onmessage = (e) => {
+  const m = e.data.pluginMessage;
+  if (!m || m.type !== 'result' || !ws) return;
+  ws.send(JSON.stringify({ id: m.id, type: 'message', channel, message: { id: m.id, result: m.result, error: m.error } }));
+};
+document.getElementById('go').onclick = connect;
+connect();
+</script>
