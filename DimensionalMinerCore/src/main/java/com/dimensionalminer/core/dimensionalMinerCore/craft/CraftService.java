@@ -51,8 +51,14 @@ public final class CraftService {
 
     public record ItemTx(String definitionId, String action, JsonObject metadata) {}
 
+    /** energy = amount of {@code currency} charged to CRAFTING_FEES (ENERGY unless stated). */
     public record Commit(UUID minecraftId, String idempotencyKey, String requestHash, String commandType,
-                         long energy, List<ItemTx> transactions, JsonObject response) {}
+                         long energy, List<ItemTx> transactions, JsonObject response, String currency) {
+        public Commit(UUID minecraftId, String idempotencyKey, String requestHash, String commandType,
+                      long energy, List<ItemTx> transactions, JsonObject response) {
+            this(minecraftId, idempotencyKey, requestHash, commandType, energy, transactions, response, "ENERGY");
+        }
+    }
 
     private final DimensionalMinerCore plugin;
     private final ContentRegistryManager registry;
@@ -159,12 +165,17 @@ public final class CraftService {
 
     /** Loads the player's ENERGY balance off the main thread, then calls back on the main thread. */
     public void loadEnergy(Player player, Consumer<Long> callback) {
+        loadBalance(player, "ENERGY", callback);
+    }
+
+    /** Wallet balance of a currency (-1 if it could not be read), delivered on the main thread. */
+    public void loadBalance(Player player, String currency, Consumer<Long> callback) {
         UUID mc = player.getUniqueId();
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             long energy = -1;
             try {
                 UUID account = plugin.getDatabaseManager().getAccountId(mc);
-                if (account != null) energy = plugin.getDatabaseManager().getBalances(account).getOrDefault("ENERGY", 0L);
+                if (account != null) energy = plugin.getDatabaseManager().getBalances(account).getOrDefault(currency, 0L);
             } catch (SQLException e) {
                 plugin.getLogger().warning("[Craft] Could not load energy of " + mc + ": " + e.getMessage());
             }
@@ -194,13 +205,13 @@ public final class CraftService {
                     conn.rollback();
                     return new Result(Status.DUPLICATE, -1);
                 }
-                Ledger.Wallet wallet = Ledger.lockWallet(conn, account, null, "ENERGY");
+                Ledger.Wallet wallet = Ledger.lockWallet(conn, account, null, c.currency());
                 if (wallet.balance() < c.energy()) {
                     conn.rollback();
                     return new Result(Status.NO_ENERGY, wallet.balance());
                 }
                 if (c.energy() > 0) {
-                    Ledger.Wallet fees = Ledger.lockWallet(conn, null, FEE_ACCOUNT, "ENERGY");
+                    Ledger.Wallet fees = Ledger.lockWallet(conn, null, FEE_ACCOUNT, c.currency());
                     Ledger.transfer(conn, opId, wallet.id(), fees.id(), c.energy(), c.commandType());
                 }
                 try (PreparedStatement tx = conn.prepareStatement(

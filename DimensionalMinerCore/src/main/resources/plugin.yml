@@ -55,7 +55,7 @@ commands:
     usage: /craft [pack]
   forge:
     description: Open the forge (Advancement / Refine); admins can grant Energy
-    usage: /forge [inherit | energy <amount> [player]]
+    usage: /forge [inherit | energy <amount> [player] | npc <add|remove|list>]
     aliases: [smith, refine]
 
   mine:
@@ -68,5 +68,5 @@ commands:
     permission: dimensionalminer.admin
 permissions:
   dimensionalminer.admin:
-    description: Admin commands (/dm, /mine, /dmb, /forge energy)
+    description: Admin commands (/dm, /mine, /dmb, /forge energy, /forge npc)
     default: op

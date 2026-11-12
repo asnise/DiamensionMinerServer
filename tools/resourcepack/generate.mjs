@@ -226,6 +226,9 @@ function forgeBg() {
   // inheritance window button (row 1, cols 6-8)
   const [ix, iy] = slotXY(1, 6);
   button(c, ix, iy, 54, 18, 'INHERIT', hex('#6a3a8a'), hex('#f0dcff'), t);
+  // self repair button (row 0, cols 5-7)
+  const [px0, py0] = slotXY(0, 5);
+  button(c, px0, py0, 54, 18, 'REPAIR', hex('#4a6a3a'), hex('#e8ffd8'), t);
   playerInventory(c, t);
   return c;
 }

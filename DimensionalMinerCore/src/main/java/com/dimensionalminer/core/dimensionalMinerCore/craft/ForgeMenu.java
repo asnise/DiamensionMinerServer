@@ -41,6 +41,7 @@ public final class ForgeMenu extends GuiMenu {
     private static final int[] SLOT_REF = {slot(5, 5), slot(5, 6), slot(5, 7)};
     private static final int[] SLOT_ENGRAVE = {slot(2, 3), slot(2, 4), slot(2, 5)};
     private static final int[] SLOT_INHERIT = {slot(1, 6), slot(1, 7), slot(1, 8)};
+    private static final int[] SLOT_REPAIR = {slot(0, 5), slot(0, 6), slot(0, 7)};
 
     private final ResourcePackManager packs;
     private UUID selected;
@@ -114,6 +115,7 @@ public final class ForgeMenu extends GuiMenu {
                     text("Engrave slot", NamedTextColor.GRAY), lines(text("Select gear first", NamedTextColor.DARK_GRAY))));
             ItemStack off = button(false, Material.GRAY_STAINED_GLASS_PANE, text("Select gear first", NamedTextColor.GRAY), null);
             for (int s : SLOT_ADV) inventory.setItem(s, off);
+            for (int s : SLOT_REPAIR) inventory.setItem(s, off);
             for (int s : SLOT_REF) inventory.setItem(s, off);
             fillEmpty();
             return;
@@ -157,6 +159,20 @@ public final class ForgeMenu extends GuiMenu {
         if (advBlock != null) advLore.add(text(advBlock, NamedTextColor.RED));
         ItemStack adv = button(advBlock == null, Material.ORANGE_STAINED_GLASS_PANE, text("ADVANCE", advBlock == null ? NamedTextColor.GOLD : NamedTextColor.GRAY), advLore);
         for (int s : SLOT_ADV) inventory.setItem(s, adv);
+
+        // REPAIR (self, Energy)
+        int maxDur = service.gear().maxDurability(t.def()), curDur = service.gear().durability(t.def(), d);
+        long repairCost = rules.repairEnergy(maxDur - curDur);
+        String repBlock = null;
+        if (curDur >= maxDur) repBlock = "Durability is full";
+        else if (energy >= 0 && energy < repairCost) repBlock = "Need " + repairCost + " Energy (have " + energy + ")";
+        if (busy) repBlock = "Working...";
+        List<Component> repLore = lines(
+                text("Durability " + curDur + " → " + maxDur, NamedTextColor.GRAY),
+                text("Cost: " + repairCost + " Energy (Blacksmith NPCs repair for COIN)", NamedTextColor.GRAY));
+        if (repBlock != null) repLore.add(text(repBlock, NamedTextColor.RED));
+        ItemStack rep = button(repBlock == null, Material.ANVIL, text("REPAIR", repBlock == null ? NamedTextColor.GOLD : NamedTextColor.GRAY), repLore);
+        for (int s : SLOT_REPAIR) inventory.setItem(s, rep);
 
         // REFINE
         String refBlock = null;
@@ -216,6 +232,7 @@ public final class ForgeMenu extends GuiMenu {
         for (int s : SLOT_ADV) if (s == slot) { advance(); return; }
         for (int s : SLOT_REF) if (s == slot) { askRefine(); return; }
         for (int s : SLOT_INHERIT) if (s == slot) { InheritMenu.open(service, packs, player); return; }
+        for (int s : SLOT_REPAIR) if (s == slot) { repair(); return; }
         for (int i = 0; i < SLOT_ENGRAVE.length; i++) if (SLOT_ENGRAVE[i] == slot) { askRemove(i); return; }
     }
 
@@ -232,6 +249,25 @@ public final class ForgeMenu extends GuiMenu {
         run(t, cost.energy(), mats(materialOf(t.def()), cost.material()), "ADVANCE", after, meta, List.of(), () -> {
             msg("Advancement " + d.advancement() + " → " + after.advancement() + ".", NamedTextColor.GREEN);
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 0.6f, 1.4f);
+        });
+    }
+
+    private void repair() {
+        Target t = target();
+        if (t == null || service.isBusy(player.getUniqueId())) return;
+        GearItems.GearData d = t.data();
+        int max = service.gear().maxDurability(t.def()), cur = service.gear().durability(t.def(), d);
+        if (cur >= max) return;
+        long cost = service.rules().repairEnergy(max - cur);
+        JsonObject meta = new JsonObject();
+        meta.addProperty("gear_id", d.id().toString());
+        meta.addProperty("from", cur);
+        meta.addProperty("to", max);
+        meta.addProperty("energy", cost);
+        meta.addProperty("by", "FORGE");
+        run(t, cost, Map.of(), "REPAIR", d.withDurability(max), meta, List.of(), () -> {
+            msg("Repaired " + t.def().getDisplay() + ": durability " + cur + " → " + max + ".", NamedTextColor.GREEN);
+            player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 0.6f, 1.2f);
         });
     }
 

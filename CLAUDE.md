@@ -105,6 +105,8 @@ The web console never writes to the player's live inventory. Shop purchases (`ap
   - Inheritance (`InheritMenu`, `/forge inherit`): moves one of Advancement / Refine(+pity) / Engrave to a same-category piece. The source is destroyed, the target value is replaced, and the target's old fragments are returned.
   - Every action goes through `CraftService`: take inputs/gear on the main thread, then one transaction (operation + Energy ledger to `CRAFTING_FEES` + `item_transactions`), then give the result or refund. Balance numbers are in config `forge:` / `craft:`.
 
+- Combat (`combat/`): `CombatService` is the one damage pipeline for player↔mob hits (EntityDamageByEntityEvent HIGH): gear ATK × attack charge (read in `PrePlayerAttackEntityEvent`), crit from `crit_chance`, `Raw × K/(K+Defense)`, vanilla ARMOR/MAGIC modifiers zeroed, PvP cancelled unless `combat.pvp`. Mob stats come from `combat.mobs.<TYPE>` or PDC set by dungeon SUMMON `stats`. Damage per attacker is kept in `contribution()`; `proc()` is the hook for Unique Effects. Durability lives on the gear PDC (`gear_dur`): `GearItems.wear` is called per hit landed, per hit taken (armor), and per node mined; vanilla wear is cancelled; 0 = Base stats only. Repair happens at the forge (Energy) or at `BlacksmithNpcs` (COIN, `repair_npcs.yml`). Deaths outside dungeons are handled by `DeathListener` (-10% durability, respawn at the hub).
+
 ### EXeaEntityCore
 
 Renders Blockbench models as hierarchies of `ItemDisplay` bones that ride a root driver mob (Husk/ArmorStand). The pieces:

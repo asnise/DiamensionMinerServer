@@ -29,9 +29,12 @@ public final class CraftCommand implements TabExecutor, Listener {
     private final CraftService service;
     private final ResourcePackManager packs;
 
-    public CraftCommand(CraftService service, ResourcePackManager packs) {
+    private final BlacksmithNpcs npcs;
+
+    public CraftCommand(CraftService service, ResourcePackManager packs, BlacksmithNpcs npcs) {
         this.service = service;
         this.packs = packs;
+        this.npcs = npcs;
     }
 
     @Override
@@ -47,6 +50,17 @@ public final class CraftCommand implements TabExecutor, Listener {
             else {
                 packs.send(player);
                 player.sendMessage(Component.text("[Craft] UI pack sent. Reopen the menu after it loads.", NamedTextColor.GRAY));
+            }
+            return true;
+        }
+        if (forge && args.length >= 1 && args[0].equalsIgnoreCase("npc")) {
+            if (!player.hasPermission("dimensionalminer.admin")) { player.sendMessage(Component.text("No permission.", NamedTextColor.RED)); return true; }
+            String sub = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+            switch (sub) {
+                case "add" -> player.sendMessage(Component.text("[Blacksmith] " + npcs.add(player), NamedTextColor.GREEN));
+                case "remove" -> player.sendMessage(Component.text("[Blacksmith] " + npcs.remove(player), NamedTextColor.YELLOW));
+                case "list" -> player.sendMessage(Component.text("[Blacksmith] " + (npcs.list().isEmpty() ? "none" : String.join(" | ", npcs.list())), NamedTextColor.GRAY));
+                default -> player.sendMessage(Component.text("Usage: /forge npc <add|remove|list>", NamedTextColor.YELLOW));
             }
             return true;
         }
@@ -92,10 +106,13 @@ public final class CraftCommand implements TabExecutor, Listener {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> opts = command.getName().equalsIgnoreCase("forge")
-                    ? (sender.hasPermission("dimensionalminer.admin") ? List.of("inherit", "energy") : List.of("inherit"))
+                    ? (sender.hasPermission("dimensionalminer.admin") ? List.of("inherit", "energy", "npc") : List.of("inherit"))
                     : List.of("pack");
             return opts.stream().filter(o -> o.startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
         }
+        if (args.length == 2 && command.getName().equalsIgnoreCase("forge") && args[0].equalsIgnoreCase("npc")
+                && sender.hasPermission("dimensionalminer.admin"))
+            return List.of("add", "remove", "list").stream().filter(o -> o.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         return List.of();
     }
 

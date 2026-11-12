@@ -73,3 +73,37 @@ forge:
   engrave: { energy: 20, remove_energy: 10, remover_item: engrave_solvent }
   # Inheritance: move ONE of Advancement / Refine / Engrave to a piece of the same category; source destroyed.
   inherit: { energy: 50 }
+  # Durability: gear without "durability" in its ItemBase gets default_max. At 0 the piece is not
+  # destroyed; it keeps only Base stats until repaired. Weapon -1 per hit landed, armor -1 per piece
+  # per hit taken, gear pickaxe -1 per node mined; vanilla wear is cancelled.
+  durability: { default_max: 250 }
+  # Repair to full: at the forge for Energy, or at a Blacksmith NPC (/forge npc add) for COIN.
+  repair: { energy_per_point: 0.2, coin_per_point: 1 }
+
+# Combat pipeline (player <-> mob, melee + projectiles). Environmental damage and mob-vs-mob stay vanilla.
+# Damage = Raw x crit x K / (K + Defense). Vanilla armor and protection enchants are ignored.
+# Raw: gear ATK x attack charge (players) / mob attack (mobs). Non-gear weapons use vanilla damage.
+combat:
+  enabled: true
+  defense_k: 50
+  unarmed_attack: 1
+  player_base_defense: 0
+  crit_multiplier: 1.5
+  sweep_ratio: 0.25
+  pvp: false
+  damage_indicators: true
+  # Death outside a dungeon: nothing is lost except durability of equipped gear; respawn at the hub.
+  death: { durability_loss_percent: 10, respawn_world: overworld_t0 }
+  # hp is optional (omit = vanilla max health). Dungeon SUMMON actions can override with "stats".
+  mobs:
+    default: { attack: 3, defense: 0 }
+    ZOMBIE: { hp: 20, attack: 3, defense: 2 }
+    HUSK: { hp: 22, attack: 3, defense: 2 }
+    DROWNED: { hp: 20, attack: 3, defense: 2 }
+    SKELETON: { hp: 18, attack: 3, defense: 0 }
+    STRAY: { hp: 18, attack: 3, defense: 1 }
+    SPIDER: { hp: 16, attack: 2, defense: 0 }
+    CAVE_SPIDER: { hp: 12, attack: 2, defense: 0 }
+    CREEPER: { hp: 20, attack: 0, defense: 0 }
+    WITHER_SKELETON: { hp: 30, attack: 6, defense: 5 }
+    PIGLIN_BRUTE: { hp: 40, attack: 8, defense: 6 }

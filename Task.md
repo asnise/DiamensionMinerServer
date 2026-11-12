@@ -28,9 +28,9 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 |---|---|---|---|---|---|
 | 1 | มิติและ Channel | 3 | 2 | 0 | 0 |
 | 2 | Node เหมืองแร่ | 0 | 0 | 0 | 5 |
-| 3 | อุปกรณ์และสเตตัส | 3 | 1 | 1 | 0 |
+| 3 | อุปกรณ์และสเตตัส | 2 | 1 | 1 | 1 |
 | 4 | Crafting & ตีบวก | 0 | 0 | 0 | 6 |
-| 5 | ต่อสู้และความตาย | 3 | 1 | 0 | 0 |
+| 5 | ต่อสู้และความตาย | 1 | 0 | 0 | 3 |
 | 6 | Instance Dungeon | 0 | 3 | 0 | 1 |
 | 7 | World Boss | 4 | 0 | 0 | 0 |
 | 8 | Workspace & Market | 4 | 0 | 0 | 0 |
@@ -146,7 +146,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 |---|---|---|---|---|
 | 3.1 | โครงสร้างไอเทม (UUID, Rarity, Advancement, Refine, Engrave, Socket) | 🟡 | `core/craft/GearItems.java` (`GearData`), `core/ItemDefinition.java` | ทำไปพร้อมหมวด 4: gear มี UUID ถาวร, Advancement, Refine, pity, Quality, Engrave (≤3) เก็บใน PDC ของ ItemStack และประวัติทุกครั้งอยู่ใน `item_transactions` · **ยังขาด:** Socket, durability ของ gear, และยังไม่ได้เขียนลงตาราง `items` (ตอนนี้ของทั้งหมดถูก sync เป็น `material_stacks.item_data`) |
 | 3.2 | คำนวณสเตตัส (GearMath: `Core_s`, `Final_s`) | 🔍 | `core/craft/GearMath.java`, `core/craft/GearItems.java` (`stats`) | ทำไปพร้อมหมวด 4: fixed-point ตาม GDD, golden test ATK 280.5 รันทุกครั้งที่เปิดเซิร์ฟ · Core = (Base×Quality + Adv×Growth)×(1+RefineBonus) · Final รวม Flat/Percent ของ Engrave แล้ว (Socket/Set ยังเป็น 0 จนกว่าจะมีระบบ) · **วิธีตรวจ:** log ตอนเปิดเซิร์ฟไม่มี error GearMath, ดู lore ของดาบที่ตีบวก/ฝัง fragment · ค่ายังแสดงใน lore เท่านั้น ใช้จริงเมื่อมี 5.1 |
-| 3.3 | ป้องกัน/เกราะ และการคำนวณดาเมจที่ได้รับ | ⬜ | — | |
+| 3.3 | ป้องกัน/เกราะ และการคำนวณดาเมจที่ได้รับ | ✅ | `core/combat/CombatService.java` (`playerStats`, `onDamage`) | `Damage = Raw × K/(K+Defense)` (K = `combat.defense_k` 50) · Defense ผู้เล่น = ผลรวม stat `defense` ของ gear ในมือหลัก + เกราะ 4 ช่อง + มือรอง · เกราะ/enchant Protection ของ vanilla ไม่ลดดาเมจซ้ำ (ตั้ง modifier ARMOR/MAGIC เป็น 0) · Resistance potion ยังมีผล · **วิธีตรวจ:** ใส่เกราะเพชร vanilla แล้วให้ซอมบี้ตี → ยังโดน 3 เท่าเดิม (เกราะ vanilla ไม่ช่วย) · ตอนนี้ยังไม่มี content เกราะที่มี `defense` ให้ลองค่าลด |
 | 3.4 | Unique Effect (Cooldown, Proc, ห้าม trigger ตัวเอง) | ⬜ | — | |
 | 3.5 | Set effect (เช็คเฉพาะช่องที่สวมจริง) | ⬜ | — | |
 
@@ -165,10 +165,10 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | ID | งาน | สถานะ | หลักฐาน | ที่ยังขาด / วิธีตรวจ |
 |---|---|---|---|---|
-| 5.1 | ท่อคำนวณดาเมจกลาง (CombatService) | ⬜ | — | |
+| 5.1 | ท่อคำนวณดาเมจกลาง (CombatService) | ✅ | `core/combat/CombatService.java`, `core/combat/CombatConfig.java`, config `combat:`, `dungeon/runtime/DungeonInstanceSession.java` (`stats` ใน SUMMON) | ผู้เล่น↔ม็อบ ทั้งตีใกล้และลูกธนู: hit rule (PvP ปิด, หาเจ้าของลูกธนู/สัตว์เลี้ยง) → base (ATK ของ gear × แรงชาร์จการตี / ATK ของม็อบ) → crit (`crit_chance` %, ×1.5) → defense → shield (ปล่อยให้ vanilla บล็อก) → HP → บันทึกดาเมจต่อผู้โจมตี (`contribution()` สำหรับ 7.1) → จุด hook proc (3.4) · อาวุธ vanilla ใช้ดาเมจเดิมของเกม · ตกที่สูง/ลาวา/ม็อบตีกันเอง = vanilla · ตัวเลขดาเมจลอย (คริ = ✦ สีทอง) · สเตตัสม็อบ: `combat.mobs.<TYPE>` (hp/attack/defense) และ `"stats"` ใน SUMMON_MOB/GROUP/BOSS · **วิธีตรวจ:** `/dm give <ชื่อ> thing_sword 1` → `/summon zombie` → ตีเต็มแรงได้ ~4.8 (ATK 5 × 50/52) ตาย 5 ที · กดรัวได้ ~20% · ดาบที่ฝัง Fury+Edge ได้ ~8.5 · ซอมบี้ตีเรา 3 · ผู้เล่นตีกันไม่เข้า |
 | 5.2 | Anti-abuse ยิงข้ามเขตปลอดภัย / สลับอาวุธ | ⬜ | — | |
-| 5.3 | ตายในเหมือง (เสีย Durability, ไม่ดรอป, ส่งกลับ Hub) | 🟡 | `core/InventorySync.java` (`onDeath`), `keepInventory=true` | ไม่ดรอปของแล้ว แต่ยังไม่เสีย Durability และยังไม่ส่งกลับ Hub |
-| 5.4 | ระบบ Durability ของอุปกรณ์ | ⬜ | — | |
+| 5.3 | ตายในเหมือง (เสีย Durability, ไม่ดรอป, ส่งกลับ Hub) | ✅ | `core/combat/DeathListener.java`, `core/InventorySync.java` (`onDeath`), config `combat.death` | ตายนอกดันเจี้ยน: ไม่เสียของ/เงิน/Energy (keepInventory) · gear ที่ถือ/สวมทุกชิ้นเสีย 10% ของ durability สูงสุด · เกิดใหม่ที่ spawn ของ Hub (`overworld_t0`) แม้ตายใน channel อื่น · ตายในดันเจี้ยนปล่อยให้ระบบดันเจี้ยนจัดการ · **วิธีตรวจ:** ไป channel 2 (`/channel 2`) → `/kill` → เกิดที่ Hub, ของครบ, ดาบ durability ลด 25 (จาก 250) และมีข้อความแจ้ง |
+| 5.4 | ระบบ Durability ของอุปกรณ์ | ✅ | `core/craft/GearItems.java` (`gear_dur`, `wear`, `broken`), `core/combat/CombatService.java`, `core/combat/DeathListener.java` (ยกเลิกการสึกแบบ vanilla), `mining/MineNodeManager.java`, `core/craft/ForgeMenu.java` (REPAIR), `core/craft/BlacksmithNpcs.java`, config `forge.durability` / `forge.repair` | กติกาที่ผู้ใช้เลือก: สึกตามการใช้งาน (อาวุธ -1 ต่อการตีโดน, เกราะ -1 ต่อชิ้นต่อการโดนตี, พลั่ว gear -1 ต่อ node) · ค่าสูงสุด = `durability` ใน ItemBase หรือ 250 · แถบ durability ของเกมแสดงค่าของเรา · 0 = ไม่หาย แต่เหลือแค่ Base stats จนกว่าจะซ่อม · ซ่อม 2 แบบ: ปุ่ม REPAIR ใน /forge (Energy 0.2/แต้ม) และ NPC Blacksmith (COIN 1/แต้ม, ซ่อมทุกชิ้นที่พกอยู่, `/forge npc add|remove|list`, เกิดทุก channel) · DB: `item_transactions` REPAIR · **วิธีตรวจ:** รีสตาร์ทเซิร์ฟ (รับ pack ใหม่) → ตีซอมบี้ → lore Durability ลด + แถบลด · `/forge` → REPAIR → เต็ม, Energy ลด · `/forge npc add` → คลิกขวา NPC → Dialog → ซ่อมด้วย COIN (เติม COIN ด้วย `web-console/scripts/grant_coin.mjs`) |
 
 ## 6. ระบบดันเจี้ยนส่วนตัว (Instance Dungeon & Keys)
 
@@ -268,6 +268,11 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | วันที่ | ID | สิ่งที่ทำ | ค้าง / ข้อควรระวัง |
 |---|---|---|---|
+| 2026-11-12 | fix 5.4: แถบ durability ไม่ตรง | ดาบที่สึกแบบ vanilla ก่อนมีระบบ durability ไม่มี `gear_dur` → lore บอกเต็มแต่แถบลด · ตอนนี้อ่านค่าจากแถบเดิมแทน (`GearItems.legacyDurability`) และแก้ของในกระเป๋าทุกชิ้นตอนเข้าเกม (`normalize`) | ผู้ใช้ทดสอบในเกมแล้ว แถบตรงกับ lore |
+| 2026-11-12 | 5.4 + 5.3 | ผู้ใช้ทดสอบในเกมผ่าน (durability, REPAIR, Blacksmith, ตายแล้วกลับ Hub) → ✅ | ข้อจำกัด: ออกเกมกลางการ commit ซ่อม NPC = เสีย COIN แต่ไม่ได้ซ่อม |
+| 2026-11-12 | 5.4 + 5.3 | Durability (สึกตามการใช้งาน, 0 = เหลือ Base stats), ซ่อมที่ Forge (Energy) และ NPC Blacksmith (COIN), ตายในเหมืองเสีย 10% แล้วกลับ Hub · คอมไพล์ผ่าน | ยังไม่ได้ทดสอบในเกม · เซิร์ฟเปิดอยู่ตอนบิลด์ → ต้องรีสตาร์ท · ยังไม่มีทางหา COIN ในเกม (ใช้ grant_coin.mjs) |
+| 2026-11-12 | 5.1 + 3.3 | ผู้ใช้ทดสอบในเกมผ่าน (ดาเมจ gear, คริ, เกราะ vanilla ไม่ลด, PvP ปิด, ตัวเลขดาเมจ) → ✅ | — |
+| 2026-11-12 | 5.1 + 3.3 CombatService | ท่อดาเมจเดียวตามกติกาที่ผู้ใช้เลือก (ผู้เล่น↔ม็อบสองทาง, สเตตัสม็อบจาก config + stats ในดันเจี้ยน, PvP ปิดทุกที่, ตัวเลขดาเมจลอย) · boot test ผ่าน | ยังไม่ได้ทดสอบในเกม · 5.4 Durability ยังไม่ทำ · ไม่มีเกราะ content ที่มี defense ให้ทดสอบ · PvP ปิดทุกที่จนกว่าจะทำ 1.5 |
 | 2026-11-12 | fix: กินไอเทม custom | `core/ContentItemGuard.java`: ยกเลิกการกิน/ดื่มไอเทม content ทุกชิ้นที่หมวดไม่ใช่ FOOD (เดิม Engrave Solvent บน honey_bottle ดื่มแล้วหาย) | ผู้ใช้ทดสอบในเกมผ่าน (Solvent ดื่มไม่ได้ ของไม่หาย) |
 | 2026-11-12 | 4.5 | ผู้ใช้ทดสอบในเกมผ่าน (Inheritance) → ✅ · หมวด 4 ครบทุกข้อ | — |
 | 2026-11-12 | 4.5 Inheritance | หน้าต่าง Inheritance (ปุ่ม INHERIT ใน /forge หรือ /forge inherit) ตามกติกา 4 ข้อที่ผู้ใช้เลือก · boot test ผ่าน | ยังไม่ได้ทดสอบในเกม · ต้องรีสตาร์ทเซิร์ฟ/รับ pack ใหม่ |

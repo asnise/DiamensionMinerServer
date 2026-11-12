@@ -30,6 +30,8 @@ public final class ForgeRules {
     private final long engraveEnergy, removeEnergy;
     private final String removerItem;
     private final long inheritEnergy;
+    private final int defaultDurability;
+    private final double repairEnergyPerPoint, repairCoinPerPoint;
 
     public ForgeRules(FileConfiguration cfg) {
         quoteSeconds = Math.max(5, cfg.getInt("forge.quote_seconds", 60));
@@ -57,10 +59,19 @@ public final class ForgeRules {
         removeEnergy = Math.max(0, cfg.getLong("forge.engrave.remove_energy", 10));
         removerItem = cfg.getString("forge.engrave.remover_item", "engrave_solvent").toLowerCase(Locale.ROOT);
         inheritEnergy = Math.max(0, cfg.getLong("forge.inherit.energy", 50));
+        defaultDurability = Math.max(1, cfg.getInt("forge.durability.default_max", 250));
+        repairEnergyPerPoint = Math.max(0, cfg.getDouble("forge.repair.energy_per_point", 0.2));
+        repairCoinPerPoint = Math.max(0, cfg.getDouble("forge.repair.coin_per_point", 1));
     }
 
     public long engraveEnergy() { return engraveEnergy; }
     public long inheritEnergy() { return inheritEnergy; }
+    /** Max durability of gear whose ItemBase has no "durability". */
+    public int defaultDurability() { return defaultDurability; }
+    /** Self repair at the forge: Energy for {@code points} of missing durability (at least 1). */
+    public long repairEnergy(int points) { return points <= 0 ? 0 : Math.max(1, (long) Math.ceil(points * repairEnergyPerPoint)); }
+    /** Blacksmith NPC: COIN for {@code points} of missing durability (at least 1). */
+    public long repairCoin(int points) { return points <= 0 ? 0 : Math.max(1, (long) Math.ceil(points * repairCoinPerPoint)); }
     public long removeEnergy() { return removeEnergy; }
     /** Consumable used to take a fragment out (the fragment is returned). */
     public String removerItem() { return removerItem; }

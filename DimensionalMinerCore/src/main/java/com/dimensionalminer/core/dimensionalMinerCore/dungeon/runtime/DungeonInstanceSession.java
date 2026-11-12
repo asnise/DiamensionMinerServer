@@ -369,7 +369,7 @@ public class DungeonInstanceSession {
                 double z = act.has("z") ? act.get("z").getAsDouble() : 0;
                 int amount = act.has("amount") ? act.get("amount").getAsInt() : 1;
                 Location loc = new Location(world, x, y, z);
-                spawnMob(mobId, vType, loc, amount);
+                spawnMob(mobId, vType, loc, amount, statsOf(act));
                 break;
             }
             case "SUMMON_GROUP": {
@@ -385,7 +385,7 @@ public class DungeonInstanceSession {
                     double ox = (Math.random() - 0.5) * 2 * radius;
                     double oz = (Math.random() - 0.5) * 2 * radius;
                     Location loc = new Location(world, cx + ox, cy, cz + oz);
-                    spawnMob(mobId, vType, loc, 1);
+                    spawnMob(mobId, vType, loc, 1, statsOf(act));
                 }
                 break;
             }
@@ -398,7 +398,7 @@ public class DungeonInstanceSession {
                 double y = act.has("y") ? act.get("y").getAsDouble() : 64;
                 double z = act.has("z") ? act.get("z").getAsDouble() : 0;
                 Location loc = new Location(world, x, y, z);
-                spawnBoss(bossId, vType, name, hp, loc);
+                spawnBoss(bossId, vType, name, hp, loc, statsOf(act));
                 break;
             }
             case "GIVE_BONUS": {
@@ -478,7 +478,21 @@ public class DungeonInstanceSession {
         }
     }
 
-    private void spawnMob(String mobId, String vanillaType, Location loc, int count) {
+    /** Optional "stats": { "hp", "attack", "defense" } on a SUMMON action (combat pipeline values). */
+    private static JsonObject statsOf(JsonObject act) {
+        return act.has("stats") && act.get("stats").isJsonObject() ? act.getAsJsonObject("stats") : null;
+    }
+
+    private void applyStats(LivingEntity le, JsonObject stats, Double hpOverride) {
+        var combat = plugin.getCombatService();
+        if (combat == null) return;
+        Double hp = hpOverride != null ? hpOverride : stats != null && stats.has("hp") ? stats.get("hp").getAsDouble() : null;
+        Double atk = stats != null && stats.has("attack") ? stats.get("attack").getAsDouble() : null;
+        Double def = stats != null && stats.has("defense") ? stats.get("defense").getAsDouble() : null;
+        if (hp != null || atk != null || def != null) combat.applyMobStats(le, hp, atk, def);
+    }
+
+    private void spawnMob(String mobId, String vanillaType, Location loc, int count, JsonObject stats) {
         EntityType et = entityTypeOr(vanillaType, EntityType.ZOMBIE);
         for (int i = 0; i < count; i++) {
             if (loc.getWorld() == null) continue;
@@ -486,12 +500,13 @@ public class DungeonInstanceSession {
             if (e instanceof LivingEntity le) {
                 le.getPersistentDataContainer().set(new org.bukkit.NamespacedKey(plugin, "dungeon_mob_id"),
                         org.bukkit.persistence.PersistentDataType.STRING, mobId);
+                applyStats(le, stats, null);
                 spawnedEntities.add(le);
             }
         }
     }
 
-    private void spawnBoss(String bossId, String vanillaType, String displayName, double maxHp, Location loc) {
+    private void spawnBoss(String bossId, String vanillaType, String displayName, double maxHp, Location loc, JsonObject stats) {
         EntityType et = entityTypeOr(vanillaType, EntityType.WITHER_SKELETON);
         if (loc.getWorld() == null) return;
         org.bukkit.entity.Entity e = loc.getWorld().spawnEntity(loc, et);
@@ -502,6 +517,7 @@ public class DungeonInstanceSession {
                 le.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).setBaseValue(maxHp);
                 le.setHealth(maxHp);
             }
+            applyStats(le, stats, maxHp);
             le.getPersistentDataContainer().set(new org.bukkit.NamespacedKey(plugin, "dungeon_mob_id"),
                     org.bukkit.persistence.PersistentDataType.STRING, bossId);
             spawnedEntities.add(le);

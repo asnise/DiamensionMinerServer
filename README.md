@@ -165,5 +165,6 @@ cd DimensionalMinerCore
 | `/craft` (หรือคลิกขวาโต๊ะคราฟต์) | หน้าต่างคราฟต์: เลือกสูตร ดูของ/Energy/กฎ แล้วกด CRAFT (เกรด Normal) หรือ FORGE (มินิเกม Forge Heat ลุ้น Fine/Masterwork) · `/craft pack` ส่ง UI pack ใหม่ |
 | `/forge` (หรือคลิกขวาโต๊ะ Smithing) | ตีบวก: คลิก gear ในกระเป๋า → ADVANCE (สำเร็จเสมอ) / REFINE (มีโอกาส + pity, ยืนยันด้วย Dialog) · คลิก Fragment ในกระเป๋า = Engrave (≤3 ช่อง), คลิกช่องที่ฝังแล้ว = ถอดด้วย Engrave Solvent (ได้ fragment คืน) |
 | `/forge inherit` (หรือปุ่ม INHERIT ใน /forge) | Inheritance: โอน Advancement / Refine / Engrave 1 อย่างจากชิ้นต้นทางไปชิ้นปลายทางหมวดเดียวกัน (ต้นทางถูกทำลาย, ค่าปลายทางถูกแทนที่) |
+| `/forge npc <add\|remove\|list>` | (admin) วาง/ลบ NPC Blacksmith (ซ่อม gear ด้วย COIN) ที่ตำแหน่งที่ยืน ในทุก channel |
 | `/forge energy <amount> [player]` | (admin) เติม Energy ผ่าน ledger สำหรับทดสอบ |
 | `/weblogin` | สร้างรหัส OTP 6 ตัวอักษร สำหรับล็อกอินเข้าใช้งาน Web Console |

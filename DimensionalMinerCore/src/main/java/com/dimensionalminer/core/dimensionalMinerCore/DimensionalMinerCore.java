@@ -14,6 +14,9 @@ public final class DimensionalMinerCore extends JavaPlugin {
     private com.dimensionalminer.core.dimensionalMinerCore.dungeon.runtime.DungeonInstanceManager dungeonInstanceManager;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.ResourcePackManager resourcePacks;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.CraftService craftService;
+    private com.dimensionalminer.core.dimensionalMinerCore.combat.CombatService combatService;
+    private com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems gearItems;
+    private com.dimensionalminer.core.dimensionalMinerCore.craft.BlacksmithNpcs blacksmiths;
 
     @Override
     public void onEnable() {
@@ -70,13 +73,21 @@ public final class DimensionalMinerCore extends JavaPlugin {
         // Crafting & forge (style A: textured chest menus from the UI resource pack + native dialogs)
         com.dimensionalminer.core.dimensionalMinerCore.craft.GearMath.selfTest();
         var forgeRules = new com.dimensionalminer.core.dimensionalMinerCore.craft.ForgeRules(getConfig());
-        var gearItems = new com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems(this, contentRegistryManager, forgeRules);
+        gearItems = new com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems(this, contentRegistryManager, forgeRules);
         craftService = new com.dimensionalminer.core.dimensionalMinerCore.craft.CraftService(this, gearItems);
+        // Combat: one damage pipeline for player <-> mob hits (gear stats, crit, Raw x K/(K+Defense)), PvP off.
+        combatService = new com.dimensionalminer.core.dimensionalMinerCore.combat.CombatService(this, gearItems,
+                com.dimensionalminer.core.dimensionalMinerCore.combat.CombatConfig.from(getConfig()));
+        getServer().getPluginManager().registerEvents(combatService, this);
+        getServer().getPluginManager().registerEvents(new com.dimensionalminer.core.dimensionalMinerCore.combat.DeathListener(this, gearItems), this);
         resourcePacks = new com.dimensionalminer.core.dimensionalMinerCore.craft.ResourcePackManager(this);
         getServer().getPluginManager().registerEvents(resourcePacks, this);
         resourcePacks.start(getFile());
         getServer().getPluginManager().registerEvents(new com.dimensionalminer.core.dimensionalMinerCore.craft.GuiMenu.Listen(), this);
-        var craftCmd = new com.dimensionalminer.core.dimensionalMinerCore.craft.CraftCommand(craftService, resourcePacks);
+        blacksmiths = new com.dimensionalminer.core.dimensionalMinerCore.craft.BlacksmithNpcs(this, craftService);
+        getServer().getPluginManager().registerEvents(blacksmiths, this);
+        blacksmiths.spawnAll(); // channel clones that load later get theirs on WorldLoadEvent
+        var craftCmd = new com.dimensionalminer.core.dimensionalMinerCore.craft.CraftCommand(craftService, resourcePacks, blacksmiths);
         getServer().getPluginManager().registerEvents(craftCmd, this);
         getCommand("craft").setExecutor(craftCmd);
         getCommand("craft").setTabCompleter(craftCmd);
@@ -131,6 +142,7 @@ public final class DimensionalMinerCore extends JavaPlugin {
     @Override
     public void onDisable() {
         if (resourcePacks != null) resourcePacks.stop();
+        if (blacksmiths != null) blacksmiths.despawnAll();
         if (dungeonInstanceManager != null) {
             // Moves players to the hub and removes instance worlds before inventories are flushed.
             dungeonInstanceManager.shutdownAll();
@@ -147,6 +159,14 @@ public final class DimensionalMinerCore extends JavaPlugin {
             databaseManager.close();
         }
         getLogger().info("Dimensional Miner Core disabled.");
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems getGearItems() {
+        return gearItems;
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.combat.CombatService getCombatService() {
+        return combatService;
     }
 
     public DatabaseManager getDatabaseManager() {
