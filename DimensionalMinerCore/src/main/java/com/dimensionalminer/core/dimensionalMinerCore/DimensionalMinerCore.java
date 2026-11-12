@@ -12,6 +12,8 @@ public final class DimensionalMinerCore extends JavaPlugin {
     private com.dimensionalminer.core.dimensionalMinerCore.party.PartyManager partyManager;
     private com.dimensionalminer.core.dimensionalMinerCore.channel.ChannelManager channelManager;
     private com.dimensionalminer.core.dimensionalMinerCore.dungeon.runtime.DungeonInstanceManager dungeonInstanceManager;
+    private com.dimensionalminer.core.dimensionalMinerCore.craft.ResourcePackManager resourcePacks;
+    private com.dimensionalminer.core.dimensionalMinerCore.craft.CraftService craftService;
 
     @Override
     public void onEnable() {
@@ -41,6 +43,7 @@ public final class DimensionalMinerCore extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GrantsMenu.MenuListener(), this);
         getServer().getPluginManager().registerEvents(new CraftingRestrictionListener(this), this);
         getServer().getPluginManager().registerEvents(new MapProtectionListener(this), this);
+        getServer().getPluginManager().registerEvents(new ContentItemGuard(contentRegistryManager), this);
 
         partyManager = new com.dimensionalminer.core.dimensionalMinerCore.party.PartyManager(this);
         channelManager = new com.dimensionalminer.core.dimensionalMinerCore.channel.ChannelManager(this);
@@ -63,6 +66,22 @@ public final class DimensionalMinerCore extends JavaPlugin {
         getServer().getPluginManager().registerEvents(buildCmd, this);
         getCommand("dmb").setExecutor(buildCmd);
         getCommand("dmb").setTabCompleter(buildCmd);
+
+        // Crafting & forge (style A: textured chest menus from the UI resource pack + native dialogs)
+        com.dimensionalminer.core.dimensionalMinerCore.craft.GearMath.selfTest();
+        var forgeRules = new com.dimensionalminer.core.dimensionalMinerCore.craft.ForgeRules(getConfig());
+        var gearItems = new com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems(this, contentRegistryManager, forgeRules);
+        craftService = new com.dimensionalminer.core.dimensionalMinerCore.craft.CraftService(this, gearItems);
+        resourcePacks = new com.dimensionalminer.core.dimensionalMinerCore.craft.ResourcePackManager(this);
+        getServer().getPluginManager().registerEvents(resourcePacks, this);
+        resourcePacks.start(getFile());
+        getServer().getPluginManager().registerEvents(new com.dimensionalminer.core.dimensionalMinerCore.craft.GuiMenu.Listen(), this);
+        var craftCmd = new com.dimensionalminer.core.dimensionalMinerCore.craft.CraftCommand(craftService, resourcePacks);
+        getServer().getPluginManager().registerEvents(craftCmd, this);
+        getCommand("craft").setExecutor(craftCmd);
+        getCommand("craft").setTabCompleter(craftCmd);
+        getCommand("forge").setExecutor(craftCmd);
+        getCommand("forge").setTabCompleter(craftCmd);
 
         getCommand("profile").setExecutor(new ProfileCommand(this));
         getCommand("balance").setExecutor(new BalanceCommand(this));
@@ -111,9 +130,14 @@ public final class DimensionalMinerCore extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (resourcePacks != null) resourcePacks.stop();
         if (dungeonInstanceManager != null) {
             // Moves players to the hub and removes instance worlds before inventories are flushed.
             dungeonInstanceManager.shutdownAll();
+        }
+        if (craftService != null) {
+            // Forge Heat games hold crafting inputs in memory: give them back before inventories are saved.
+            com.dimensionalminer.core.dimensionalMinerCore.craft.HeatMenu.refundAll(craftService);
         }
         if (inventorySync != null) {
             // Blocks until queued saves are committed; must run before the pool is closed.

@@ -13,3 +13,63 @@ databases:
     jdbcUrl: "jdbc:postgresql://ep-broad-dream-b32si870-pooler.c-4.ap-southeast-1.aws.neon.tech:5432/dimensional_game?sslmode=require"
     username: "neondb_owner"
     password: "CHANGE_ME"
+
+# UI resource pack (crafting/forge screens). Built from the jar's pack/ folder
+# (tools/resourcepack/generate.mjs) and served by the plugin itself.
+resource_pack:
+  enabled: true
+  port: 8085
+  # What clients download from. Empty = http://localhost:<port>/pack.zip (local testing only);
+  # set a reachable address for remote players, e.g. "http://play.example.com:8085/pack.zip".
+  public_url: ""
+  required: false
+
+craft:
+  # Energy per craft when a Recipe has no energy_cost.
+  default_energy: 5
+  # Forge Heat mini-game (FORGE button in the craft window, gear outputs only). Turn-based: fill
+  # Progress before Integrity runs out; Quality at the end sets the grade (forge.quality_bp).
+  # Failing / stopping / closing still crafts the item at Normal.
+  minigame:
+    enabled: true
+    progress_goal: 100
+    integrity: 70
+    focus: 50
+    fine_at: 50
+    masterwork_at: 95
+    integrity_cost: 10          # per action (x unstable_cost_bp when the furnace is Unstable)
+    hammer_progress: 25
+    fold_quality: 15
+    temper_quality: 30
+    temper_focus: 20
+    quench_integrity: 20
+    quench_focus: 15
+    rush_progress: 60
+    rush_chance_bp: 5000        # 50%
+    heat_weights: { NORMAL: 55, HOT: 25, WHITE_HOT: 8, UNSTABLE: 12 }
+    hot_quality_bp: 15000       # quality gains x1.5
+    white_hot_quality_bp: 25000 # x2.5
+    unstable_cost_bp: 15000     # integrity cost x1.5
+
+forge:
+  quote_seconds: 60
+  # Used by Advancement/Refine when an ItemBase has no upgrade_material.
+  default_upgrade_material: prim_metal
+  # Growth per Advancement level = base stat x ratio, when an ItemBase has no growth_stats.
+  default_growth_ratio: 0.02
+  # Refine bonus by level 0..10 (basis points: 1000 = +10%).
+  refine_bonus_bp: [0, 300, 600, 1000, 1400, 1900, 2500, 3200, 4000, 5000, 6000]
+  # Success chance to go +n -> +n+1, n = 0..9 (basis points).
+  refine_chance_bp: [10000, 9000, 8000, 7000, 6000, 5000, 4000, 3000, 2000, 1000]
+  # Failures at +n after which the next attempt always succeeds (0 = no pity), n = 0..9.
+  refine_pity: [0, 2, 3, 4, 5, 6, 7, 8, 10, 12]
+  # cost(level) = floor(base + per_level x level)
+  advancement: { energy_base: 2, energy_per_level: 0.1, material_base: 1, material_per_level: 0.04 }
+  refine: { energy_base: 10, energy_per_level: 10, material_base: 2, material_per_level: 1 }
+  # Crafted grade multiplies Base stats (basis points). FINE / MASTERWORK come from the Forge Heat mini-game.
+  quality_bp: { NORMAL: 10000, FINE: 10300, MASTERWORK: 10600 }
+  # Engrave: up to 3 fragments per gear piece (ItemBase with an "engrave" block). Removing one uses
+  # 1x remover_item and returns the fragment. An exclusive affix can be on a piece only once.
+  engrave: { energy: 20, remove_energy: 10, remover_item: engrave_solvent }
+  # Inheritance: move ONE of Advancement / Refine / Engrave to a piece of the same category; source destroyed.
+  inherit: { energy: 50 }

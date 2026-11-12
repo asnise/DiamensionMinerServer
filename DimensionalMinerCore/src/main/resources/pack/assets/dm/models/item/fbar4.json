@@ -1,0 +1,15 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "dm:item/fbar4"
+  },
+  "display": {
+    "gui": {
+      "scale": [
+        1.125,
+        1.125,
+        1.125
+      ]
+    }
+  }
+}

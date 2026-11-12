@@ -192,6 +192,74 @@
   ],
   "ItemBase": [
     {
+      "definition_id": "engrave_solvent",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Engrave Solvent",
+        "display": "Engrave Solvent",
+        "icon": "honey_bottle",
+        "category": "CONSUMABLE",
+        "rarity": "UNCOMMON",
+        "binding": "UNBOUND",
+        "stack": 16,
+        "description": "Dissolves one engrave so its fragment can be taken out intact."
+      }
+    },
+    {
+      "definition_id": "fragment_test_edge",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Edge Fragment",
+        "display": "[TEST] Edge Fragment",
+        "icon": "prismarine_shard",
+        "category": "FRAGMENT",
+        "rarity": "RARE",
+        "binding": "UNBOUND",
+        "stack": 64,
+        "description": "Engrave: +10% Attack Damage, +1 Crit Chance. Exclusive affix 'edge'.",
+        "engrave": {
+          "affix": "edge",
+          "exclusive": true,
+          "flat": {
+            "crit_chance": 1
+          },
+          "percent": {
+            "attack_damage": 10
+          },
+          "categories": [
+            "WEAPON"
+          ]
+        }
+      }
+    },
+    {
+      "definition_id": "fragment_test_fury",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Fury Fragment",
+        "display": "[TEST] Fury Fragment",
+        "icon": "amethyst_shard",
+        "category": "FRAGMENT",
+        "rarity": "UNCOMMON",
+        "binding": "UNBOUND",
+        "stack": 64,
+        "description": "Engrave: +3 Attack Damage (flat). Exclusive affix 'fury'.",
+        "engrave": {
+          "affix": "fury",
+          "exclusive": true,
+          "flat": {
+            "attack_damage": 3
+          },
+          "categories": [
+            "WEAPON"
+          ]
+        }
+      }
+    },
+    {
       "definition_id": "prim_metal",
       "version": 1,
       "kind": "ItemBase",

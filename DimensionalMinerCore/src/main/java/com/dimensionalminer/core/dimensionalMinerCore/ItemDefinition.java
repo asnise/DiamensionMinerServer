@@ -17,6 +17,23 @@ public class ItemDefinition {
     private final Integer durability;
     private final String description;
     private final Map<String, Double> baseStats;
+    /** Stat gained per Advancement level (GearMath Growth_s); empty = derive from base_stats. */
+    private Map<String, Double> growthStats = Collections.emptyMap();
+    /** Material consumed by Advancement/Refine; null = forge default. */
+    private String upgradeMaterial;
+    /** Set when this item is an Engrave fragment (payload "engrave"). */
+    private Engrave engrave;
+
+    /**
+     * What an Engrave fragment adds to a gear piece. flat = stat units, percentBp = basis points
+     * (1000 = +10%). exclusive = only one fragment with this affix per piece. categories empty = any gear.
+     */
+    public record Engrave(String affix, boolean exclusive, Map<String, Double> flat, Map<String, Integer> percentBp,
+                          java.util.List<String> categories) {
+        public boolean fits(String category) {
+            return categories.isEmpty() || categories.stream().anyMatch(c -> c.equalsIgnoreCase(category));
+        }
+    }
 
     public ItemDefinition(
             String id,
@@ -92,5 +109,35 @@ public class ItemDefinition {
 
     public Map<String, Double> getBaseStats() {
         return baseStats;
+    }
+
+    public Map<String, Double> getGrowthStats() {
+        return growthStats;
+    }
+
+    public String getUpgradeMaterial() {
+        return upgradeMaterial;
+    }
+    public Engrave getEngrave() {
+        return engrave;
+    }
+    public boolean isFragment() {
+        return engrave != null;
+    }
+
+    /** Gear = a single-stack item with stats; it gets a UUID, Advancement and Refine. */
+    public boolean isGear() {
+        return stack == 1 && !baseStats.isEmpty();
+    }
+
+    /** Set once while parsing, before the definition is published in the registry. */
+    ItemDefinition withForgeData(Map<String, Double> growthStats, String upgradeMaterial) {
+        this.growthStats = growthStats != null ? Map.copyOf(growthStats) : Collections.emptyMap();
+        this.upgradeMaterial = upgradeMaterial;
+        return this;
+    }
+    ItemDefinition withEngrave(Engrave engrave) {
+        this.engrave = engrave;
+        return this;
     }
 }

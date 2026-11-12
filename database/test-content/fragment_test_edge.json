@@ -1,0 +1,15 @@
+{
+  "definition_id": "fragment_test_edge",
+  "kind": "ItemBase",
+  "payload": {
+    "name": "Edge Fragment",
+    "display": "[TEST] Edge Fragment",
+    "icon": "prismarine_shard",
+    "category": "FRAGMENT",
+    "rarity": "RARE",
+    "binding": "UNBOUND",
+    "stack": 64,
+    "description": "Engrave: +10% Attack Damage, +1 Crit Chance. Exclusive affix 'edge'.",
+    "engrave": { "affix": "edge", "exclusive": true, "flat": { "crit_chance": 1 }, "percent": { "attack_damage": 10 }, "categories": ["WEAPON"] }
+  }
+}

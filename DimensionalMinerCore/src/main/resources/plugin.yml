@@ -50,6 +50,14 @@ commands:
     usage: /exitdungeon
     aliases: [leavedungeon, dungeonleave]
 
+  craft:
+    description: Open the crafting window (or /craft pack to resend the UI pack)
+    usage: /craft [pack]
+  forge:
+    description: Open the forge (Advancement / Refine); admins can grant Energy
+    usage: /forge [inherit | energy <amount> [player]]
+    aliases: [smith, refine]
+
   mine:
     description: Admin tools for mining nodes
     usage: /mine <types|node add <ore>|node remove|info|list [radius]|respawn>
@@ -60,5 +68,5 @@ commands:
     permission: dimensionalminer.admin
 permissions:
   dimensionalminer.admin:
-    description: Admin commands (/dm, /mine, /dmb)
+    description: Admin commands (/dm, /mine, /dmb, /forge energy)
     default: op

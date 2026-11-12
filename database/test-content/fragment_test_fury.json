@@ -1,0 +1,15 @@
+{
+  "definition_id": "fragment_test_fury",
+  "kind": "ItemBase",
+  "payload": {
+    "name": "Fury Fragment",
+    "display": "[TEST] Fury Fragment",
+    "icon": "amethyst_shard",
+    "category": "FRAGMENT",
+    "rarity": "UNCOMMON",
+    "binding": "UNBOUND",
+    "stack": 64,
+    "description": "Engrave: +3 Attack Damage (flat). Exclusive affix 'fury'.",
+    "engrave": { "affix": "fury", "exclusive": true, "flat": { "attack_damage": 3 }, "categories": ["WEAPON"] }
+  }
+}

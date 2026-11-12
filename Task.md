@@ -6,7 +6,7 @@
 
 | ไอคอน | ความหมาย |
 |---|---|
-| 🔍 | ยังไม่เริ่ม  **แก้แล้ว:** claim ใน DB ก่อน (`WHERE state='AVAILABLE' AND player_id=?`) แล้วค่อยให้ของ, กันคลิกซ้อนด้วย `claimsInFlight`, ผู้เล่นออกก่อนได้ของ → คืน grant ให้ ·  **แก้แล้ว:** cancel ทุก click/drag ตอนเมนูเปิด รับเฉพาะคลิกซ้าย/ขวาบนช่องของเมนู ·  **แก้แล้ว:** 1 ช่อง = 1 grant รับทั้งก้อน, เช็คที่ว่างด้วย inventory จำลอง, แบ่ง stack ตามขนาดจริง, ของที่ใส่ไม่ลงส่งกลับเป็น grant ใหม่, payload อ่านไม่ได้ → แสดงเป็น barrier ห้ามรับ ·  **แก้แล้ว:** `InventorySync.shutdown()` รอให้ save ทุกตัวเสร็จ (สูงสุด 20 วิ) ก่อนปิด pool ·  **แก้แล้ว:** ไม่ save จนกว่า load สำเร็จ (`loaded` set), load ล้มเหลว → kick ·  **แก้แล้ว:** load/save ของผู้เล่นคนเดียวกันต่อคิวกันบน thread pool ของตัวเอง (`enqueue`) commit ตามลำดับที่ snapshot, javadoc แก้ให้ตรงความจริง ·  **แก้แล้ว:** ใช้ `GrantsMenu.MenuListener` ตัวเดียวลงทะเบียนตอน `onEnable` · |
+| ⬜ | ยังไม่เริ่ม |
 | 🟡 | มีโค้ดบางส่วน (ดูคอลัมน์ "ที่ยังขาด") |
 | 🔍 | ทำเสร็จแล้ว **รอผู้ใช้ตรวจ** |
 | ✅ | ผู้ใช้ตรวจผ่านแล้ว |
@@ -28,8 +28,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 |---|---|---|---|---|---|
 | 1 | มิติและ Channel | 3 | 2 | 0 | 0 |
 | 2 | Node เหมืองแร่ | 0 | 0 | 0 | 5 |
-| 3 | อุปกรณ์และสเตตัส | 4 | 1 | 0 | 0 |
-| 4 | Crafting & ตีบวก | 5 | 0 | 0 | 0 |
+| 3 | อุปกรณ์และสเตตัส | 3 | 1 | 1 | 0 |
+| 4 | Crafting & ตีบวก | 0 | 0 | 0 | 6 |
 | 5 | ต่อสู้และความตาย | 3 | 1 | 0 | 0 |
 | 6 | Instance Dungeon | 0 | 3 | 0 | 1 |
 | 7 | World Boss | 4 | 0 | 0 | 0 |
@@ -144,8 +144,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | ID | งาน | สถานะ | หลักฐาน | ที่ยังขาด / วิธีตรวจ |
 |---|---|---|---|---|
-| 3.1 | โครงสร้างไอเทม (UUID, Rarity, Advancement, Refine, Engrave, Socket) | 🟡 | `core/ItemDefinition.java`, ตาราง `items` ใน `schema_game.sql` | มี Rarity/Base Stats จาก content แล้ว แต่ยังไม่มี instance data ของ Advancement/Refine/Engrave/Socket |
-| 3.2 | คำนวณสเตตัส (GearMath: `Core_s`, `Final_s`) | ⬜ | — | |
+| 3.1 | โครงสร้างไอเทม (UUID, Rarity, Advancement, Refine, Engrave, Socket) | 🟡 | `core/craft/GearItems.java` (`GearData`), `core/ItemDefinition.java` | ทำไปพร้อมหมวด 4: gear มี UUID ถาวร, Advancement, Refine, pity, Quality, Engrave (≤3) เก็บใน PDC ของ ItemStack และประวัติทุกครั้งอยู่ใน `item_transactions` · **ยังขาด:** Socket, durability ของ gear, และยังไม่ได้เขียนลงตาราง `items` (ตอนนี้ของทั้งหมดถูก sync เป็น `material_stacks.item_data`) |
+| 3.2 | คำนวณสเตตัส (GearMath: `Core_s`, `Final_s`) | 🔍 | `core/craft/GearMath.java`, `core/craft/GearItems.java` (`stats`) | ทำไปพร้อมหมวด 4: fixed-point ตาม GDD, golden test ATK 280.5 รันทุกครั้งที่เปิดเซิร์ฟ · Core = (Base×Quality + Adv×Growth)×(1+RefineBonus) · Final รวม Flat/Percent ของ Engrave แล้ว (Socket/Set ยังเป็น 0 จนกว่าจะมีระบบ) · **วิธีตรวจ:** log ตอนเปิดเซิร์ฟไม่มี error GearMath, ดู lore ของดาบที่ตีบวก/ฝัง fragment · ค่ายังแสดงใน lore เท่านั้น ใช้จริงเมื่อมี 5.1 |
 | 3.3 | ป้องกัน/เกราะ และการคำนวณดาเมจที่ได้รับ | ⬜ | — | |
 | 3.4 | Unique Effect (Cooldown, Proc, ห้าม trigger ตัวเอง) | ⬜ | — | |
 | 3.5 | Set effect (เช็คเฉพาะช่องที่สวมจริง) | ⬜ | — | |
@@ -154,11 +154,12 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | ID | งาน | สถานะ | หลักฐาน | ที่ยังขาด / วิธีตรวจ |
 |---|---|---|---|---|
-| 4.1 | UI โชว์ผลลัพธ์และกฎก่อนยืนยัน | ⬜ | — | มี `CraftingRestrictionListener` บล็อกคราฟต์ vanilla แล้ว |
-| 4.2 | Advancement (0-100) | ⬜ | — | |
-| 4.3 | Refine (0-10, มีโอกาสล้มเหลว) | ⬜ | — | |
-| 4.4 | Engrave (Fragment สูงสุด 3 ช่อง) | ⬜ | — | |
-| 4.5 | Inheritance (โอนค่าทับชิ้นใหม่ ทำลายชิ้นเก่า) | ⬜ | — | |
+| 4.1 | UI โชว์ผลลัพธ์และกฎก่อนยืนยัน | ✅ | `core/craft/CraftMenu.java`, `core/craft/GuiMenu.java`, `core/craft/CraftService.java`, `core/craft/Recipe.java`, `core/craft/ResourcePackManager.java`, `tools/resourcepack/generate.mjs`, `core/economy/Ledger.java` | หน้าต่างแบบ A (พื้นหลังจาก resource pack ที่ปลั๊กอิน serve เองที่พอร์ต 8085; ไม่โหลด pack = กล่องธรรมดาใช้ได้เหมือนกัน) · ช่อง Result คือ quote: ของที่ได้, Energy, เวลา, binding, หมดอายุ 60 วิ · กด CRAFT → ตรวจ recipe version / quote / วัตถุดิบ → หักของ → DB transaction เดียว (operation + Energy ledger → `CRAFTING_FEES` + `item_transactions`) → ให้ของ, DB พัง = คืนของ · **วิธีตรวจ:** `/forge energy 500` → มี Prim Metal 1 + Iron Ingot 5 → คลิกขวาโต๊ะคราฟต์ (หรือ `/craft`) → กดยอมรับ pack ตอนเข้าเซิร์ฟ → เห็นหน้าม่วง-ทอง → CRAFT → ได้ Thing Sword มี "Gear #…" ใน lore · ของ/Energy ไม่พอ → ปุ่มมืดพร้อมเหตุผล · DB: `SELECT source_action, metadata FROM item_transactions ORDER BY created_at DESC LIMIT 5` |
+| 4.2 | Advancement (0-100) | ✅ | `core/craft/ForgeMenu.java`, `core/craft/GearItems.java`, `core/craft/GearMath.java`, `core/craft/ForgeRules.java`, `resources/config.yml` (`forge:`) | สำเร็จเสมอ ใช้ Prim Metal + Energy ตาม `forge.advancement` · สเตตัสคำนวณด้วย GearMath แบบ fixed-point (golden test ATK 280.5 รันทุกครั้งที่เปิดเซิร์ฟ) · Gear เก็บใน PDC: gear_id, adv, refine, pity, quality · **วิธีตรวจ:** คลิกขวาโต๊ะ Smithing (หรือ `/forge`) → คลิกดาบในกระเป๋า → ADVANCE → แถบส้มขยับ, lore ATK เพิ่ม, `/balance` Energy ลด |
+| 4.3 | Refine (0-10, มีโอกาสล้มเหลว) | ✅ | `core/craft/ForgeMenu.java` (`askRefine`, `refine`), `core/craft/ForgeRules.java` | โอกาสตามตาราง (+0→+1 100% … +9→+10 10%) · pity แสดงในจอ เต็มแล้วครั้งต่อไปสำเร็จแน่ · พังแล้วระดับไม่ลด ของไม่แตก · ยืนยันผ่าน Dialog ของเกม (โอกาส / pity / ค่าใช้จ่าย / กฎตอนพัง) · สุ่มครั้งเดียวต่อการกด แล้วบันทึกผลใน operation · **วิธีตรวจ:** REFINE → Dialog → กด Refine → ดูผลในแชท · ตีที่ +3 ขึ้นไปจนพัง → pity ขึ้น 1 และระดับเท่าเดิม · DB: metadata มี `roll`, `chance_bp`, `success`, `pity_before/after` |
+| 4.4 | Engrave (Fragment สูงสุด 3 ช่อง) | ✅ | `core/craft/ForgeMenu.java` (`askEngrave`, `engrave`, `askRemove`, `removeEngrave`), `core/craft/GearItems.java` (`gear_engraves`, `stats`), `core/ItemDefinition.java` (`Engrave`), `ContentRegistryManager` (payload `engrave`), config `forge.engrave`, `database/test-content/fragment_test_*.json`, `engrave_solvent.json` | Fragment = ItemBase ที่มีบล็อก `engrave {affix, exclusive, flat, percent, categories}` · ฝังได้ 3 ช่อง ห้ามซ้ำ affix ที่ exclusive · ถอดด้วย Engrave Solvent 1 ชิ้น + Energy แล้วได้ fragment คืน · ยืนยันผ่าน Dialog ทั้งฝังและถอด · DB: `item_transactions` action ENGRAVE / UNENGRAVE พร้อม engraves_before/after · **วิธีตรวจ:** รีสตาร์ทเซิร์ฟ → `/dm give <ชื่อ> fragment_test_fury 2`, `fragment_test_edge 1`, `engrave_solvent 2` → `/forge` → คลิกดาบ → คลิก Fury → Dialog → Engrave → ATK 5→8 · คลิก Fury อันที่สองต้องถูกปฏิเสธ (exclusive) · ใส่ Edge → ATK 8.8 · คลิกช่องที่ฝังแล้ว → Remove → ได้ fragment คืน · **ข้อจำกัด:** web editor ยังไม่มีช่องกรอก `engrave` (แก้ผ่านไฟล์ JSON + `load_content_file.mjs`) |
+| 4.5 | Inheritance (โอนค่าทับชิ้นใหม่ ทำลายชิ้นเก่า) | ✅ | `core/craft/InheritMenu.java`, ปุ่ม INHERIT ใน `ForgeMenu`, `/forge inherit`, config `forge.inherit.energy`, `tools/resourcepack/generate.mjs` (พื้นหลัง inherit) | กติกาที่ผู้ใช้ยืนยัน 2026-11-12: เลือกโอน 1 อย่าง (Advancement / Refine+pity / Engrave) · **ทำลายชิ้นต้นทาง** · ค่าบนชิ้นปลายทาง**ถูกแทนที่** (ไม่บวก, Dialog เตือนถ้าค่าลดลง) · ต้อง**หมวดเดียวกัน** (WEAPON→WEAPON) · โอน Engrave แล้ว fragment เดิมของปลายทาง**คืนผู้เล่น** · ห้ามใช้ชิ้นที่สวมอยู่ (เกราะ/มือรอง) · ยืนยันผ่าน Dialog · DB: operation INHERIT + `item_transactions` 2 แถว (INHERIT_SOURCE result DESTROYED / INHERIT_TARGET) พร้อม before/after · **วิธีตรวจ:** รีสตาร์ทเซิร์ฟ → มีดาบ 2 เล่ม (`/dm give <ชื่อ> thing_sword 2`) → ตีเล่มแรกให้มี Advancement/ฝัง fragment → `/forge` → INHERIT → คลิกเล่มแรก (SOURCE) แล้วเล่มที่สอง (TARGET) → เลือก ADVANCE → TRANSFER → Dialog → เล่มแรกหาย เล่มสองได้ค่า · ลอง ENGRAVE ให้ปลายทางที่มี fragment อยู่ → ได้ fragment เดิมคืน |
+| 4.6 | มินิเกม Forge Heat ตอนคราฟต์ → ได้เกรด Normal / Fine / Masterwork | ✅ | `core/craft/HeatGame.java` (กติกา), `core/craft/HeatMenu.java` (หน้าต่าง), `core/craft/CraftMenu.java` (ปุ่ม FORGE, `finish`), config `craft.minigame`, `tools/resourcepack/generate.mjs` (พื้นหลัง heat + ไอคอน) | ผลัดตา: Hammer/Fold/Temper/Quench/Rush, เตา Normal/Hot/White-hot/Unstable เปลี่ยนทุกตา · Quality ≥50 Fine, ≥95 Masterwork · Integrity หมด/STOP/ปิดหน้าต่าง/ออกเกม = ได้ Normal (ไม่เสียของ) · จำลอง 20k รอบ: เล่นดี ~24% Masterwork · ทดสอบ: `/craft` → กด FORGE (ปุ่มส้ม) → เล่นจนจบ → ดาบมี Quality ใน lore และ `item_transactions.metadata.minigame` · ข้อจำกัด: เซิร์ฟ crash กลางเกม = วัตถุดิบหาย (ปิดปกติจะคืน) |
 
 ## 5. ระบบต่อสู้และความตาย
 
@@ -267,6 +268,15 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | วันที่ | ID | สิ่งที่ทำ | ค้าง / ข้อควรระวัง |
 |---|---|---|---|
+| 2026-11-12 | fix: กินไอเทม custom | `core/ContentItemGuard.java`: ยกเลิกการกิน/ดื่มไอเทม content ทุกชิ้นที่หมวดไม่ใช่ FOOD (เดิม Engrave Solvent บน honey_bottle ดื่มแล้วหาย) | ผู้ใช้ทดสอบในเกมผ่าน (Solvent ดื่มไม่ได้ ของไม่หาย) |
+| 2026-11-12 | 4.5 | ผู้ใช้ทดสอบในเกมผ่าน (Inheritance) → ✅ · หมวด 4 ครบทุกข้อ | — |
+| 2026-11-12 | 4.5 Inheritance | หน้าต่าง Inheritance (ปุ่ม INHERIT ใน /forge หรือ /forge inherit) ตามกติกา 4 ข้อที่ผู้ใช้เลือก · boot test ผ่าน | ยังไม่ได้ทดสอบในเกม · ต้องรีสตาร์ทเซิร์ฟ/รับ pack ใหม่ |
+| 2026-11-12 | 4.4 | ผู้ใช้ทดสอบในเกมผ่าน (Engrave ฝัง/ถอด, exclusive affix) → ✅ | — |
+| 2026-11-12 | 4.4 Engrave · 3.1/3.2 | Engrave ฝัง/ถอด fragment 3 ช่องใน /forge + test content 3 ชิ้น (โหลดเข้า content DB แล้ว) · อัปเดต 3.1 (🟡) / 3.2 (🔍) ที่ทำไปพร้อมหมวด 4 แต่ไม่ได้บันทึก | ต้องรีสตาร์ทเซิร์ฟ (jar ถูกแทนที่ระหว่างเซิร์ฟรัน) · ยังไม่ได้ทดสอบในเกม |
+| 2026-11-12 | 4.6 | ผู้ใช้ทดสอบในเกมผ่าน (Forge Heat + แก้เส้นสีบนปุ่ม) → ✅ | — |
+| 2026-11-12 | 4.6 Forge Heat + UI fix | มินิเกมผลัดตาให้เกรดของ (ปุ่ม FORGE ในหน้าคราฟต์) · แก้เส้นสีบนปุ่มที่ถูก dim และแถบ ADV ขาดเป็นช่วง (sprite ขยายเต็มช่อง 18px) | ยังไม่ได้ทดสอบในเกม · ปรับตัวเลขได้ใน `craft.minigame` (ต้องรีสตาร์ท) |
+| 2026-11-12 | 4.1–4.3 | ผู้ใช้ทดสอบในเกมผ่าน (Craft / Advance / Refine + Dialog) → ✅ | ไคลเอนต์เคยเด้งเพราะ RAM เครื่องหมดตอน reload pack (ไม่เกี่ยวกับโค้ด) |
+| 2026-11-12 | 4.1–4.3 Crafting / Forge | UI แบบ A (เลือกจาก Figma): resource pack สร้างจากโค้ด `tools/resourcepack/generate.mjs` แล้วปลั๊กอิน serve เอง · `/craft`, `/forge`, คลิกขวาโต๊ะคราฟต์ / Smithing · Gear ใน PDC + ประวัติใน `operations` / `item_transactions` · Energy หักผ่าน ledger → `CRAFTING_FEES` · `/forge energy <n> [player]` สำหรับ admin · ตัวเลขสมดุลอยู่ใน `config.yml` (`forge:`, `craft:`) · เครื่องมือ Figma `tools/figma-bridge/` · แก้แถว legend ⬜ ที่เสียมาตั้งแต่ 4caf75d | เล่นจากเครื่องอื่นต้องตั้ง `resource_pack.public_url` · ผู้เล่นออกเกมระหว่างกด (~0.1 วิ) ของคืนทาง /grants แต่ gear เสียค่าตีบวก (มี log) · `duration_seconds` แสดงอย่างเดียว คราฟต์ทันที · ยังไม่เช็ค `required_level` (ยังไม่มี Server Level) · สเตตัสอยู่ใน lore อย่างเดียวจนกว่าจะทำ 5.1 · เว็บ editor ยังไม่มีช่อง `energy_cost` / `growth_stats` / `upgrade_material` (ใส่ใน JSON ได้) · config แก้แล้วต้องรีสตาร์ท |
 | 2026-11-12 | ผลตรวจของผู้ใช้ | ✅ 2.1–2.5 Mining Node (ขุด, แร่เกิดใหม่, พลั่วไม่ถึงขุดไม่ได้) และ T1–T3 (/mine, /dmb, blueprint tutorial_mine_t1 + undo) | — |
 | 2026-11-12 | T1–T3 เครื่องมือแต่งโลก | `/dmb` (wand, pos1/pos2, fill, replace, ores → mining node, undo 5 ระดับ, save อัตโนมัติ, ทำทุก channel พร้อมกัน, ไม่ทับ node) + Blueprint JSON (box, sphere, tunnel, replace, ore_vein, node, light, marker; พิกัดหมุนตามทิศผู้เล่น; seed) + ตัวอย่าง `tutorial_mine_t1` + คู่มือ `tools/blueprints/README.md` · บิลด์ jar แล้ว (รวมงาน Mining Node) | ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit · undo อยู่ในหน่วยความจำ · แก้แมพ `ind_t0` ด้วย /dmb ยังไม่ได้ |
 | 2026-11-12 | 2.1–2.5 Mining Node | ระบบขุดแร่: content kind `OreType` + `LootTable`, `MineNodeManager` (โหลด node, จอง, DB transaction ต่อ generation, ของเข้ากระเป๋า/ล้นไป mailbox, คิวเกิดใหม่, เปลี่ยนบล็อก), anti-abuse, คำสั่ง `/mine` · content ทดสอบ `ore_prim_metal` + `loot_ore_prim_metal` โหลดแล้ว · `compileJava` ผ่าน | ยังไม่ได้บิลด์ jar (เซิร์ฟเปิดอยู่) · ยังไม่ได้ทดสอบในเกม · ยังไม่ได้ commit · หน้า Admin Editor สำหรับ OreType ยังไม่มี (ใช้ไฟล์ JSON + `load_content_file.mjs`) |

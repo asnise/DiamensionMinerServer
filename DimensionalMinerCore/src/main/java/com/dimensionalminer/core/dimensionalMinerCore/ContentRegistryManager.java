@@ -31,14 +31,16 @@ public class ContentRegistryManager {
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeonRegistry = Map.of();
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType> oreRegistry = Map.of();
     private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> lootRegistry = Map.of();
+    private volatile Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> recipeRegistry = Map.of();
     private final DecimalFormat df = new DecimalFormat("#.##");
 
     /** Everything parsed from one registry file; swapped in as a unit. */
     private record Parsed(Map<String, ItemDefinition> items,
                           Map<String, com.dimensionalminer.core.dimensionalMinerCore.dungeon.DungeonDefinition> dungeons,
                           Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType> ores,
-                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> loot) {
-        Parsed() { this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>()); }
+                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable> loot,
+                          Map<String, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> recipes) {
+        Parsed() { this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new java.util.LinkedHashMap<>()); }
     }
 
     public ContentRegistryManager(DimensionalMinerCore plugin) {
@@ -83,13 +85,42 @@ public class ContentRegistryManager {
             return true;
         });
 
+        // A recipe that uses an unknown item could never be crafted (or would mint nothing): drop it loudly.
+        parsed.recipes().values().removeIf(r -> {
+            for (var in : r.inputs()) if (!isKnownItem(parsed.items(), in.item())) return warnRecipe(r, in.item());
+            for (var out : r.outputs()) if (!isKnownItem(parsed.items(), out.item())) return warnRecipe(r, out.item());
+            return false;
+        });
+
         registry = Map.copyOf(parsed.items());
         dungeonRegistry = Map.copyOf(parsed.dungeons());
         oreRegistry = Map.copyOf(parsed.ores());
         lootRegistry = Map.copyOf(parsed.loot());
+        recipeRegistry = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(parsed.recipes()));
         plugin.getLogger().info("[ContentRegistry] Loaded " + parsed.items().size() + " items, " + parsed.dungeons().size()
-                + " dungeons, " + parsed.ores().size() + " ore types, " + parsed.loot().size() + " loot tables from " + file.getPath());
+                + " dungeons, " + parsed.ores().size() + " ore types, " + parsed.loot().size() + " loot tables, "
+                + parsed.recipes().size() + " recipes from " + file.getPath());
         return true;
+    }
+
+    private static boolean isKnownItem(Map<String, ItemDefinition> items, String id) {
+        if (items.containsKey(id)) return true;
+        Material m = Material.matchMaterial(id.toUpperCase(Locale.ROOT));
+        return m != null && m.isItem() && !m.isAir();
+    }
+
+    private boolean warnRecipe(com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe r, String item) {
+        plugin.getLogger().warning("[ContentRegistry] Recipe/" + r.id() + " skipped: unknown item '" + item + "'");
+        return true;
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe getRecipe(String id) {
+        return id == null ? null : recipeRegistry.get(id.toLowerCase(Locale.ROOT));
+    }
+
+    /** Recipes in registry file order. */
+    public Collection<com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe> getAllRecipes() {
+        return recipeRegistry.values();
     }
 
     public com.dimensionalminer.core.dimensionalMinerCore.mining.OreType getOreType(String id) {
@@ -173,6 +204,8 @@ public class ContentRegistryManager {
                             out.ores().put(key, com.dimensionalminer.core.dimensionalMinerCore.mining.OreType.fromJson(defId, payload));
                         } else if (kind.equalsIgnoreCase("LootTable")) {
                             out.loot().put(key, com.dimensionalminer.core.dimensionalMinerCore.mining.LootTable.fromJson(defId, payload));
+                        } else if (kind.equalsIgnoreCase("Recipe")) {
+                            out.recipes().put(key, com.dimensionalminer.core.dimensionalMinerCore.craft.Recipe.fromJson(defId, payload));
                         } else {
                             ItemDefinition def = parseDefinition(defId, kind, payload);
                             if (def != null) {
@@ -215,7 +248,43 @@ public class ContentRegistryManager {
             }
         }
 
-        return new ItemDefinition(id, kind, name, display, icon, category, rarity, binding, stack, durability, description, stats);
+        Map<String, Double> growth = new HashMap<>();
+        if (p.has("growth_stats") && p.get("growth_stats").isJsonObject()) {
+            for (Map.Entry<String, JsonElement> g : p.getAsJsonObject("growth_stats").entrySet()) {
+                try {
+                    growth.put(g.getKey(), g.getValue().getAsDouble());
+                } catch (Exception e) {
+                    plugin.getLogger().warning("[ContentRegistry] " + id + ": growth stat '" + g.getKey() + "' is not a number, ignored");
+                }
+            }
+        }
+        String upgradeMaterial = p.has("upgrade_material") ? p.get("upgrade_material").getAsString().toLowerCase(Locale.ROOT) : null;
+
+        ItemDefinition.Engrave engrave = null;
+        if (p.has("engrave") && p.get("engrave").isJsonObject()) {
+            JsonObject e = p.getAsJsonObject("engrave");
+            Map<String, Double> flat = new HashMap<>();
+            Map<String, Integer> pct = new HashMap<>();
+            try {
+                if (e.has("flat") && e.get("flat").isJsonObject())
+                    for (Map.Entry<String, JsonElement> f : e.getAsJsonObject("flat").entrySet()) flat.put(f.getKey(), f.getValue().getAsDouble());
+                // "percent" is in % (10 = +10%), stored as basis points
+                if (e.has("percent") && e.get("percent").isJsonObject())
+                    for (Map.Entry<String, JsonElement> f : e.getAsJsonObject("percent").entrySet())
+                        pct.put(f.getKey(), (int) Math.round(f.getValue().getAsDouble() * 100));
+                java.util.List<String> cats = new java.util.ArrayList<>();
+                if (e.has("categories") && e.get("categories").isJsonArray())
+                    for (JsonElement c : e.getAsJsonArray("categories")) cats.add(c.getAsString());
+                String affix = e.has("affix") ? e.get("affix").getAsString().toLowerCase(Locale.ROOT) : id;
+                boolean exclusive = !e.has("exclusive") || e.get("exclusive").getAsBoolean();
+                engrave = new ItemDefinition.Engrave(affix, exclusive, Map.copyOf(flat), Map.copyOf(pct), java.util.List.copyOf(cats));
+            } catch (Exception ex) {
+                plugin.getLogger().warning("[ContentRegistry] " + id + ": invalid engrave block, ignored (" + ex.getMessage() + ")");
+            }
+        }
+
+        return new ItemDefinition(id, kind, name, display, icon, category, rarity, binding, stack, durability, description, stats)
+                .withForgeData(growth, upgradeMaterial).withEngrave(engrave);
     }
 
     public ItemStack createItemStack(String definitionId, int amount) {

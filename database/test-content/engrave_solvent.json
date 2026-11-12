@@ -1,0 +1,14 @@
+{
+  "definition_id": "engrave_solvent",
+  "kind": "ItemBase",
+  "payload": {
+    "name": "Engrave Solvent",
+    "display": "Engrave Solvent",
+    "icon": "honey_bottle",
+    "category": "CONSUMABLE",
+    "rarity": "UNCOMMON",
+    "binding": "UNBOUND",
+    "stack": 16,
+    "description": "Dissolves one engrave so its fragment can be taken out intact."
+  }
+}
