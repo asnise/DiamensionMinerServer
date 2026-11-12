@@ -62,11 +62,15 @@ commands:
     description: Admin tools for mining nodes
     usage: /mine <types|node add <ore>|node remove|info|list [radius]|respawn>
     permission: dimensionalminer.admin
+  zone:
+    description: Admin Safe / PvP zones from the /dmb selection
+    usage: /zone <create|circle|point|poly|remove|list|here|show>
+    permission: dimensionalminer.admin
   dmb:
     description: Admin world building (selection, fill, ore veins, blueprints)
     usage: /dmb <wand|pos1|pos2|sel|fill|replace|ores|list|preview|run|undo|save>
     permission: dimensionalminer.admin
 permissions:
   dimensionalminer.admin:
-    description: Admin commands (/dm, /mine, /dmb, /forge energy, /forge npc)
+    description: Admin commands (/dm, /mine, /dmb, /zone, /forge energy, /forge npc)
     default: op

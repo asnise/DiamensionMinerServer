@@ -17,6 +17,7 @@ public final class DimensionalMinerCore extends JavaPlugin {
     private com.dimensionalminer.core.dimensionalMinerCore.combat.CombatService combatService;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems gearItems;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.BlacksmithNpcs blacksmiths;
+    private com.dimensionalminer.core.dimensionalMinerCore.zone.ZoneManager zoneManager;
 
     @Override
     public void onEnable() {
@@ -66,6 +67,11 @@ public final class DimensionalMinerCore extends JavaPlugin {
         // World building for admins (/dmb, blueprints in plugins/DimensionalMinerCore/blueprints)
         var buildManager = new com.dimensionalminer.core.dimensionalMinerCore.build.BuildManager(this, mineNodes);
         var buildCmd = new com.dimensionalminer.core.dimensionalMinerCore.build.BuildCommand(this, buildManager);
+        // Safe / PvP zones (1.5) on the hub map, drawn from the /dmb selection.
+        zoneManager = new com.dimensionalminer.core.dimensionalMinerCore.zone.ZoneManager(this, buildManager);
+        getServer().getPluginManager().registerEvents(zoneManager, this);
+        getCommand("zone").setExecutor(zoneManager);
+        getCommand("zone").setTabCompleter(zoneManager);
         getServer().getPluginManager().registerEvents(buildCmd, this);
         getCommand("dmb").setExecutor(buildCmd);
         getCommand("dmb").setTabCompleter(buildCmd);
@@ -78,6 +84,7 @@ public final class DimensionalMinerCore extends JavaPlugin {
         // Combat: one damage pipeline for player <-> mob hits (gear stats, crit, Raw x K/(K+Defense)), PvP off.
         combatService = new com.dimensionalminer.core.dimensionalMinerCore.combat.CombatService(this, gearItems,
                 com.dimensionalminer.core.dimensionalMinerCore.combat.CombatConfig.from(getConfig()));
+        combatService.setZones(zoneManager);
         getServer().getPluginManager().registerEvents(combatService, this);
         getServer().getPluginManager().registerEvents(new com.dimensionalminer.core.dimensionalMinerCore.combat.DeathListener(this, gearItems), this);
         resourcePacks = new com.dimensionalminer.core.dimensionalMinerCore.craft.ResourcePackManager(this);

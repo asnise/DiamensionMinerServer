@@ -63,7 +63,8 @@ public final class CombatService implements Listener {
     private final Plugin plugin;
     private final GearItems gear;
     private final CombatConfig cfg;
-    private final NamespacedKey kAtk, kDef;
+    private final NamespacedKey kAtk, kDef, kProjAtk, kProjCrit, kProjSafe, kProjPvp;
+    private com.dimensionalminer.core.dimensionalMinerCore.zone.ZoneManager zones;
     private final Map<UUID, Charge> charge = new HashMap<>();
     /** victim → attacker → damage dealt (for World Boss / dungeon rewards later). */
     private final Map<UUID, Map<UUID, Double>> contribution = new HashMap<>();
@@ -74,6 +75,35 @@ public final class CombatService implements Listener {
         this.cfg = cfg;
         this.kAtk = new NamespacedKey(plugin, "combat_attack");
         this.kDef = new NamespacedKey(plugin, "combat_defense");
+        this.kProjAtk = new NamespacedKey(plugin, "proj_attack");
+        this.kProjCrit = new NamespacedKey(plugin, "proj_crit");
+        this.kProjSafe = new NamespacedKey(plugin, "proj_from_safe");
+        this.kProjPvp = new NamespacedKey(plugin, "proj_from_pvp");
+    }
+
+    public void setZones(com.dimensionalminer.core.dimensionalMinerCore.zone.ZoneManager zones) {
+        this.zones = zones;
+    }
+
+    private boolean safe(Location l) { return zones != null && zones.isSafe(l); }
+
+    private boolean pvp(Location l) { return zones != null && zones.isPvp(l); }
+
+    /**
+     * Anti-abuse (5.2): a player's projectile carries the weapon stats and the zone of the moment it
+     * was fired, so swapping weapons mid-flight changes nothing and a shot from a Safe Zone stays
+     * harmless. The bow (gear) wears when it fires, not when the arrow lands.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onLaunch(org.bukkit.event.entity.ProjectileLaunchEvent event) {
+        if (!cfg.enabled() || !(event.getEntity().getShooter() instanceof Player p)) return;
+        PlayerStats s = playerStats(p);
+        PersistentDataContainer pdc = event.getEntity().getPersistentDataContainer();
+        pdc.set(kProjAtk, PersistentDataType.DOUBLE, s.gearWeapon() ? s.attack() : -1.0);
+        pdc.set(kProjCrit, PersistentDataType.DOUBLE, s.critChance());
+        pdc.set(kProjSafe, PersistentDataType.BYTE, (byte) (safe(p.getLocation()) ? 1 : 0));
+        pdc.set(kProjPvp, PersistentDataType.BYTE, (byte) (pvp(p.getLocation()) ? 1 : 0));
+        if (s.gearWeapon()) gear.wear(p, org.bukkit.inventory.EquipmentSlot.HAND, 1);
     }
 
     public CombatConfig config() { return cfg; }
@@ -102,6 +132,17 @@ public final class CombatService implements Listener {
     public double mobDefense(LivingEntity mob) {
         Double v = mob.getPersistentDataContainer().get(kDef, PersistentDataType.DOUBLE);
         return v != null ? v : cfg.mob(mob.getType().name()).defense();
+    }
+
+    /** Vanilla's mob-damage curve: Easy = min(a/2 + 1, a), Normal = a, Hard = a × 1.5, Peaceful = 0. */
+    private double difficultyScaled(double attack, org.bukkit.Difficulty d) {
+        if (!cfg.scaleByDifficulty()) return attack;
+        return switch (d) {
+            case PEACEFUL -> 0;
+            case EASY -> Math.min(attack / 2 + 1, attack);
+            case NORMAL -> attack;
+            case HARD -> attack * 1.5;
+        };
     }
 
     /** Config HP for mob types that list one (combat.mobs.&lt;TYPE&gt;.hp). */
@@ -180,12 +221,18 @@ public final class CombatService implements Listener {
         if (attacker == null) return;
         boolean byPlayer = attacker instanceof Player, toPlayer = victim instanceof Player;
 
-        // Hit rule: no PvP (this also covers a player's arrows and pets hitting players).
-        if (byPlayer && toPlayer) {
-            if (!cfg.pvp()) { event.setCancelled(true); return; }
-        } else if (!byPlayer && !toPlayer) {
-            return; // mob vs mob: vanilla
-        }
+        if (!byPlayer && !toPlayer) return; // mob vs mob: vanilla
+
+        // Hit rule. Where did the hit come from? A projectile remembers its launch zone.
+        Projectile proj = event.getDamager() instanceof Projectile pr ? pr : null;
+        PersistentDataContainer ppdc = proj != null ? proj.getPersistentDataContainer() : null;
+        boolean snap = ppdc != null && ppdc.has(kProjSafe, PersistentDataType.BYTE);
+        boolean fromSafe = snap ? ppdc.get(kProjSafe, PersistentDataType.BYTE) == 1 : safe(event.getDamager().getLocation());
+        boolean fromPvp = snap ? ppdc.get(kProjPvp, PersistentDataType.BYTE) == 1 : pvp(event.getDamager().getLocation());
+        // Safe Zone: nothing hurts across its border in either direction (no farming from inside).
+        if (fromSafe || safe(victim.getLocation())) { event.setCancelled(true); return; }
+        // PvP only when attacker and victim are both in a PvP zone (or combat.pvp is on).
+        if (byPlayer && toPlayer && !cfg.pvp() && !(fromPvp && pvp(victim.getLocation()))) { event.setCancelled(true); return; }
         // Shield block: vanilla handles it.
         if (event.isApplicable(EntityDamageEvent.DamageModifier.BLOCKING) && event.getDamage(EntityDamageEvent.DamageModifier.BLOCKING) < 0) return;
 
@@ -198,7 +245,13 @@ public final class CombatService implements Listener {
             Player p = (Player) attacker;
             PlayerStats s = playerStats(p);
             boolean melee = event.getDamager() == p;
-            if (!s.gearWeapon() || !melee && !(event.getDamager() instanceof Projectile)) {
+            double critChance = s.critChance();
+            Double snapAtk = ppdc != null ? ppdc.get(kProjAtk, PersistentDataType.DOUBLE) : null;
+            if (snapAtk != null) {
+                // Stats of the weapon that fired it, not of whatever is in hand now.
+                critChance = ppdc.getOrDefault(kProjCrit, PersistentDataType.DOUBLE, 0.0);
+                raw = snapAtk >= 0 ? snapAtk * Math.clamp(proj.getVelocity().length() / 3.0, 0.1, 1.0) : event.getDamage();
+            } else if (!s.gearWeapon() || !melee && proj == null) {
                 raw = event.getDamage(); // vanilla weapon / pet / other: vanilla raw damage
             } else if (cause == EntityDamageEvent.DamageCause.ENTITY_SWEEP_ATTACK) {
                 raw = s.attack() * chargeScale(p) * cfg.sweepRatio();
@@ -207,10 +260,11 @@ public final class CombatService implements Listener {
             } else {
                 raw = s.attack() * chargeScale(p);
             }
-            if (weaponHit && s.critChance() > 0) crit = ThreadLocalRandom.current().nextDouble(100) < s.critChance();
+            if (weaponHit && critChance > 0) crit = ThreadLocalRandom.current().nextDouble(100) < critChance;
             defense = toPlayer ? playerStats((Player) victim).defense() : mobDefense(victim);
         } else {
-            raw = weaponHit ? mobAttack(attacker) : event.getDamage(); // explosions etc keep vanilla falloff
+            // Explosions etc keep vanilla damage (already scaled by difficulty); mob ATK is scaled here.
+            raw = weaponHit ? difficultyScaled(mobAttack(attacker), victim.getWorld().getDifficulty()) : event.getDamage();
             defense = playerStats((Player) victim).defense();
         }
         double damage = raw * (crit ? cfg.critMultiplier() : 1) * cfg.defenseK() / (cfg.defenseK() + Math.max(0, defense));
@@ -220,7 +274,9 @@ public final class CombatService implements Listener {
         if (event.isApplicable(EntityDamageEvent.DamageModifier.MAGIC)) event.setDamage(EntityDamageEvent.DamageModifier.MAGIC, 0);
 
         // Durability (5.4): the weapon wears per landed hit, each armor piece per hit taken.
-        if (byPlayer && weaponHit) gear.wear((Player) attacker, org.bukkit.inventory.EquipmentSlot.HAND, 1);
+        // (Projectiles wore the bow at launch.)
+        if (byPlayer && cause == EntityDamageEvent.DamageCause.ENTITY_ATTACK && event.getDamager() == attacker)
+            gear.wear((Player) attacker, org.bukkit.inventory.EquipmentSlot.HAND, 1);
         if (toPlayer && !byPlayer && weaponHit) {
             Player v = (Player) victim;
             for (org.bukkit.inventory.EquipmentSlot slot : ARMOR) gear.wear(v, slot, 1);

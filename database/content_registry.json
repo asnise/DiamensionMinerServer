@@ -192,6 +192,82 @@
   ],
   "ItemBase": [
     {
+      "definition_id": "armor_test_prim_boots",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Prim Boots",
+        "display": "[TEST] Prim Boots",
+        "icon": "iron_boots",
+        "category": "ARMOR",
+        "rarity": "UNCOMMON",
+        "binding": "UNBOUND",
+        "stack": 1,
+        "description": "Test armor: +2 Defense (full set 16 = 76% damage taken at K=50).",
+        "base_stats": {
+          "defense": 2
+        },
+        "upgrade_material": "prim_metal"
+      }
+    },
+    {
+      "definition_id": "armor_test_prim_chestplate",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Prim Chestplate",
+        "display": "[TEST] Prim Chestplate",
+        "icon": "iron_chestplate",
+        "category": "ARMOR",
+        "rarity": "UNCOMMON",
+        "binding": "UNBOUND",
+        "stack": 1,
+        "description": "Test armor: +6 Defense (full set 16 = 76% damage taken at K=50).",
+        "base_stats": {
+          "defense": 6
+        },
+        "upgrade_material": "prim_metal"
+      }
+    },
+    {
+      "definition_id": "armor_test_prim_helmet",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Prim Helmet",
+        "display": "[TEST] Prim Helmet",
+        "icon": "iron_helmet",
+        "category": "ARMOR",
+        "rarity": "UNCOMMON",
+        "binding": "UNBOUND",
+        "stack": 1,
+        "description": "Test armor: +3 Defense (full set 16 = 76% damage taken at K=50).",
+        "base_stats": {
+          "defense": 3
+        },
+        "upgrade_material": "prim_metal"
+      }
+    },
+    {
+      "definition_id": "armor_test_prim_leggings",
+      "version": 1,
+      "kind": "ItemBase",
+      "payload": {
+        "name": "Prim Leggings",
+        "display": "[TEST] Prim Leggings",
+        "icon": "iron_leggings",
+        "category": "ARMOR",
+        "rarity": "UNCOMMON",
+        "binding": "UNBOUND",
+        "stack": 1,
+        "description": "Test armor: +5 Defense (full set 16 = 76% damage taken at K=50).",
+        "base_stats": {
+          "defense": 5
+        },
+        "upgrade_material": "prim_metal"
+      }
+    },
+    {
       "definition_id": "engrave_solvent",
       "version": 1,
       "kind": "ItemBase",

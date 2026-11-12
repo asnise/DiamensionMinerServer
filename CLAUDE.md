@@ -107,6 +107,8 @@ The web console never writes to the player's live inventory. Shop purchases (`ap
 
 - Combat (`combat/`): `CombatService` is the one damage pipeline for player↔mob hits (EntityDamageByEntityEvent HIGH): gear ATK × attack charge (read in `PrePlayerAttackEntityEvent`), crit from `crit_chance`, `Raw × K/(K+Defense)`, vanilla ARMOR/MAGIC modifiers zeroed, PvP cancelled unless `combat.pvp`. Mob stats come from `combat.mobs.<TYPE>` or PDC set by dungeon SUMMON `stats`. Damage per attacker is kept in `contribution()`; `proc()` is the hook for Unique Effects. Durability lives on the gear PDC (`gear_dur`): `GearItems.wear` is called per hit landed, per hit taken (armor), and per node mined; vanilla wear is cancelled; 0 = Base stats only. Repair happens at the forge (Energy) or at `BlacksmithNpcs` (COIN, `repair_npcs.yml`). Deaths outside dungeons are handled by `DeathListener` (-10% durability, respawn at the hub).
 
+- Zones (`zone/ZoneManager`, `/zone`, `zones.yml`): SAFE and PVP cuboids on the hub map, applied in every channel world. CombatService cancels any hit where the attacker (a projectile uses its launch zone) or the victim is in a SAFE zone; PvP needs both in a PVP zone unless `combat.pvp`. Player projectiles snapshot weapon ATK/crit and zone at launch (anti weapon-swap).
+
 ### EXeaEntityCore
 
 Renders Blockbench models as hierarchies of `ItemDisplay` bones that ride a root driver mob (Husk/ArmorStand). The pieces:

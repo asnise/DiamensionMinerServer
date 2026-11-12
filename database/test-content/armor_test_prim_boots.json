@@ -1,0 +1,18 @@
+{
+  "definition_id": "armor_test_prim_boots",
+  "kind": "ItemBase",
+  "payload": {
+    "name": "Prim Boots",
+    "display": "[TEST] Prim Boots",
+    "icon": "iron_boots",
+    "category": "ARMOR",
+    "rarity": "UNCOMMON",
+    "binding": "UNBOUND",
+    "stack": 1,
+    "description": "Test armor: +2 Defense (full set 16 = 76% damage taken at K=50).",
+    "base_stats": {
+      "defense": 2
+    },
+    "upgrade_material": "prim_metal"
+  }
+}

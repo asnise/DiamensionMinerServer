@@ -90,8 +90,11 @@ combat:
   player_base_defense: 0
   crit_multiplier: 1.5
   sweep_ratio: 0.25
+  # PvP outside PvP zones (/zone create <name> pvp). Safe zones never allow combat.
   pvp: false
   damage_indicators: true
+  # Mob attack follows the world difficulty like vanilla: Easy = min(a/2+1, a), Normal = a, Hard = a x 1.5.
+  scale_by_difficulty: true
   # Death outside a dungeon: nothing is lost except durability of equipped gear; respawn at the hub.
   death: { durability_loss_percent: 10, respawn_world: overworld_t0 }
   # hp is optional (omit = vanilla max health). Dungeon SUMMON actions can override with "stats".

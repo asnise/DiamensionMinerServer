@@ -26,14 +26,14 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | # | หมวด | ⬜ | 🟡 | 🔍 | ✅ |
 |---|---|---|---|---|---|
-| 1 | มิติและ Channel | 3 | 2 | 0 | 0 |
+| 1 | มิติและ Channel | 3 | 1 | 0 | 1 |
 | 2 | Node เหมืองแร่ | 0 | 0 | 0 | 5 |
 | 3 | อุปกรณ์และสเตตัส | 2 | 1 | 1 | 1 |
 | 4 | Crafting & ตีบวก | 0 | 0 | 0 | 6 |
-| 5 | ต่อสู้และความตาย | 1 | 0 | 0 | 3 |
+| 5 | ต่อสู้และความตาย | 0 | 0 | 0 | 4 |
 | 6 | Instance Dungeon | 0 | 3 | 0 | 1 |
 | 7 | World Boss | 4 | 0 | 0 | 0 |
-| 8 | Workspace & Market | 4 | 0 | 0 | 0 |
+| 8 | Workspace & Market | 5 | 0 | 0 | 0 |
 | 9 | Mailbox & EXP/Energy | 1 | 1 | 0 | 2 |
 | 10 | Server Transfer | 3 | 0 | 0 | 0 |
 | 11 | Web Console | 2 | 0 | 1 | 0 |
@@ -128,7 +128,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | 1.2 | เงื่อนไขปลดล็อก Tier (Server Level, เควส, หลักฐานชนะบอส) | ⬜ | — | |
 | 1.3 | Channel แยก instance ของ World | 🟡 | `core/channel/ChannelManager.java`, `ChannelCommand.java` | Fix ไว้ 3 channel (clone จาก `overworld_t0`) ยังไม่มีการจำกัดคน/เพิ่ม channel อัตโนมัติ |
 | 1.4 | วาร์ป (Cooldown 30s, ยกเลิกเมื่อโดนดาเมจ/ขยับ) | ⬜ | — | |
-| 1.5 | Safe Zone (ปิด PvP, ห้ามแก้ Block) | 🟡 | `core/MapProtectionListener.java` | ตอนนี้ห้ามแก้ block **ทั้งแมพ** ยังไม่แบ่งเป็นโซน และยังไม่ได้ปิด PvP |
+| 1.5 | Safe Zone (ปิด PvP, ห้ามแก้ Block) | ✅ | `core/zone/ZoneManager.java` (`/zone`), `zones.yml`, `core/combat/CombatService.java`, `core/MapProtectionListener.java` | กติกาที่ผู้ใช้เลือก: เกมเน้น PvE · โซน **SAFE**: ม็อบศัตรูไม่เกิด/ไม่ล็อกเป้าผู้เล่นในโซน, ผู้เล่น↔ม็อบตีกันไม่ได้ทั้งสองทางเมื่อฝั่งใดอยู่ในโซน, ไม่มี PvP · โซน **PVP**: ผู้เล่นตีกันได้เมื่ออยู่ในโซนทั้งคู่ · นอกโซน PvP ตาม `combat.pvp` (ปิด) · โซนซ้อนกัน SAFE ชนะ · แก้บล็อกยังห้ามทั้งแมพ · โซนใช้ทุก channel ของแมพ hub · มีข้อความแจ้งตอนเข้า/ออกโซน · **วิธีตรวจ:** `/dmb wand` เลือก 2 มุม → `/zone create spawn safe` → `/summon zombie` นอกโซนแล้วเดินเข้าโซน → ซอมบี้เลิกไล่, ตีกันไม่เข้า · `/zone create arena pvp` + บอท 2 ตัว (`tools/party-bots`) → ตีกันได้เฉพาะในโซน · `/zone list`, `/zone here` |
 
 ## 2. ระบบ Node เหมืองแร่
 
@@ -166,7 +166,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | ID | งาน | สถานะ | หลักฐาน | ที่ยังขาด / วิธีตรวจ |
 |---|---|---|---|---|
 | 5.1 | ท่อคำนวณดาเมจกลาง (CombatService) | ✅ | `core/combat/CombatService.java`, `core/combat/CombatConfig.java`, config `combat:`, `dungeon/runtime/DungeonInstanceSession.java` (`stats` ใน SUMMON) | ผู้เล่น↔ม็อบ ทั้งตีใกล้และลูกธนู: hit rule (PvP ปิด, หาเจ้าของลูกธนู/สัตว์เลี้ยง) → base (ATK ของ gear × แรงชาร์จการตี / ATK ของม็อบ) → crit (`crit_chance` %, ×1.5) → defense → shield (ปล่อยให้ vanilla บล็อก) → HP → บันทึกดาเมจต่อผู้โจมตี (`contribution()` สำหรับ 7.1) → จุด hook proc (3.4) · อาวุธ vanilla ใช้ดาเมจเดิมของเกม · ตกที่สูง/ลาวา/ม็อบตีกันเอง = vanilla · ตัวเลขดาเมจลอย (คริ = ✦ สีทอง) · สเตตัสม็อบ: `combat.mobs.<TYPE>` (hp/attack/defense) และ `"stats"` ใน SUMMON_MOB/GROUP/BOSS · **วิธีตรวจ:** `/dm give <ชื่อ> thing_sword 1` → `/summon zombie` → ตีเต็มแรงได้ ~4.8 (ATK 5 × 50/52) ตาย 5 ที · กดรัวได้ ~20% · ดาบที่ฝัง Fury+Edge ได้ ~8.5 · ซอมบี้ตีเรา 3 · ผู้เล่นตีกันไม่เข้า |
-| 5.2 | Anti-abuse ยิงข้ามเขตปลอดภัย / สลับอาวุธ | ⬜ | — | |
+| 5.2 | Anti-abuse ยิงข้ามเขตปลอดภัย / สลับอาวุธ | ✅ | `core/combat/CombatService.java` (`onLaunch`, hit rule) | ลูกธนู/ของที่ยิงของผู้เล่นจำค่า ATK/Crit ของอาวุธ และโซนตอนยิงไว้ใน PDC → สลับอาวุธกลางอากาศไม่มีผล, ยิงจาก Safe Zone ไม่เข้า, ยิงเข้า Safe Zone ไม่เข้า · ธนู gear สึกตอนยิง (ไม่ใช่ตอนโดน) · ตีใกล้ใช้ตำแหน่งผู้โจมตีตอนตี · proc chain รอ 3.4 · **วิธีตรวจ:** ยืนในโซน safe ยิงธนูใส่ม็อบข้างนอก → ไม่เข้า · ยิงด้วยธนู gear แล้วสลับเป็นดาบก่อนโดน → ดาเมจตามธนู |
 | 5.3 | ตายในเหมือง (เสีย Durability, ไม่ดรอป, ส่งกลับ Hub) | ✅ | `core/combat/DeathListener.java`, `core/InventorySync.java` (`onDeath`), config `combat.death` | ตายนอกดันเจี้ยน: ไม่เสียของ/เงิน/Energy (keepInventory) · gear ที่ถือ/สวมทุกชิ้นเสีย 10% ของ durability สูงสุด · เกิดใหม่ที่ spawn ของ Hub (`overworld_t0`) แม้ตายใน channel อื่น · ตายในดันเจี้ยนปล่อยให้ระบบดันเจี้ยนจัดการ · **วิธีตรวจ:** ไป channel 2 (`/channel 2`) → `/kill` → เกิดที่ Hub, ของครบ, ดาบ durability ลด 25 (จาก 250) และมีข้อความแจ้ง |
 | 5.4 | ระบบ Durability ของอุปกรณ์ | ✅ | `core/craft/GearItems.java` (`gear_dur`, `wear`, `broken`), `core/combat/CombatService.java`, `core/combat/DeathListener.java` (ยกเลิกการสึกแบบ vanilla), `mining/MineNodeManager.java`, `core/craft/ForgeMenu.java` (REPAIR), `core/craft/BlacksmithNpcs.java`, config `forge.durability` / `forge.repair` | กติกาที่ผู้ใช้เลือก: สึกตามการใช้งาน (อาวุธ -1 ต่อการตีโดน, เกราะ -1 ต่อชิ้นต่อการโดนตี, พลั่ว gear -1 ต่อ node) · ค่าสูงสุด = `durability` ใน ItemBase หรือ 250 · แถบ durability ของเกมแสดงค่าของเรา · 0 = ไม่หาย แต่เหลือแค่ Base stats จนกว่าจะซ่อม · ซ่อม 2 แบบ: ปุ่ม REPAIR ใน /forge (Energy 0.2/แต้ม) และ NPC Blacksmith (COIN 1/แต้ม, ซ่อมทุกชิ้นที่พกอยู่, `/forge npc add|remove|list`, เกิดทุก channel) · DB: `item_transactions` REPAIR · **วิธีตรวจ:** รีสตาร์ทเซิร์ฟ (รับ pack ใหม่) → ตีซอมบี้ → lore Durability ลด + แถบลด · `/forge` → REPAIR → เต็ม, Energy ลด · `/forge npc add` → คลิกขวา NPC → Dialog → ซ่อมด้วย COIN (เติม COIN ด้วย `web-console/scripts/grant_coin.mjs`) |
 
@@ -196,7 +196,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | 8.2 | Processing Job (คำนวณเวลาตอนออฟไลน์) | ⬜ | — | |
 | 8.3 | เหรียญและภาษี (sources & sinks) | ⬜ | — | มี wallet + ledger ใน DB แล้ว |
 | 8.4 | ตลาดประมูล / AH (transaction เดียว) | ⬜ | — | |
-| 8.5 | ไม่มีระบบ P2P Trade | — | — | เป็นกฎการออกแบบ: **ห้ามสร้าง** |
+| 8.5 | P2P Trade | ⬜ | — | **เปลี่ยนกฎ 2026-11-12:** ผู้ใช้ตัดสินใจให้มี P2P Trade (เดิมห้ามสร้าง) "ทำไว้สักที่" · ต้องคุยรายละเอียดก่อนทำ: ที่ไหน (โซน TRADE / NPC / ทุกที่), ภาษี, ของที่ ACCOUNT_BOUND ห้ามแลก, แลกพร้อมกันใน transaction เดียว |
 
 ## 9. ระบบกล่องจดหมายและเลเวล
 
@@ -268,6 +268,11 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | วันที่ | ID | สิ่งที่ทำ | ค้าง / ข้อควรระวัง |
 |---|---|---|---|
+| 2026-11-12 | 1.5 + 5.2 | ผู้ใช้ทดสอบในเกมผ่าน (Safe/PvP Zone, วงกลม/หลายเหลี่ยม, ม็อบเลิกไล่, ลบโซน, กรอบ debug) → ✅ · หมวด 5 ครบ | — |
+| 2026-11-12 | 1.5 โซน: รูปทรง + ม็อบไล่ตาม | ม็อบที่ไล่อยู่แล้วเลิกไล่เมื่อผู้เล่นเข้า Safe Zone (เช็คทุก 0.5 วิ) · โซนวงกลม `/zone circle <ชื่อ> <safe|pvp> <รัศมี>` · หลายเหลี่ยม `/zone point` ทีละมุม แล้ว `/zone poly <ชื่อ> <safe|pvp>` · `/zone remove` (ไม่ใส่ชื่อ = ลบโซนที่ยืนอยู่) · กรอบ particle รองรับทุกรูปทรง + จุดที่กำลังวาง (เหลือง) | ต้องรีสตาร์ทเซิร์ฟ · ยังไม่ได้ทดสอบในเกม |
+| 2026-11-12 | fix: ตายบ่อย + debug โซน | ดาเมจม็อบปรับตามความยากแบบ vanilla (`combat.scale_by_difficulty`, Easy 3→2.5) · เกราะทดสอบ `armor_test_prim_*` (DEF 3/6/5/2, ครบชุด 16 = โดน 76%) · ถือ `/dmb wand` → เห็นกรอบ particle ของ selection (pos1 เขียว, pos2 แดง) + action bar จากไหนไปไหน/ขนาด · `/zone show` เปิดกรอบโซน (SAFE เขียว, PVP แดง) | ต้องรีสตาร์ทเซิร์ฟ · ยังไม่ได้ทดสอบในเกม · ควรสร้าง Safe Zone ครอบจุดเกิด Hub (54 91 -19) |
+| 2026-11-12 | fix 1.5: โซนสูงแค่ชั้นเดียว | เลือก 2 มุมที่พื้น → โซน Y=90 ชั้นเดียว ผู้เล่นยืน Y=91 เลยอยู่นอกโซน · ตอนนี้โซนครอบทุกความสูงเป็นค่าเริ่มต้น (`/zone create <ชื่อ> <safe|pvp> 3d` = จำกัดความสูงตาม selection) โซนเดิมใน zones.yml ใช้ได้ทันที | ต้องรีสตาร์ทเซิร์ฟ · ยังไม่ได้ทดสอบในเกม |
+| 2026-11-12 | 1.5 + 5.2 Zones | `/zone` SAFE/PVP จาก selection ของ /dmb · Safe Zone กันม็อบเกิด/ตีข้ามเขต · PvP เฉพาะใน PvP Zone · ลูกธนูจำอาวุธ+โซนตอนยิง · boot test ผ่าน · 8.5 เปลี่ยนเป็น "มี P2P Trade" ตามผู้ใช้ | ยังไม่ได้ทดสอบในเกม · P2P Trade ยังไม่ทำ (ต้องคุยรายละเอียด) |
 | 2026-11-12 | fix 5.4: แถบ durability ไม่ตรง | ดาบที่สึกแบบ vanilla ก่อนมีระบบ durability ไม่มี `gear_dur` → lore บอกเต็มแต่แถบลด · ตอนนี้อ่านค่าจากแถบเดิมแทน (`GearItems.legacyDurability`) และแก้ของในกระเป๋าทุกชิ้นตอนเข้าเกม (`normalize`) | ผู้ใช้ทดสอบในเกมแล้ว แถบตรงกับ lore |
 | 2026-11-12 | 5.4 + 5.3 | ผู้ใช้ทดสอบในเกมผ่าน (durability, REPAIR, Blacksmith, ตายแล้วกลับ Hub) → ✅ | ข้อจำกัด: ออกเกมกลางการ commit ซ่อม NPC = เสีย COIN แต่ไม่ได้ซ่อม |
 | 2026-11-12 | 5.4 + 5.3 | Durability (สึกตามการใช้งาน, 0 = เหลือ Base stats), ซ่อมที่ Forge (Energy) และ NPC Blacksmith (COIN), ตายในเหมืองเสีย 10% แล้วกลับ Hub · คอมไพล์ผ่าน | ยังไม่ได้ทดสอบในเกม · เซิร์ฟเปิดอยู่ตอนบิลด์ → ต้องรีสตาร์ท · ยังไม่มีทางหา COIN ในเกม (ใช้ grant_coin.mjs) |

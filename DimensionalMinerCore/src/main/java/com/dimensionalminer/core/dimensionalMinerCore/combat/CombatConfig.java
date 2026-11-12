@@ -9,7 +9,7 @@ import java.util.Map;
 
 /** Numbers from config "combat:" (defaults below). */
 public record CombatConfig(boolean enabled, double defenseK, double unarmedAttack, double playerBaseDefense,
-                           double critMultiplier, double sweepRatio, boolean pvp, boolean indicators,
+                           double critMultiplier, double sweepRatio, boolean pvp, boolean indicators, boolean scaleByDifficulty,
                            MobStats mobDefault, Map<String, MobStats> mobTypes) {
 
     /** hp null = keep the vanilla max health. */
@@ -39,6 +39,7 @@ public record CombatConfig(boolean enabled, double defenseK, double unarmedAttac
                 Math.clamp(c.getDouble("sweep_ratio", 0.25), 0, 1),
                 c.getBoolean("pvp", false),
                 c.getBoolean("damage_indicators", true),
+                c.getBoolean("scale_by_difficulty", true),
                 def, Map.copyOf(types));
     }
 

@@ -1,0 +1,18 @@
+{
+  "definition_id": "armor_test_prim_chestplate",
+  "kind": "ItemBase",
+  "payload": {
+    "name": "Prim Chestplate",
+    "display": "[TEST] Prim Chestplate",
+    "icon": "iron_chestplate",
+    "category": "ARMOR",
+    "rarity": "UNCOMMON",
+    "binding": "UNBOUND",
+    "stack": 1,
+    "description": "Test armor: +6 Defense (full set 16 = 76% damage taken at K=50).",
+    "base_stats": {
+      "defense": 6
+    },
+    "upgrade_material": "prim_metal"
+  }
+}
