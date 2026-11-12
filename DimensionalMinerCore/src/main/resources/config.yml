@@ -112,3 +112,22 @@ combat:
     CREEPER: { hp: 20, attack: 0, defense: 0 }
     WITHER_SKELETON: { hp: 30, attack: 6, defense: 5 }
     PIGLIN_BRUTE: { hp: 40, attack: 8, defense: 6 }
+
+# Energy from vanilla EXP (9.3) and Server Level / Core (9.4). Two separate ledgers: ENERGY and SERVER_XP.
+# EXP orbs become Energy; the vanilla XP bar shows the Energy balance; enchanting/anvil/grindstone and
+# Mending are off. Server Level unlocks content and never adds damage.
+progression:
+  energy_per_xp: 1
+  server_level:
+    # XP from level n to n+1 = base x n^growth
+    base: 100
+    growth: 1.5
+    max: 100
+  server_xp:
+    mine_default: 5          # per node; override per ore: mine: { ore_prim_metal: 8 }
+    mine: {}
+    kill_default: 1          # per mob; override per type: kill: { zombie: 2 }
+    kill: {}
+    kill_cap_per_hour: 300   # anti-farm
+    craft_energy_per_xp: 10  # crafting / forging: 1 Server XP per 10 Energy spent
+    dungeon_clear: 100       # when the dungeon's final_rewards has no SERVER_XP

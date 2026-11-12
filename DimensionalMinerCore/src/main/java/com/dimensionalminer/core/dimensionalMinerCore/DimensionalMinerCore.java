@@ -18,6 +18,7 @@ public final class DimensionalMinerCore extends JavaPlugin {
     private com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems gearItems;
     private com.dimensionalminer.core.dimensionalMinerCore.craft.BlacksmithNpcs blacksmiths;
     private com.dimensionalminer.core.dimensionalMinerCore.zone.ZoneManager zoneManager;
+    private com.dimensionalminer.core.dimensionalMinerCore.progression.ProgressionService progression;
 
     @Override
     public void onEnable() {
@@ -48,6 +49,11 @@ public final class DimensionalMinerCore extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CraftingRestrictionListener(this), this);
         getServer().getPluginManager().registerEvents(new MapProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new ContentItemGuard(contentRegistryManager), this);
+
+        // Energy from vanilla EXP + Server Level (9.3 / 9.4)
+        progression = new com.dimensionalminer.core.dimensionalMinerCore.progression.ProgressionService(this);
+        getServer().getPluginManager().registerEvents(progression, this);
+        getCommand("level").setExecutor(progression);
 
         partyManager = new com.dimensionalminer.core.dimensionalMinerCore.party.PartyManager(this);
         channelManager = new com.dimensionalminer.core.dimensionalMinerCore.channel.ChannelManager(this);
@@ -167,6 +173,10 @@ public final class DimensionalMinerCore extends JavaPlugin {
             databaseManager.close();
         }
         getLogger().info("Dimensional Miner Core disabled.");
+    }
+
+    public com.dimensionalminer.core.dimensionalMinerCore.progression.ProgressionService getProgression() {
+        return progression;
     }
 
     public com.dimensionalminer.core.dimensionalMinerCore.craft.GearItems getGearItems() {

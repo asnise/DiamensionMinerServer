@@ -332,6 +332,8 @@ public final class MineNodeManager implements Listener {
         // Durability (5.4): a gear pickaxe wears once per successful node break.
         if (player.isOnline() && plugin.getGearItems() != null)
             plugin.getGearItems().wear(player, org.bukkit.inventory.EquipmentSlot.HAND, 1);
+        // Server XP (9.4) per node mined.
+        if (player.isOnline() && plugin.getProgression() != null) plugin.getProgression().onMine(player, ore.id());
         if (!player.isOnline()) {
             mailAll(result.accountId(), n, stacks);
             return;

@@ -34,7 +34,7 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 | 6 | Instance Dungeon | 0 | 3 | 0 | 1 |
 | 7 | World Boss | 4 | 0 | 0 | 0 |
 | 8 | Workspace & Market | 5 | 0 | 0 | 0 |
-| 9 | Mailbox & EXP/Energy | 1 | 1 | 0 | 2 |
+| 9 | Mailbox & EXP/Energy | 0 | 0 | 0 | 4 |
 | 10 | Server Transfer | 3 | 0 | 0 | 0 |
 | 11 | Web Console | 2 | 0 | 1 | 0 |
 | 12 | Resource Pack & 3D | 2 | 1 | 0 | 0 |
@@ -204,8 +204,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 |---|---|---|---|---|
 | 9.1 | Mailbox ไม่จำกัด (Pagination, ไม่หมดอายุ) | ✅ | `core/GrantsMenu.java` (หน้าละ 45 grant) | ตรวจพร้อม R2–R4 |
 | 9.2 | กดรับของลง Inventory ใน transaction เดียว | ✅ | `core/GrantsMenu.java` | claim ใน DB ก่อนแล้วค่อยให้ของ (กันของซ้ำได้แล้ว) · ข้อจำกัด: ถ้าเซิร์ฟล่มในช่วงสั้นๆ หลังให้ของแต่ก่อน save inventory ของรอบนั้นจะหาย (ไม่ซ้ำ) — แก้ได้เต็มเมื่อย้าย inventory เข้า transaction เดียวกัน |
-| 9.3 | เปลี่ยน Vanilla EXP เป็น Energy | 🟡 | `InventorySync.onDeath` (ไม่ดรอป EXP), currency `ENERGY` ใน `/balance` | ยังไม่ได้แปลง EXP ที่เก็บได้เป็น Energy |
-| 9.4 | แยก Server Level / Core ออกจาก Energy | ⬜ | — | |
+| 9.3 | เปลี่ยน Vanilla EXP เป็น Energy | ✅ | `core/progression/ProgressionService.java`, config `progression.energy_per_xp` | เก็บลูก EXP → ได้ ENERGY (1:1) แทน vanilla XP · double-entry `WORLD_XP` → ผู้เล่น รวมทุก 3 วิในธุรกรรมเดียว · แถบ EXP ปกติแสดงยอด Energy (ฝั่ง client, XP จริงเป็น 0 เสมอ) · XP vanilla ที่มีอยู่แปลงเป็น Energy ครั้งเดียวตอนเข้าเกม · ปิดโต๊ะเสก/ทั่ง/grindstone (creative ใช้ได้) และ Mending ตาม GDD · **วิธีตรวจ:** ฆ่าม็อบ/ขุดแร่ vanilla เก็บลูก EXP → เลขบนแถบ EXP = Energy เพิ่มขึ้น, `/balance` ตรงกัน · คลิกโต๊ะเสก → ไม่เปิด |
+| 9.4 | แยก Server Level / Core ออกจาก Energy | ✅ | `core/progression/ProgressionService.java` (`/level`), `mining/MineNodeManager.java`, `craft/CraftService.java`, `dungeon/runtime/DungeonInstanceSession.java`, config `progression.server_level` / `server_xp` | Core = ชื่อเรียกของ Server Level (ผู้ใช้ยืนยัน) · ledger แยก currency `SERVER_XP` (จาก `SERVER_XP_SOURCE`) · ได้จาก: ขุด node (5, ปรับต่อแร่ได้), ฆ่าม็อบ (1, สูงสุด 300/ชม.), คราฟต์/ตีบวก (1 ต่อ Energy 10 ที่ใช้), เคลียร์ดันเจี้ยน (SERVER_XP ใน final_rewards หรือ 100 ใน transaction รางวัลเดียวกัน) · เลเวล: XP จาก n→n+1 = 100 × n^1.5, สูงสุด 100 · เลเวลอัปมี title + เสียง · tab list ด้านล่างแสดง Server Level / XP / Energy · ไม่บวกดาเมจ · **วิธีตรวจ:** `/level` → ขุด node / ฆ่าม็อบ / คราฟต์ → XP เพิ่มใน `/level` และ tab list · ครบ 100 XP → title "Server Level 2" |
 
 ## 10. ระบบโอนย้ายเซิร์ฟเวอร์
 
@@ -268,6 +268,8 @@ Path ย่อ: `core/` = `DimensionalMinerCore/src/main/java/com/dimensionalmin
 
 | วันที่ | ID | สิ่งที่ทำ | ค้าง / ข้อควรระวัง |
 |---|---|---|---|
+| 2026-11-12 | 9.3 + 9.4 | ผู้ใช้ทดสอบในเกมผ่าน (EXP → Energy, Server Level, /level) → ✅ · หมวด 9 ครบ | — |
+| 2026-11-12 | 9.3 + 9.4 Energy / Server Level | EXP orb → Energy (1:1) แสดงบนแถบ EXP · Server XP แยก ledger จาก 4 แหล่ง + `/level` + tab footer · boot test ผ่าน | ยังไม่ได้ทดสอบในเกม · ยังไม่มีอะไรล็อกด้วย Server Level (รอ 1.1/1.2) |
 | 2026-11-12 | 3.4 + 3.5 | ผู้ใช้ทดสอบในเกมผ่าน (Ember Blade, Prim Plate set) → ✅ | — |
 | 2026-11-12 | 3.4 + 3.5 Unique Effect / Set | 7 action, 4 trigger, cooldown/chance/group, proc ไม่ chain · content kind ใหม่ GearSet · test content: `weapon_test_ember_blade`, `set_test_prim_plate` (โหลดแล้ว) · คอมไพล์ผ่าน | เซิร์ฟเปิดอยู่ตอนบิลด์ → ต้องรีสตาร์ท · ยังไม่ได้ boot test/ทดสอบในเกม |
 | 2026-11-12 | 1.5 + 5.2 | ผู้ใช้ทดสอบในเกมผ่าน (Safe/PvP Zone, วงกลม/หลายเหลี่ยม, ม็อบเลิกไล่, ลบโซน, กรอบ debug) → ✅ · หมวด 5 ครบ | — |

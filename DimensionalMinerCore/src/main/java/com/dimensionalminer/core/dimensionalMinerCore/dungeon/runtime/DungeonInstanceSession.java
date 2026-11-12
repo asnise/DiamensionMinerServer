@@ -578,6 +578,11 @@ public class DungeonInstanceSession {
                 }
             }
         }
+        // Server XP for a clear (9.4): the dungeon's own SERVER_XP reward, else the config default.
+        if (!currencies.containsKey("SERVER_XP")) {
+            long def = plugin.getConfig().getLong("progression.server_xp.dungeon_clear", 100);
+            if (def > 0) currencies.put("SERVER_XP", def);
+        }
         if (items.isEmpty() && currencies.isEmpty()) return null;
 
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {

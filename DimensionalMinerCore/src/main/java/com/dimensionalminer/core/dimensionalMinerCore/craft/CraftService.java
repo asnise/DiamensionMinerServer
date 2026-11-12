@@ -188,7 +188,14 @@ public final class CraftService {
     public void commit(Commit c, Consumer<Result> callback) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             Result r = commitNow(c);
-            Bukkit.getScheduler().runTask(plugin, () -> callback.accept(r));
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                var prog = plugin.getProgression();
+                if (prog != null && "ENERGY".equals(c.currency()) && r.ok()) {
+                    prog.noteEnergy(c.minecraftId(), r.energyAfter());
+                    prog.onEnergySpent(c.minecraftId(), c.energy()); // Server XP for crafting / forging
+                }
+                callback.accept(r);
+            });
         });
     }
 

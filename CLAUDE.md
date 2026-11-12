@@ -111,6 +111,8 @@ The web console never writes to the player's live inventory. Shop purchases (`ap
 
 - Unique Effects / sets: ItemBase `unique_effects` (`UniqueEffect`) and content kind `GearSet` (`GearSet`, `ContentRegistryManager.getSetOf`). `EffectEngine` fires them from `CombatService` once per resolved hit (chance, per-wearer cooldown, stacking group). Proc damage goes through `CombatService.dealProc`, which marks the hit so it skips the pipeline and never procs again. Broken gear gives no effects and doesn't count for sets.
 
+- Progression (`progression/ProgressionService`): EXP orbs become ENERGY (vanilla XP stays 0, the XP bar shows Energy via `sendExperienceChange`). SERVER_XP (Server Level, also called Core) is a separate ledger fed by mining, kills (hourly cap), Energy spent on crafting/forging, and dungeon clears. Gains are batched and committed every 3 s (system accounts `WORLD_XP`, `SERVER_XP_SOURCE`).
+
 ### EXeaEntityCore
 
 Renders Blockbench models as hierarchies of `ItemDisplay` bones that ride a root driver mob (Husk/ArmorStand). The pieces:

@@ -62,6 +62,10 @@ commands:
     description: Admin tools for mining nodes
     usage: /mine <types|node add <ore>|node remove|info|list [radius]|respawn>
     permission: dimensionalminer.admin
+  level:
+    description: Show your Server Level (Core) and Energy
+    usage: /level
+    aliases: [lvl, core]
   zone:
     description: Admin Safe / PvP zones from the /dmb selection
     usage: /zone <create|circle|point|poly|remove|list|here|show>
