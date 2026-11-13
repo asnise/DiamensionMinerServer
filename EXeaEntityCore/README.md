@@ -82,7 +82,7 @@ There is also a Blockbench plugin that exports from the File menu:
 Load it with *File → Plugins → Load Plugin from File*.
 
 Model rules (bone budget, the mesh size limit, unsupported animation features):
-[docs/MODEL_STYLE_GUIDE.md §3](docs/MODEL_STYLE_GUIDE.md).
+[docs/MODELING.md](docs/MODELING.md).
 
 ## Using the API
 
@@ -161,7 +161,7 @@ src/main/java/com/exea/entity/
 src/main/resources/models/   models bundled in the jar (<id>_bones.json, <id>_anims.json)
 pack/            resource pack bundled in the jar (served by the pack server)
 tools/           exea_exporter.js, Blockbench plugin, model inspectors
-docs/            API reference, Thai guide, model style guide
+docs/            API reference, Thai guide, modeling rules
 ```
 
 Only `com.exea.entity.api` is a stable API. Classes in `core` can change in any release.

@@ -40,7 +40,7 @@ node tools/exea_exporter.js "MyBoss.bbmodel" my_boss --server /path/to/server/pl
 This writes `models/my_boss_*.json` and `pack/assets/exea/...` into that folder. In game, run
 `/exea reload` to load the models, rebuild the pack and resend it to online players, then
 `/exea spawn my_boss`. The rules for models (bone budget, the 24 px mesh limit, what animation features
-work) are in `MODEL_STYLE_GUIDE.md` §3.
+work) are in [`MODELING.md`](MODELING.md).
 
 If a `my_boss_meta.json` sits next to the `.bbmodel`, the exporter copies it too. Every key is optional:
 
