@@ -5,6 +5,9 @@ tree of `ItemDisplay` bones riding an invisible driver mob. The driver gives the
 health, AI and movement. The plugin does not depend on any other plugin. Other plugins use it through
 the API in `com.exea.entity.api`.
 
+Thai step-by-step guide with code recipes: [`API_GUIDE_TH.md`](API_GUIDE_TH.md)
+(all snippets compiled in [`examples/GuideExamples.java`](examples/GuideExamples.java)).
+
 - Server: Paper 26.2 (Java 25). Clients need 1.21.11+ item models (the pack is sent automatically).
 - One model = `<id>_bones.json` + `<id>_anims.json` (+ optional `<id>_meta.json`) + its item models and texture in the resource pack.
 
@@ -180,11 +183,13 @@ plugin can react to lines it defines itself (`shockwave` above).
 | `/exea spawn <id> [ai\|noai]` | spawn at you; `noai` = statue |
 | `/exea anim play <name>` / `stop` | nearest entity (20 blocks) |
 | `/exea bone <bone>` | marks a bone's position with particles for 5 s |
+| `/exea stats` | work per second since the last call (bone updates, carrier moves, poses, hidden ticks) |
 | `/exea kill` | removes all EXea entities |
 | `/exea list`, `/exea pack`, `/exea reload` | count, resend pack to you, reload models + pack |
 
 ## 9. Limits
 
 - Each bone that has cubes is one entity. Updates are sent only for bones that move. Keep about 30 such bones for a mob and about 50 for a boss.
+- Cost per tick: all bones ride one invisible carrier display, so a moving model is one teleport. Turning goes into the bone transforms. While no client tracks a model, its pose is not computed or sent (the animation clock and events still run).
 - Keyframes cannot use Molang (it reads as 0). Bezier plays as linear. Global rotation plays as local. Particles that need extra data (dust, block) cannot be set from keyframes or meta.
 - The driver's hitbox is a box. The model can be bigger than its hitbox.

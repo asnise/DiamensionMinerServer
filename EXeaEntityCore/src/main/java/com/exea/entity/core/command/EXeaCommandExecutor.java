@@ -37,6 +37,7 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
             case "list" -> handleList(sender);
             case "pack" -> handlePack(sender, args);
             case "bone" -> handleBone(sender, args);
+            case "stats" -> handleStats(sender);
             case "reload" -> {
                 var plugin = com.exea.entity.EXeaEntityPlugin.getInstance();
                 EntityManager.getInstance().reload(plugin);
@@ -55,7 +56,7 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
-            List<String> subs = Arrays.asList("spawn", "kill", "anim", "bone", "list", "pack", "reload");
+            List<String> subs = Arrays.asList("spawn", "kill", "anim", "bone", "stats", "list", "pack", "reload");
             for (String s : subs) {
                 if (s.startsWith(args[0].toLowerCase())) {
                     completions.add(s);
@@ -100,6 +101,7 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea anim play <anim>" + ChatColor.GRAY + " - Plays animation on nearest entity");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea anim stop" + ChatColor.GRAY + " - Stops animation on nearest entity");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea bone <bone>" + ChatColor.GRAY + " - Marks a bone of the nearest entity with particles for 5 s");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea stats" + ChatColor.GRAY + " - Work per second since the last /exea stats");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea list" + ChatColor.GRAY + " - Shows active custom entities");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea pack" + ChatColor.GRAY + " - Sends the model pack to you again");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea reload" + ChatColor.GRAY + " - Reloads templates and configs");
@@ -191,6 +193,40 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
             loc.getWorld().spawnParticle(org.bukkit.Particle.END_ROD, loc, 1, 0, 0, 0, 0);
         }, 0L, 1L);
         player.sendMessage(ChatColor.GREEN + "[EXea] Marking bone " + bone + " for 5 s.");
+    }
+
+    private long statsAt = System.nanoTime();
+    private final long[] statsLast = new long[6];
+
+    /** Per-second rates of EXeaStats since the previous call (first call: since the plugin started). */
+    private void handleStats(CommandSender sender) {
+        long now = System.nanoTime();
+        double secs = Math.max(0.05, (now - statsAt) / 1e9);
+        long[] cur = {
+                com.exea.entity.core.EXeaStats.boneUpdates, com.exea.entity.core.EXeaStats.carrierMoves,
+                com.exea.entity.core.EXeaStats.poses, com.exea.entity.core.EXeaStats.hiddenTicks,
+                com.exea.entity.core.EXeaStats.entityTicks, com.exea.entity.core.EXeaStats.respawns};
+        long[] d = new long[cur.length];
+        for (int i = 0; i < cur.length; i++) d[i] = cur[i] - statsLast[i];
+        System.arraycopy(cur, 0, statsLast, 0, cur.length);
+        statsAt = now;
+
+        int entities = 0, bones = 0;
+        for (EXActiveEntity e : EntityManager.getInstance().getActiveEntities().values()) {
+            if (e.isRemoved()) continue;
+            entities++;
+            bones += e.getRenderer().getSpawnedDisplays().size();
+        }
+        sender.sendMessage(ChatColor.DARK_PURPLE + "=== EXea stats (last " + String.format("%.1f", secs) + " s) ===");
+        sender.sendMessage(ChatColor.GRAY + "Entities: " + ChatColor.WHITE + entities + ChatColor.GRAY + "  bone displays: " + ChatColor.WHITE + bones);
+        sender.sendMessage(ChatColor.GRAY + "Bone transform updates/s: " + ChatColor.WHITE + String.format("%.1f", d[0] / secs)
+                + ChatColor.GRAY + "  (1 packet per viewer each)");
+        sender.sendMessage(ChatColor.GRAY + "Carrier moves/s: " + ChatColor.WHITE + String.format("%.1f", d[1] / secs)
+                + ChatColor.GRAY + "  (was 1 teleport per bone before)");
+        sender.sendMessage(ChatColor.GRAY + "Poses computed/s: " + ChatColor.WHITE + String.format("%.1f", d[2] / secs)
+                + ChatColor.GRAY + "  hidden (nobody near): " + ChatColor.WHITE
+                + (d[4] == 0 ? "-" : Math.round(100.0 * d[3] / d[4]) + "%") + ChatColor.GRAY + " of entity ticks");
+        if (d[5] > 0) sender.sendMessage(ChatColor.YELLOW + "Bone sets respawned: " + d[5]);
     }
 
     private void handlePack(CommandSender sender, String[] args) {

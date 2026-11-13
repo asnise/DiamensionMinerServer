@@ -49,6 +49,9 @@ public class EXActiveEntity implements EXeaEntity {
     private final Map<UUID, Double> damageByAttacker = new LinkedHashMap<>();
     private LivingEntity lastAttacker = null;
     private boolean removed = false;
+    private boolean watched = true;
+    // Trackers fill in a tick or two after a spawn: pose for the first second whatever they say.
+    private int visibilityCheckIn = 20;
     // #endregion
 
     // #region [Properties]
@@ -188,6 +191,7 @@ public class EXActiveEntity implements EXeaEntity {
         this.animController = new AnimationController(rootEntity, modelStructure);
         this.animController.setOnFinishCallback(this::onAnimationFinished);
         this.animController.setHitHandler(this::animationHit);
+        this.renderer.setOnRespawn(animController::resendAll);
     }
 
     public void registerAnimation(KeyframeTimeline timeline) {
@@ -277,9 +281,11 @@ public class EXActiveEntity implements EXeaEntity {
         if (removed) {
             return;
         }
+        com.exea.entity.core.EXeaStats.entityTicks++;
         if (deathTicksRemaining > 0) {
             deathTicksRemaining--;
             renderer.updatePositions();
+            updateVisibility();
             animController.tick(deltaSeconds);
             if (deathTicksRemaining == 0) {
                 destroy(EXeaEntityRemoveEvent.Reason.DIED);
@@ -297,10 +303,25 @@ public class EXActiveEntity implements EXeaEntity {
 
         updateChunkTicket();
         renderer.updatePositions();
+        updateVisibility();
         if (!dying) {
             safe("onTick", () -> behavior.onTick(this));
         }
         animController.tick(deltaSeconds);
+    }
+
+    /**
+     * Poses are only computed and sent while some client tracks the model; the animation clock and
+     * its events (sounds, hits) keep running either way. Checked every 5 ticks.
+     */
+    private void updateVisibility() {
+        if (--visibilityCheckIn <= 0) {
+            visibilityCheckIn = 5;
+            watched = renderer.isWatched();
+        }
+        animController.setVisible(watched);
+        animController.setRiderOffset(renderer.getRiderOffset());
+        if (!watched) com.exea.entity.core.EXeaStats.hiddenTicks++;
     }
 
     /**

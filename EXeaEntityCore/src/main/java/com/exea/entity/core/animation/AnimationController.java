@@ -54,8 +54,8 @@ public class AnimationController {
     }
 
     /**
-     * The bone's pose from the last update, relative to the model origin at the driver's feet, with the
-     * driver's yaw not applied yet. Null for an unknown bone. Do not modify.
+     * The bone's pose from the last update, relative to the driver's feet in world axes (body yaw
+     * included). Null for an unknown bone. Do not modify.
      */
     public Matrix4f getBoneWorldMatrix(String bone) {
         return boneWorld.get(bone);
@@ -180,15 +180,18 @@ public class AnimationController {
      * frame). Null for an unknown bone.
      */
     public Location boneLocation(String bone) {
+        if (poseStale || boneWorld.isEmpty()) {
+            // Nobody is near, so poses were skipped: work this one out now, without sending anything.
+            computePose(false);
+        }
         Matrix4f m = boneWorld.get(bone.toLowerCase());
         if (m == null) return null;
+        // The matrix already holds the body yaw (see updateBoneTransforms), so the pivot is an offset
+        // from the driver's feet in world axes.
         Vector3f p = m.transformPosition(new Vector3f());
         Location base = rootEntity.getLocation();
-        float yaw = rootEntity.getBodyYaw();
-        // ItemDisplay entities turn their transform by -yaw around Y; do the same to the pivot.
-        new Matrix4f().rotationY((float) Math.toRadians(-yaw)).transformPosition(p);
         base.add(p.x, p.y, p.z);
-        base.setYaw(yaw);
+        base.setYaw(rootEntity.getBodyYaw());
         base.setPitch(0f);
         return base;
     }
@@ -204,24 +207,64 @@ public class AnimationController {
     private final Vector3f tmpRot = new Vector3f();
     private final Vector3f tmpScale = new Vector3f();
     private final Quaternionf tmpQuat = new Quaternionf();
+    private final Matrix4f tmpRoot = new Matrix4f();
+    private final Matrix4f tmpSend = new Matrix4f();
+
+    /** False while no player is near: poses are not computed or sent (see {@link #setVisible}). */
+    private boolean visible = true;
+    /** The stored bone poses are older than the animation clock (skipped while not visible). */
+    private boolean poseStale = false;
+    /** How far above the carrier the bone displays sit as passengers; taken off every matrix. */
+    private float riderOffset = 0f;
+
+    /**
+     * Turns pose updates on or off. Off = only the animation clock and its events run; the bones keep
+     * their last pose (nobody is near to see it). Turning it back on sends the current pose.
+     */
+    public void setVisible(boolean visible) {
+        this.visible = visible;
+    }
+
+    public void setRiderOffset(float riderOffset) {
+        this.riderOffset = riderOffset;
+    }
+
+    /** Forgets what was sent, so the next update sends every bone (after bones were respawned). */
+    public void resendAll() {
+        lastSent.clear();
+    }
 
     /**
      * Poses every bone the way Blockbench's three.js scene does, then hands each display entity its
-     * matrix. Two half turns around Y bracket the Blockbench pose:
+     * matrix. The displays ride a carrier at the driver's feet with yaw 0, so the root matrix carries
+     * the body yaw, and two half turns around Y bracket the Blockbench pose:
      * <ul>
-     *   <li>Root: Blockbench models face north (-Z) while a mob with yaw 0 faces south (+Z), so the
-     *       whole rig is turned 180 degrees to face where the driver mob looks.</li>
+     *   <li>Root: Ry(-bodyYaw) like a display entity turned to the mob's yaw (the client renders a
+     *       display with yaw y as Ry(-y)), then a half turn: Blockbench models face north (-Z) while a
+     *       mob with yaw 0 faces south (+Z).</li>
      *   <li>Per display: the client's ItemDisplay renderer itself rotates every item 180 degrees
      *       around Y before drawing it. Appending the same half turn cancels that, so the mesh
      *       (exported relative to its pivot) is drawn exactly as in Blockbench.</li>
      * </ul>
+     * Turning the body therefore changes the bone matrices instead of teleporting every bone.
      */
     private void updateBoneTransforms() {
+        if (!visible) {
+            poseStale = true;
+            return;
+        }
+        computePose(true);
+    }
+
+    private void computePose(boolean send) {
         // Respawned bones get new entity ids; drop stale entries instead of growing forever.
         if (lastSent.size() > 256) lastSent.clear();
+        tmpRoot.rotationY((float) Math.toRadians(-rootEntity.getBodyYaw())).mul(FLIP_Y);
         for (BoneNode rootBone : modelStructure.getRootBones()) {
-            updateBoneRecursive(rootBone, FLIP_Y);
+            updateBoneRecursive(rootBone, tmpRoot, send);
         }
+        poseStale = false;
+        com.exea.entity.core.EXeaStats.poses++;
     }
 
     /**
@@ -229,8 +272,9 @@ public class AnimationController {
      * Animated rotation is added to the rest rotation as Euler angles (BoneAnimator.displayRotation does
      * {@code mesh.rotation[axis] += value}), and three.js builds the matrix with order 'ZYX' = Rz*Ry*Rx.
      */
-    private void updateBoneRecursive(BoneNode bone, Matrix4f parentMatrix) {
-        Matrix4f world = new Matrix4f(parentMatrix);
+    private void updateBoneRecursive(BoneNode bone, Matrix4f parentMatrix, boolean send) {
+        // One matrix per bone, reused every tick (children read their parent's while it is unchanged).
+        Matrix4f world = boneWorld.computeIfAbsent(bone.getName(), k -> new Matrix4f()).set(parentMatrix);
 
         Vector3f pivot = bone.getPivot();
         if (bone.getParent() != null) {
@@ -258,11 +302,11 @@ public class AnimationController {
                     (float) Math.toRadians(tmpRot.x)));
         }
         world.scale(tmpScale);
-        boneWorld.put(name, world);
 
         ItemDisplay display = bone.getDisplayEntity();
-        if (bone.hasMesh() && display != null && display.isValid()) {
-            Matrix4f m = new Matrix4f(world).mul(FLIP_Y).scale(bone.getMeshScale());
+        if (send && bone.hasMesh() && display != null && display.isValid()) {
+            // The display rides the carrier riderOffset blocks up: move the pose back down by that.
+            Matrix4f m = tmpSend.translation(0f, -riderOffset, 0f).mul(world).mul(FLIP_Y).scale(bone.getMeshScale());
             Matrix4f prev = lastSent.get(display.getUniqueId());
             // Each change is a metadata packet to every viewer: skip bones that did not move
             // (idle statues, held poses, static parts of a model).
@@ -273,12 +317,14 @@ public class AnimationController {
                 // Any affine matrix (including shear from non-uniform parent scale) maps exactly onto
                 // the display's left-rotation/scale/right-rotation form.
                 display.setTransformationMatrix(m);
-                lastSent.put(display.getUniqueId(), m);
+                if (prev == null) lastSent.put(display.getUniqueId(), new Matrix4f(m));
+                else prev.set(m);
+                com.exea.entity.core.EXeaStats.boneUpdates++;
             }
         }
 
         for (BoneNode child : bone.getChildren()) {
-            updateBoneRecursive(child, world);
+            updateBoneRecursive(child, world, send);
         }
     }
     // #endregion
