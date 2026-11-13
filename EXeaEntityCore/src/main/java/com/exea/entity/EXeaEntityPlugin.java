@@ -19,11 +19,16 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
 
     // #region [Variables/Fields]
     private static EXeaEntityPlugin instance;
+    private com.exea.entity.core.pack.PackServer packServer;
     // #endregion
 
     // #region [Properties]
     public static EXeaEntityPlugin getInstance() {
         return instance;
+    }
+
+    public com.exea.entity.core.pack.PackServer getPackServer() {
+        return packServer;
     }
     // #endregion
 
@@ -42,12 +47,18 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         EntityManager.getInstance().startTicking(this);
 
+        saveDefaultConfig();
+        packServer = new com.exea.entity.core.pack.PackServer(this);
+        getServer().getPluginManager().registerEvents(packServer, this);
+        packServer.start(getFile());
+
         getLogger().info("EXeaEntityCore v" + getDescription().getVersion() + " initialized successfully!");
     }
 
     @Override
     public void onDisable() {
         EntityManager.getInstance().stopTicking();
+        if (packServer != null) packServer.stop();
         getLogger().info("EXeaEntityCore disabled cleanly.");
     }
     // #endregion
@@ -72,7 +83,9 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
         }
 
         double baseDamage = event.getDamage();
-        EXeaEntityDamageEvent customEvent = new EXeaEntityDamageEvent(attacker, victim, baseDamage, "melee");
+        // Hits dealt by an animation's "hit" event carry the animation name as skill id.
+        String skill = EntityManager.getInstance().getCurrentSkill();
+        EXeaEntityDamageEvent customEvent = new EXeaEntityDamageEvent(attacker, victim, baseDamage, skill != null ? skill : "melee");
         Bukkit.getPluginManager().callEvent(customEvent);
 
         if (customEvent.isCancelled()) {
@@ -88,26 +101,33 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
             event.setDamage(customEvent.getDamage());
         }
 
-        if (isEXeaAttacker) {
+        if (isEXeaAttacker && skill == null) {
             EXActiveEntity activeAttacker = EntityManager.getInstance().getActiveEntity(attacker);
             if (activeAttacker != null) {
-                activeAttacker.triggerAttack();
-            }
-        }
-
-        if (isEXeaVictim) {
-            EXActiveEntity activeVictim = EntityManager.getInstance().getActiveEntity(victim);
-            if (activeVictim != null) {
-                activeVictim.onDamaged(event.getFinalDamage());
+                activeAttacker.onAttack(victim);
             }
         }
     }
 
     /**
-     * Runs after every damage modifier (HIGHEST). A hit that would kill an EXea entity is cancelled
-     * and the death sequence plays instead: if the root actually died, the tick loop would remove it
-     * on the next tick and the 3-second death animation would never be seen. Covers all damage
-     * causes (melee, arrows, fire, fall...); /kill bypasses damage events and still removes at once.
+     * Drivers can be any mob (a zombie or skeleton driver would burn in daylight). Sunlight fires a
+     * plain EntityCombustEvent; fire from blocks or attacks (subclasses) still applies.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onDriverCombust(org.bukkit.event.entity.EntityCombustEvent event) {
+        if (event.getClass() == org.bukkit.event.entity.EntityCombustEvent.class
+                && EntityManager.getInstance().isActiveEntity(event.getEntity())) {
+            event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Runs after every damage modifier (HIGHEST): records who dealt how much (for
+     * {@code EXeaEntityDeathEvent#getDamageByAttacker}) and plays the hurt feedback. A hit that would
+     * kill an EXea entity is cancelled and the death sequence plays instead: if the root actually
+     * died, the tick loop would remove it on the next tick and the 3-second death animation would
+     * never be seen. Covers all damage causes (melee, arrows, fire, fall...); /kill bypasses damage
+     * events and goes through {@link #onEntityDeath}.
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onLethalDamage(org.bukkit.event.entity.EntityDamageEvent event) {
@@ -119,23 +139,33 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
             event.setCancelled(true);
             return;
         }
+        LivingEntity attacker = event instanceof EntityDamageByEntityEvent byEntity ? attackerOf(byEntity.getDamager()) : null;
+        active.recordDamage(attacker, event.getFinalDamage());
         if (event.getFinalDamage() >= victim.getHealth()) {
             event.setCancelled(true);
             victim.setHealth(Math.min(victim.getHealth(), 1.0));
-            active.startDeathSequence();
+            active.startDeathSequence(attacker);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityDeath(org.bukkit.event.entity.EntityDeathEvent event) {
-        if (EntityManager.getInstance().isActiveEntity(event.getEntity())) {
+        EXActiveEntity active = EntityManager.getInstance().getActiveEntity(event.getEntity());
+        if (active != null) {
             event.getDrops().clear();
             event.setDroppedExp(0);
-            EXActiveEntity active = EntityManager.getInstance().getActiveEntity(event.getEntity());
-            if (active != null) {
-                active.startDeathSequence();
-            }
+            // /kill and similar: the driver is already dead, so the tick loop removes it next tick.
+            // Still fire the death event (killer = last attacker) so other plugins count the kill.
+            active.startDeathSequence();
         }
+    }
+
+    /** The living entity behind a damager: itself, or the shooter of a projectile. */
+    private static LivingEntity attackerOf(org.bukkit.entity.Entity damager) {
+        if (damager instanceof LivingEntity living) return living;
+        if (damager instanceof org.bukkit.entity.Projectile projectile
+                && projectile.getShooter() instanceof LivingEntity shooter) return shooter;
+        return null;
     }
 
     /**

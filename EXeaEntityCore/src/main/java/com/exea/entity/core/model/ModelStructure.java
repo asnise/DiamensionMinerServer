@@ -21,6 +21,10 @@ public class ModelStructure {
         return Collections.unmodifiableList(rootBones);
     }
 
+    public java.util.Collection<BoneNode> getAllBones() {
+        return Collections.unmodifiableCollection(boneMap.values());
+    }
+
     public BoneNode getBone(String name) {
         return boneMap.get(name);
     }
@@ -60,6 +64,8 @@ public class ModelStructure {
                 source.getCustomModelData()
         );
         clone.setHasMesh(source.hasMesh());
+        clone.setMeshScale(source.getMeshScale());
+        clone.setGlow(source.isGlow());
         for (BoneNode child : source.getChildren()) {
             clone.addChild(cloneNodeRecursive(child));
         }

@@ -6,7 +6,7 @@
         author: 'EXea Team',
         description: 'Export Blockbench models directly into EXeaEntityCore JSON format & Minecraft Resource Pack models.',
         icon: 'view_in_ar',
-        version: '1.0.0',
+        version: '1.2.0',
         variant: 'both',
         onload() {
             export_action = new Action('export_exea_entity', {
@@ -57,6 +57,18 @@
 
                 const isVisible = g.visibility !== false;
 
+                // Same rule as tools/exea_exporter.js: meshes reaching > 24px from the pivot are
+                // stored shrunk in the item model and scaled back up in game.
+                let maxExtent = 0;
+                visibleElements.forEach(el => {
+                    if (!el.from || !el.to) return;
+                    const inf = el.inflate || 0;
+                    for (let i = 0; i < 3; i++) {
+                        maxExtent = Math.max(maxExtent, Math.abs(el.from[i] - inf - g.origin[i]), Math.abs(el.to[i] + inf - g.origin[i]));
+                    }
+                });
+                const meshScale = maxExtent > 24 ? Math.ceil(maxExtent / 24 * 1000) / 1000 : 1;
+
                 bones.push({
                     name: boneName,
                     original_name: g.name,
@@ -65,7 +77,8 @@
                     rotation: [g.rotation[0] || 0, g.rotation[1] || 0, g.rotation[2] || 0],
                     custom_model_data: cmdCounter++,
                     element_count: visibleElements.length,
-                    visible: isVisible
+                    visible: isVisible,
+                    mesh_scale: meshScale
                 });
             });
 
@@ -105,26 +118,53 @@
                     const boneKfs = [];
                     keyframes.forEach(kf => {
                         const channel = kf.channel;
-                        const time = kf.time;
-                        const dp = kf.data_points && kf.data_points[0] ? kf.data_points[0] : { x: 0, y: 0, z: 0 };
-
-                        const x = parseFloat(dp.x) || 0;
-                        const y = parseFloat(dp.y) || 0;
-                        const z = parseFloat(dp.z) || 0;
-
-                        boneKfs.push({
-                            channel: channel,
-                            time: parseFloat(time.toFixed(5)),
-                            vector: [
-                                parseFloat(x.toFixed(5)),
-                                parseFloat(y.toFixed(5)),
-                                parseFloat(z.toFixed(5))
-                            ]
+                        if (channel !== 'position' && channel !== 'rotation' && channel !== 'scale') return;
+                        const fallback = channel === 'scale' ? 1 : 0;
+                        const vec = dp => ['x', 'y', 'z'].map(axis => {
+                            const n = Number(dp ? dp[axis] : undefined);
+                            return Number.isFinite(n) ? parseFloat(n.toFixed(5)) : fallback;
                         });
+                        const entry = {
+                            channel: channel,
+                            time: parseFloat(kf.time.toFixed(5)),
+                            interpolation: kf.interpolation || 'linear',
+                            vector: vec(kf.data_points && kf.data_points[0])
+                        };
+                        // Split keyframe: the second data point is the value leaving the keyframe.
+                        if (kf.data_points && kf.data_points.length > 1) entry.post = vec(kf.data_points[1]);
+                        boneKfs.push(entry);
                     });
 
                     boneKfs.sort((a, b) => a.time - b.time || a.channel.localeCompare(b.channel));
                     animEntry.bones[boneName] = boneKfs;
+                }
+
+                // Effect keyframes (sound / particle / timeline script); same format as tools/exea_exporter.js.
+                const effects = anim.animators && anim.animators.effects;
+                const events = [];
+                const boneOf = locator => {
+                    const name = (locator || '').trim().toLowerCase();
+                    if (!name) return null;
+                    const loc = (typeof Locator !== 'undefined' ? Locator.all : []).find(l => l.name.toLowerCase() === name);
+                    if (loc && loc.parent instanceof Group) return loc.parent.name.toLowerCase();
+                    return Group.all.some(g => g.name.toLowerCase() === name) ? name : null;
+                };
+                ((effects && effects.keyframes) || []).forEach(kf => {
+                    const time = parseFloat(Number(kf.time).toFixed(5));
+                    (kf.data_points || []).forEach(dp => {
+                        let ev = null;
+                        if (kf.channel === 'sound' && dp.effect) ev = { time, type: 'sound', sound: String(dp.effect).trim() };
+                        else if (kf.channel === 'particle' && dp.effect) ev = { time, type: 'particle', particle: String(dp.effect).trim() };
+                        else if (kf.channel === 'timeline' && dp.script && String(dp.script).trim()) ev = { time, type: 'script', script: String(dp.script).trim() };
+                        if (!ev) return;
+                        const bone = ev.type !== 'script' ? boneOf(dp.locator) : null;
+                        if (bone) ev.bone = bone;
+                        events.push(ev);
+                    });
+                });
+                if (events.length) {
+                    events.sort((a, b) => a.time - b.time);
+                    animEntry.events = events;
                 }
 
                 animsOutput[animName] = animEntry;
@@ -151,7 +191,7 @@
                     Blockbench.showMessageBox({
                         title: 'EXea Export Complete',
                         icon: 'info',
-                        message: `Successfully exported ${entityId}_bones.json & ${entityId}_anims.json! Place them in EXeaEntityCore/src/main/resources/models/ or server plugins.`
+                        message: `Successfully exported ${entityId}_bones.json & ${entityId}_anims.json! Place them in EXeaEntityCore/src/main/resources/models/ or server plugins. This plugin does not write the resource pack: save the .bbmodel and run tools/exea_exporter.js for the bone item models.`
                     });
                 });
             });

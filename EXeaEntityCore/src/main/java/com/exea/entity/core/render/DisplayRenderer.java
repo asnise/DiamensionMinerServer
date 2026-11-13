@@ -2,7 +2,6 @@ package com.exea.entity.core.render;
 
 import com.exea.entity.core.model.BoneNode;
 import com.exea.entity.core.model.ModelStructure;
-import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Display;
@@ -10,9 +9,6 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.util.Transformation;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -113,6 +109,8 @@ public class DisplayRenderer {
     private Location bodyLocation() {
         Location loc = rootEntity.getLocation();
         loc.setPitch(0f);
+        // A mob's location yaw is where its head points; the model follows the body like vanilla mobs.
+        loc.setYaw(rootEntity.getBodyYaw());
         return loc;
     }
 
@@ -153,7 +151,7 @@ public class DisplayRenderer {
                         meta.setCustomModelData(node.getCustomModelData());
                     }
                     try {
-                        org.bukkit.NamespacedKey modelKey = org.bukkit.NamespacedKey.fromString("exea:void_overseer/" + node.getName().toLowerCase());
+                        org.bukkit.NamespacedKey modelKey = org.bukkit.NamespacedKey.fromString("exea:" + modelStructure.getId() + "/" + node.getName().toLowerCase());
                         if (modelKey != null) {
                             meta.setItemModel(modelKey);
                         }
@@ -164,30 +162,21 @@ public class DisplayRenderer {
                 entity.setItemStack(item);
                 entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
                 entity.setBillboard(Display.Billboard.FIXED);
-                entity.setDisplayWidth(2.0f);
-                entity.setDisplayHeight(2.0f);
+                // Culling box around the entity position: bones sit up to a few blocks from the root.
+                entity.setDisplayWidth(6.0f);
+                entity.setDisplayHeight(6.0f);
                 entity.setViewRange(64.0f);
                 entity.setShadowRadius(0.0f);
+                if (node.isGlow()) {
+                    entity.setBrightness(new Display.Brightness(15, 15));
+                }
                 entity.setTeleportDuration(1);
                 // Never saved to disk, same as the root mob: after a crash or chunk unload the
                 // bones disappear with the root instead of being left behind as frozen statues.
                 entity.setPersistent(false);
                 entity.addScoreboardTag("exea_bone");
 
-                Vector3f pivotOffset = new Vector3f(node.getPivot()).mul(1.0f / 16.0f);
-                Quaternionf initialRot = new Quaternionf().rotationXYZ(
-                        (float) Math.toRadians(node.getDefaultRotation().x),
-                        (float) Math.toRadians(node.getDefaultRotation().y),
-                        (float) Math.toRadians(node.getDefaultRotation().z)
-                );
-
-                Transformation initialTransform = new Transformation(
-                        pivotOffset,
-                        initialRot,
-                        new Vector3f(1.0f, 1.0f, 1.0f),
-                        new Quaternionf()
-                );
-                entity.setTransformation(initialTransform);
+                // The real pose is sent by AnimationController on the same tick (snapping, no interpolation).
             });
 
             node.setDisplayEntity(display);

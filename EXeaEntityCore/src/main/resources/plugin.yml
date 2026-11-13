@@ -1,5 +1,5 @@
 name: EXeaEntityCore
-version: 1.0.0
+version: '${version}'
 main: com.exea.entity.EXeaEntityPlugin
 api-version: '1.21'
 author: EXea

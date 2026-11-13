@@ -21,9 +21,41 @@
 > | Self-Healing Renderer | ทำงาน แต่ถ้ากระดูกชิ้นเดียวหายจะสร้างใหม่**ทั้งชุด** |
 > | `/exea pack generate` | เป็นแค่ข้อความ ยังไม่ได้สร้าง resource pack จริง |
 >
-> **ยังค้าง (ดู Task.md R35):** ต้นทุนต่อ tick สูง (สร้าง Matrix/Quaternion ใหม่ทุกกระดูกทุก tick, teleport ทีละกระดูก), โมเดลเอียงตาม pitch ของหัว Husk, ลำดับการหมุน Euler (XYZ ในโค้ด แต่ Blockbench ใช้ ZYX), slerp 0°→360° ไม่หมุน
+> **แก้ให้ตรงกับ Blockbench แล้ว (13 พ.ย. 2026, Task.md 12.1):** ลำดับ Euler ZYX + บวกมุม, catmullrom/step, ชดเชย ItemDisplay 180°, `mesh_scale`, element rotation หลายแกน, โหลดได้ทุกโมเดล + `<id>_meta.json` (ชื่อ/HP/bone เรืองแสง), pack รวมทุกโมเดล (รายละเอียดในหัวข้อ "ข้อตกลงพิกัด" ด้านล่าง)
 >
-> **ถ้าจะใช้เป็นบอสในดันเจี้ยน:** บอส EXea ไม่ส่ง `EntityDeathEvent` ตามปกติแล้ว (ยกเลิกดาเมจสุดท้ายเพื่อเล่นฉากตาย) ต้องเพิ่ม event ของ EXea ตอนจบฉากตายให้เป้าหมาย KILL_BOSS นับได้
+> **ยังค้าง:** ต้นทุนต่อ tick (teleport ทีละกระดูก), Molang ในค่า keyframe, bezier (เล่นเป็น linear), global rotation, `inspector.html` ยังใช้สูตรเก่า
+
+## ข้อตกลงพิกัด Blockbench → เกม (ห้ามแก้โดยไม่เข้าใจ)
+
+| เรื่อง | Blockbench | ในโค้ด |
+|---|---|---|
+| พื้นที่ของโมเดล | ฉาก three.js = พิกัดโมเดล Minecraft (หน่วย px, 16 px = 1 บล็อก, หน้าโมเดลหัน -Z) | `AnimationController` คูณ 1/16 |
+| Matrix ของกระดูก | `T(origin − parentOrigin + animPos) · R · S` | `updateBoneRecursive` |
+| การหมุน | มุมพัก + มุมแอนิเมชัน บวกกันแบบ Euler แล้วสร้างด้วยลำดับ `'ZYX'` = Rz·Ry·Rx | `rotationZYX(z, y, x)` |
+| ค่า keyframe | ใน `.bbmodel` เป็นพิกัดฉากอยู่แล้ว: Blockbench 5.2 **บวกตรงๆ** (`mesh.rotation.x += v`, `mesh.position.x += v`) ไม่กลับเครื่องหมายในทุก format (ตรวจจาก source + วัดค่าจริงผ่าน MCP) | `ModelLoader` ใช้ค่าตรงๆ (position ÷16) — **ห้ามกลับเครื่องหมาย** (รอบแรกเคยกลับผิด) |
+| Interpolation | linear / catmullrom (THREE.SplineCurve ใช้ key ข้างเคียง) / step, keyframe แยก pre/post | `KeyframeTimeline.evaluate` (port จาก `BoneAnimator.interpolate`) |
+| ItemDisplay | client หมุนไอเทม 180° รอบ Y เองก่อนวาด | root = `FLIP_Y` (หันหน้าตามม็อบ) และต่อท้าย `FLIP_Y` ทุกกระดูก (หักล้าง) |
+| Mesh | element อยู่รอบ pivot (+8), ต้องอยู่ใน −16..32 | exporter ย่อด้วย `mesh_scale` ถ้าเกิน 24 px จาก pivot, เกมขยายกลับ |
+| Element rotation | หมุนได้ทุกแกน ลำดับ X→Y→Z | export เป็น `rotation: {origin, x, y, z}` (รูปแบบ 1.21.11+) |
+
+IK: EXea เล่นแบบ FK เท่านั้น → ใช้ IK ใน Blockbench ตอนทำท่า แล้ว `node EXeaEntityCore/tools/bbbake.mjs` (bake IK เป็น rotation keyframe ทุก 0.05 วิ) ก่อน export · exporter ข้าม null object
+
+**อัปเดตทุกโมเดลในคำสั่งเดียว:** ดับเบิลคลิก `update-exea.bat` (หรือ `update-exea.ps1`) ที่ root ของ repo จะ export ทุกโฟลเดอร์ใน `Entity Model/` ที่มี `<id>_meta.json` คู่กับ `.bbmodel` แล้ว build jar (หยุดถ้าเซิร์ฟเปิดอยู่) · **ผู้เล่นได้ pack อัตโนมัติ** ตอนเข้าเซิร์ฟ: `PackServer` เสิร์ฟ pack ที่ฝังใน jar (`exeapack/`) ที่ port 8086 ส่งด้วย `addResourcePack` หลัง pack UI ของ DimensionalMinerCore (ซึ่งใช้ `setResourcePack` ที่ล้าง pack อื่น) และส่งซ้ำเองถ้าโดนล้าง · ตั้งค่าใน `plugins/EXeaEntityCore/config.yml` (`resource_pack.public_url` สำหรับผู้เล่นจากเครื่องอื่น) · `/exea pack` = ส่ง pack ให้ตัวเองอีกครั้ง
+
+ขั้นตอน export: บันทึก `.bbmodel` → `node EXeaEntityCore/tools/exea_exporter.js "<file>.bbmodel" <id>` (Blockbench plugin เขียนแค่ JSON กระดูก/แอนิเมชัน ไม่สร้าง pack) → ดูบรรทัด `[WARN]` (ส่วนที่เกมจะไม่ตรง Blockbench) → build jar → ใส่ pack ใหม่
+>
+> **ถ้าจะใช้เป็นบอสในดันเจี้ยน / World Boss (Task 12.4 เฟส 1, 13 พ.ย. 2026):** บอส EXea ไม่ส่ง `EntityDeathEvent` ตามปกติ (ยกเลิกดาเมจสุดท้ายเพื่อเล่นฉากตาย) → ให้ listen event ของ EXea แทน:
+> - `EXeaEntitySpawnEvent(entity, templateId)` หลัง spawn
+> - `EXeaEntityDeathEvent` 1 ครั้งตอนเริ่มฉากตาย: `getKiller()` (คนตีครั้งสุดท้าย, ลูกธนู = คนยิง), `getDamageByAttacker()` (UUID → HP ที่ทำ, รวมไม่เกิน HP เต็ม)
+> - `EXeaEntityRemoveEvent` 1 ครั้งตอนลบจริง: `getReason()` = DIED / REMOVED / DRIVER_LOST / PLUGIN_DISABLE
+> - `EXeaAPI.getInstance()`: `spawnEntity`, `getModelIds`, `getModelId`, `getDamageByAttacker`, `isDying`, `kill` (เล่นฉากตาย), `remove` (ลบทันที)
+> - ไม่มีโมเดล fallback ในโค้ดแล้ว (เดิม void_overseer) และ `/exea spawn` ต้องใส่ id · แผนเฟสต่อไป: `EXeaEntityCore/docs/STANDALONE_CORE_PLAN.md`
+>
+> **คู่มือนักพัฒนา (อังกฤษ): `EXeaEntityCore/docs/API.md`** · API jar: `cd EXeaEntityCore; .\gradlew.bat publishToMavenLocal` → ปลั๊กอินอื่นใช้ `compileOnly("com.exea:exea-entity-core-api:1.1.0")` + `depend: [EXeaEntityCore]` · ปลายทาง plugin jar ตั้งได้: `.\gradlew.bat jar -PoutDir=<folder>` (ค่าเริ่มต้น `../server/plugins`) · version ใน plugin.yml มาจาก `gradle.properties` (1.1.0)
+> **API สำหรับปลั๊กอินอื่น (Task 12.4 เฟส 2):** `EXeaAPI.getInstance().spawn(id, loc, SpawnOptions.create().driver(EntityType.ZOMBIE).health(2000))` → `EXeaEntity` (`playAnimation(name, speed, loop)`, `getBoneLocation("hand_r")`, `getBones`, `kill`, `remove`, `getDamageByAttacker`) · `get(entity)`, `getAll()`, `registerBehavior(modelId หรือชื่อ, e -> new MyBehavior())` · `EXeaBehavior` (onSpawn/onTick/onDamaged/onAttack/onAnimationEnd/onDeath/onRemove) — extend `DefaultBehavior` เพื่อแก้แค่บางส่วน (เช่น `pickAttack`) · engine ยังคุมการวาด ฉากตาย และ event เสมอ
+> **เพิ่มโมเดลโดยไม่ build jar (เฟส 3):** `node EXeaEntityCore/tools/exea_exporter.js "<file>.bbmodel" <id> --server <server>/plugins/EXeaEntityCore` → เขียน `models/` + `pack/` ในโฟลเดอร์นั้นเท่านั้น → ในเกม `/exea reload` (โหลดโมเดลใหม่ + สร้าง pack ใหม่ (jar `exeapack/` + data folder `pack/`, ไฟล์ใน data folder ชนะ) + ส่งให้ผู้เล่นที่ออนไลน์ถ้า pack เปลี่ยน) · ไม่ใส่ `--server` = workflow เดิมของ repo (ไม่เปลี่ยน)
+> **Effect keyframe ของ Blockbench → เกม (เฟส 3):** exporter ทั้งสองตัวเขียน `events` ต่อท่าใน `_anims.json` · Sound / Particle (locator = ชื่อ locator หรือ bone) / Timeline script: `hit radius= damage= [cone=] [bone=] [knockback=]` ทำดาเมจผ่าน event ปกติ (attacker = driver, `getSkillId()` = ชื่อท่า, ไม่เรียก `onAttack` ซ้ำ) · บรรทัดอื่น → `EXeaAnimationEventTriggerEvent(tag = บรรทัดนั้น)` · **ลบเสียง/อนุภาค "slash" ที่เคยฝังในโค้ดแล้ว** → ท่า `attack_slash` ของ Void Overseer จะเงียบจนกว่าจะใส่ effect keyframe ใน Blockbench
+> **meta ใหม่ (ไม่ใส่ = ค่าเดิม):** `driver` (`"husk"`, `"zombie"`, `"armor_stand"`...), `follow_range`, `behavior`, `hurt_sound` / `death_sound` (key เสียง, `""` = ไม่มี), `hurt_particle` / `death_particle`, `death_ticks` · ทดสอบตำแหน่งกระดูก: `/exea bone <bone>`
 >
 > เนื้อหาด้านล่างคือเอกสารฉบับเดิม เก็บไว้เป็นประวัติ — ให้เชื่อกล่องนี้ก่อนเมื่อขัดกัน
 

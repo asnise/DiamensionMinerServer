@@ -6,9 +6,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.io.InputStream;
@@ -53,6 +50,10 @@ public class ModelLoader {
                 boolean visible = true;
                 if (obj.has("visible")) {
                     visible = obj.get("visible").getAsBoolean();
+                }
+
+                if (obj.has("mesh_scale")) {
+                    node.setMeshScale(obj.get("mesh_scale").getAsFloat());
                 }
 
                 if (!visible || elements == 0) {
@@ -115,39 +116,54 @@ public class ModelLoader {
                             JsonObject kf = kfEl.getAsJsonObject();
                             String channel = kf.get("channel").getAsString().toLowerCase();
                             float time = kf.get("time").getAsFloat();
-                            JsonArray vecArr = kf.getAsJsonArray("vector");
-                            float x = vecArr.get(0).getAsFloat();
-                            float y = vecArr.get(1).getAsFloat();
-                            float z = vecArr.get(2).getAsFloat();
+                            KeyframeTimeline.Interpolation interp = KeyframeTimeline.Interpolation.parse(
+                                    kf.has("interpolation") ? kf.get("interpolation").getAsString() : null);
+                            Vector3f pre = vec(kf.getAsJsonArray("vector"));
+                            Vector3f post = kf.has("post") ? vec(kf.getAsJsonArray("post")) : null;
 
+                            // Values are in Blockbench scene space (= Minecraft model space): Blockbench 5
+                            // adds them straight onto the bone (BoneAnimator.displayPosition/Rotation use
+                            // +=, no sign flips, verified in 5.2.2). Position is in pixels.
                             switch (channel) {
                                 case "position" -> {
-                                    Vector3f posInBlocks = new Vector3f(x / 16.0f, y / 16.0f, z / 16.0f);
-                                    timeline.addPositionKeyframe(boneName, time, posInBlocks);
+                                    toScene(pre, 1f / 16f, 1f / 16f, 1f / 16f);
+                                    if (post != null) toScene(post, 1f / 16f, 1f / 16f, 1f / 16f);
+                                    timeline.addPositionKeyframe(boneName, new KeyframeTimeline.Keyframe(time, pre, post, interp));
                                 }
-                                case "rotation" -> {
-                                    Quaternionf rotQuat = new Quaternionf().rotationXYZ(
-                                            (float) Math.toRadians(x),
-                                            (float) Math.toRadians(y),
-                                            (float) Math.toRadians(z)
-                                    );
-                                    timeline.addRotationKeyframe(boneName, time, rotQuat);
-                                }
-                                case "scale" -> {
-                                    timeline.addScaleKeyframe(boneName, time, new Vector3f(x, y, z));
-                                }
+                                case "rotation" -> timeline.addRotationKeyframe(boneName, new KeyframeTimeline.Keyframe(time, pre, post, interp));
+                                case "scale" -> timeline.addScaleKeyframe(boneName, new KeyframeTimeline.Keyframe(time, pre, post, interp));
                             }
                         }
                     }
                 }
 
-                if (animName.contains("slash")) {
-                    TimelineEvent slashEvent = new TimelineEvent(0.52f, "slash_impact");
-                    slashEvent.setSound(Sound.ENTITY_PLAYER_ATTACK_SWEEP);
-                    slashEvent.setParticle(Particle.SWEEP_ATTACK);
-                    slashEvent.setHitboxRange(3.5);
-                    slashEvent.setHitboxDamage(250.0);
-                    timeline.addEvent(slashEvent);
+                // Blockbench effect keyframes (sound / particle / timeline script), see TimelineEvent.
+                if (animObj.has("events")) {
+                    for (JsonElement evEl : animObj.getAsJsonArray("events")) {
+                        JsonObject ev = evEl.getAsJsonObject();
+                        float time = ev.has("time") ? ev.get("time").getAsFloat() : 0f;
+                        String type = ev.has("type") ? ev.get("type").getAsString().toLowerCase() : "";
+                        String bone = ev.has("bone") && !ev.get("bone").isJsonNull() ? ev.get("bone").getAsString() : null;
+                        switch (type) {
+                            case "sound" -> {
+                                if (ev.has("sound") && !ev.get("sound").getAsString().isBlank()) {
+                                    timeline.addEvent(TimelineEvent.sound(time, ev.get("sound").getAsString(), bone));
+                                }
+                            }
+                            case "particle" -> {
+                                TimelineEvent p = ev.has("particle") ? TimelineEvent.particle(time, ev.get("particle").getAsString(), bone) : null;
+                                if (p != null) timeline.addEvent(p);
+                            }
+                            case "script" -> {
+                                String script = ev.has("script") ? ev.get("script").getAsString() : "";
+                                for (String line : script.split("[\\r\\n;]+")) {
+                                    TimelineEvent s = TimelineEvent.script(time, line);
+                                    if (s != null) timeline.addEvent(s);
+                                }
+                            }
+                            default -> { }
+                        }
+                    }
                 }
 
                 anims.put(animName, timeline);
@@ -156,6 +172,16 @@ public class ModelLoader {
             e.printStackTrace();
         }
         return anims;
+    }
+    // #endregion
+
+    // #region [Private Methods]
+    private static Vector3f vec(JsonArray arr) {
+        return new Vector3f(arr.get(0).getAsFloat(), arr.get(1).getAsFloat(), arr.get(2).getAsFloat());
+    }
+
+    private static void toScene(Vector3f v, float sx, float sy, float sz) {
+        v.set(v.x * sx, v.y * sy, v.z * sz);
     }
     // #endregion
 }

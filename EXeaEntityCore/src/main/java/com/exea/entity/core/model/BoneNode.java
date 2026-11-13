@@ -17,6 +17,10 @@ public class BoneNode {
     private final List<BoneNode> children = new ArrayList<>();
     private ItemDisplay displayEntity;
     private boolean hasMesh = true;
+    /** The exporter shrinks meshes that exceed the item-model -16..32 box by this factor; the renderer scales back up. */
+    private float meshScale = 1f;
+    /** Drawn at full brightness (block + sky light 15), for glowing parts. */
+    private boolean glow = false;
     // #endregion
 
     // #region [Properties]
@@ -26,6 +30,22 @@ public class BoneNode {
 
     public void setHasMesh(boolean hasMesh) {
         this.hasMesh = hasMesh;
+    }
+
+    public boolean isGlow() {
+        return glow;
+    }
+
+    public void setGlow(boolean glow) {
+        this.glow = glow;
+    }
+
+    public float getMeshScale() {
+        return meshScale;
+    }
+
+    public void setMeshScale(float meshScale) {
+        this.meshScale = meshScale > 0f ? meshScale : 1f;
     }
 
     public String getName() {

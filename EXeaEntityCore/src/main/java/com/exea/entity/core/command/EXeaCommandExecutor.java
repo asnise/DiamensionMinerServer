@@ -36,9 +36,14 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
             case "anim" -> handleAnim(sender, args);
             case "list" -> handleList(sender);
             case "pack" -> handlePack(sender, args);
+            case "bone" -> handleBone(sender, args);
             case "reload" -> {
-                EntityManager.getInstance().reload(com.exea.entity.EXeaEntityPlugin.getInstance());
-                sender.sendMessage(ChatColor.GREEN + "[EXeaEntityCore] Configuration, models, and animations reloaded!");
+                var plugin = com.exea.entity.EXeaEntityPlugin.getInstance();
+                EntityManager.getInstance().reload(plugin);
+                sender.sendMessage(ChatColor.GREEN + "[EXea] Models reloaded: " + String.join(", ", EntityManager.getInstance().getTemplateIds()));
+                if (plugin.getPackServer() != null) {
+                    sender.sendMessage(ChatColor.GREEN + "[EXea] Resource pack: " + plugin.getPackServer().rebuild());
+                }
             }
             default -> sendHelp(sender);
         }
@@ -50,20 +55,33 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
-            List<String> subs = Arrays.asList("spawn", "kill", "anim", "list", "pack", "reload");
+            List<String> subs = Arrays.asList("spawn", "kill", "anim", "bone", "list", "pack", "reload");
             for (String s : subs) {
                 if (s.startsWith(args[0].toLowerCase())) {
                     completions.add(s);
                 }
             }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("spawn")) {
-            completions.add("void_overseer");
+            for (String id : EntityManager.getInstance().getTemplateIds()) {
+                if (id.startsWith(args[1].toLowerCase())) completions.add(id);
+            }
         } else if (args.length == 3 && args[0].equalsIgnoreCase("spawn")) {
             completions.addAll(Arrays.asList("ai", "noai"));
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("bone") && sender instanceof Player p) {
+            EXActiveEntity near = findNearest(p);
+            if (near != null) {
+                for (String b : near.getBones()) {
+                    if (b.startsWith(args[1].toLowerCase())) completions.add(b);
+                }
+            }
         } else if (args.length == 2 && args[0].equalsIgnoreCase("anim")) {
             completions.addAll(Arrays.asList("play", "stop"));
         } else if (args.length == 3 && args[0].equalsIgnoreCase("anim") && args[1].equalsIgnoreCase("play")) {
-            List<String> anims = Arrays.asList("idle", "move", "hover_ascend", "attack_slash", "attack_double_slash", "attack_slam", "attack_singularity", "death");
+            java.util.Set<String> anims = new java.util.TreeSet<>();
+            if (sender instanceof Player p) {
+                EXActiveEntity near = findNearest(p);
+                if (near != null) anims.addAll(EntityManager.getInstance().getAnimationNames(near.getTemplateId()));
+            }
             for (String a : anims) {
                 if (a.startsWith(args[2].toLowerCase())) {
                     completions.add(a);
@@ -77,12 +95,13 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
     // #region [Private Methods]
     private void sendHelp(CommandSender sender) {
         sender.sendMessage(ChatColor.DARK_PURPLE + "=== EXeaEntityCore Commands ===");
-        sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea spawn <id>" + ChatColor.GRAY + " - Spawns a custom entity");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea spawn <id> [ai|noai]" + ChatColor.GRAY + " - Spawns a custom entity");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea kill [all]" + ChatColor.GRAY + " - Cleans up active models");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea anim play <anim>" + ChatColor.GRAY + " - Plays animation on nearest entity");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea anim stop" + ChatColor.GRAY + " - Stops animation on nearest entity");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea bone <bone>" + ChatColor.GRAY + " - Marks a bone of the nearest entity with particles for 5 s");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea list" + ChatColor.GRAY + " - Shows active custom entities");
-        sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea pack generate" + ChatColor.GRAY + " - Generates resource pack zip");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea pack" + ChatColor.GRAY + " - Sends the model pack to you again");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea reload" + ChatColor.GRAY + " - Reloads templates and configs");
     }
 
@@ -92,7 +111,13 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
             return;
         }
 
-        String templateId = args.length > 1 ? args[1] : "void_overseer";
+        if (args.length < 2) {
+            List<String> ids = EntityManager.getInstance().getTemplateIds();
+            sender.sendMessage(ChatColor.RED + "Usage: /exea spawn <id> [ai|noai]");
+            sender.sendMessage(ChatColor.GRAY + "Models: " + (ids.isEmpty() ? "(none loaded)" : String.join(", ", ids)));
+            return;
+        }
+        String templateId = args[1];
         boolean enableAI = args.length <= 2 || !args[2].equalsIgnoreCase("noai");
         LivingEntity spawned = EntityManager.getInstance().spawn(templateId, player.getLocation(), enableAI);
         if (spawned != null) {
@@ -140,8 +165,42 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
         }
     }
 
+    /** Debug for EXeaEntity#getBoneLocation: a particle on the bone pivot every tick for 5 seconds. */
+    private void handleBone(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(ChatColor.RED + "Must be a player to target entities.");
+            return;
+        }
+        EXActiveEntity nearest = findNearest(player);
+        if (nearest == null) {
+            player.sendMessage(ChatColor.RED + "[EXea] No active EXea entity nearby.");
+            return;
+        }
+        if (args.length < 2 || nearest.getBoneLocation(args[1]) == null) {
+            player.sendMessage(ChatColor.RED + "Usage: /exea bone <bone>  Bones: " + String.join(", ", nearest.getBones()));
+            return;
+        }
+        String bone = args[1];
+        int[] ticks = {100};
+        org.bukkit.Bukkit.getScheduler().runTaskTimer(com.exea.entity.EXeaEntityPlugin.getInstance(), task -> {
+            org.bukkit.Location loc = nearest.isValid() ? nearest.getBoneLocation(bone) : null;
+            if (loc == null || --ticks[0] < 0) {
+                task.cancel();
+                return;
+            }
+            loc.getWorld().spawnParticle(org.bukkit.Particle.END_ROD, loc, 1, 0, 0, 0, 0);
+        }, 0L, 1L);
+        player.sendMessage(ChatColor.GREEN + "[EXea] Marking bone " + bone + " for 5 s.");
+    }
+
     private void handlePack(CommandSender sender, String[] args) {
-        sender.sendMessage(ChatColor.GREEN + "[EXea] Generating client resource pack in /plugins/EXeaEntityCore/pack/ ...");
+        var pack = com.exea.entity.EXeaEntityPlugin.getInstance().getPackServer();
+        if (!(sender instanceof Player player) || pack == null) {
+            sender.sendMessage(ChatColor.RED + "[EXea] Only players can be sent the model pack.");
+            return;
+        }
+        pack.send(player);
+        sender.sendMessage(ChatColor.GREEN + "[EXea] Model pack sent again.");
     }
 
     private EXActiveEntity findNearest(Player player) {
