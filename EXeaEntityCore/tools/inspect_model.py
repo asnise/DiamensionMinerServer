@@ -1,10 +1,17 @@
-import json
+"""Lists the groups (bones) and animations of a Blockbench file.
 
-bb_path = r'D:\Dimensional_Miner_Technical_Starter\Entity Model\VoidOverseer\Void Overseer.bbmodel'
+Usage: python inspect_model.py "<path>.bbmodel"
+"""
+import json
+import sys
+
+if len(sys.argv) != 2:
+    sys.exit(__doc__)
+bb_path = sys.argv[1]
 with open(bb_path, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
-print("=== Groups in Void Overseer ===")
+print(f"=== Groups in {data.get('name', bb_path)} ===")
 for g in data.get('groups', []):
     name = g.get('name')
     origin = g.get('origin')

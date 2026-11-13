@@ -18,8 +18,10 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(25)
 }
 
-// Where the plugin jar goes. Default: this repo's test server. Elsewhere: gradlew jar -PoutDir=<folder>
-val pluginOutDir: String = (findProperty("outDir") as String?) ?: "../server/plugins"
+// Where the plugin jar goes: -PoutDir=<folder> if given, else ../server/plugins when that folder
+// exists (a test server next to the project), else build/libs.
+val pluginOutDir: String = (findProperty("outDir") as String?)
+    ?: if (file("../server/plugins").isDirectory) "../server/plugins" else "build/libs"
 
 tasks {
     jar {

@@ -3,7 +3,8 @@ version: '${version}'
 main: com.exea.entity.EXeaEntityPlugin
 api-version: '1.21'
 author: EXea
-description: Ultra-lightweight standalone commercial 3D entity and animation engine.
+website: https://github.com/asnise/EXeaEntityCore
+description: Animated Blockbench models on Paper, drawn with ItemDisplay bones, with an API for other plugins.
 commands:
   exea:
     description: Master administrative command for EXeaEntityCore

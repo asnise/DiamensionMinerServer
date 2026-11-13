@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest an API, animation or rendering feature
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: Describe the use case (e.g. "fire a projectile from a bone when an animation reaches 0.4 s").
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could EXea support it?
+      description: An API method, event, meta key, keyframe instruction, command...
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround, if any

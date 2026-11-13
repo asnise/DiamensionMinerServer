@@ -1,0 +1,44 @@
+name: Bug report
+description: Something in EXeaEntityCore does not work as described
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: EXea version
+      placeholder: "1.1.0 (from /version EXeaEntityCore)"
+    validations:
+      required: true
+  - type: input
+    id: paper
+    attributes:
+      label: Paper build
+      placeholder: "26.2 build 42 (from /version)"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. /exea spawn my_boss
+        2. /exea anim play attack_slam
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server log / stack trace
+      render: text
+  - type: textarea
+    id: model
+    attributes:
+      label: Model files
+      description: Attach the .bbmodel (or a small one that shows the problem) and any <id>_meta.json. Screenshots or a short video help for visual bugs.

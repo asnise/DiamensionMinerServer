@@ -2,12 +2,12 @@
 resource_pack:
   # Send the EXea model pack to every player on join (no manual install).
   enabled: true
-  # Its own port, next to DimensionalMinerCore's UI pack (8085).
+  # Port of EXea's own small HTTP server that serves the pack. Pick a free one.
   port: 8086
   # What clients download from. Empty = http://localhost:<port>/exea.zip (local testing only);
   # set a reachable address for remote players, e.g. "http://play.example.com:8086/exea.zip".
   public_url: ""
   required: false
-  # Ticks after join before sending; later than DimensionalMinerCore (20) so its setResourcePack
-  # does not drop this pack.
+  # Ticks after join before sending. Keep it later than other plugins that call setResourcePack
+  # (that call replaces every pack); EXea adds its pack on top with addResourcePack.
   send_delay_ticks: 40
