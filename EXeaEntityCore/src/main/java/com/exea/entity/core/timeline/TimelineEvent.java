@@ -21,11 +21,12 @@ import java.util.Map;
  * hit radius=3.5 damage=20 [cone=120] [bone=hand_r] [knockback=0.6]
  * sound &lt;key&gt; [volume=1] [pitch=1] [bone=...]
  * particle &lt;key&gt; [count=10] [spread=0.5] [speed=0] [bone=...]
+ * fx &lt;effect id&gt; [bone=...] [scale=1] [follow=true] [yaw=0]
  * </pre>
  */
 public final class TimelineEvent {
 
-    public enum Type { SOUND, PARTICLE, HIT, CUSTOM }
+    public enum Type { SOUND, PARTICLE, HIT, FX, CUSTOM }
 
     private final float timestamp;
     private final Type type;
@@ -43,6 +44,11 @@ public final class TimelineEvent {
     private final double damage;
     private final double cone;
     private final double knockback;
+    /** FX: effect preset id, scale, whether it tracks the bone, extra yaw. */
+    private final String effectId;
+    private final double fxScale;
+    private final boolean fxFollow;
+    private final float fxYaw;
 
     private TimelineEvent(float timestamp, Type type, String eventTag, String bone, Map<String, String> a,
                           String soundKey, Particle particle) {
@@ -61,6 +67,10 @@ public final class TimelineEvent {
         this.damage = num(a, "damage", 0);
         this.cone = num(a, "cone", 360);
         this.knockback = num(a, "knockback", 0);
+        this.effectId = type == Type.FX ? soundKey : null;
+        this.fxScale = num(a, "scale", 1);
+        this.fxFollow = !"false".equalsIgnoreCase(a.get("follow"));
+        this.fxYaw = (float) num(a, "yaw", 0);
     }
 
     /** Sound keyframe ({@code effect} = Java sound key, e.g. entity.wither.shoot). */
@@ -96,6 +106,9 @@ public final class TimelineEvent {
                 Particle p = positional == null ? null : particleOf(positional);
                 yield p == null ? custom(time, trimmed) : new TimelineEvent(time, Type.PARTICLE, trimmed, bone, args, null, p);
             }
+            // The effect id travels in the sound-key slot; see effectId in the constructor.
+            case "fx" -> positional == null ? custom(time, trimmed)
+                    : new TimelineEvent(time, Type.FX, trimmed, bone, args, positional.toLowerCase(Locale.ROOT), null);
             default -> custom(time, trimmed);
         };
     }
@@ -139,4 +152,9 @@ public final class TimelineEvent {
     /** HIT: full angle in front of the body, degrees; 360 = all around. */
     public double getCone() { return cone; }
     public double getKnockback() { return knockback; }
+    /** FX: the effect preset id. */
+    public String getEffectId() { return effectId; }
+    public double getFxScale() { return fxScale; }
+    public boolean isFxFollow() { return fxFollow; }
+    public float getFxYaw() { return fxYaw; }
 }

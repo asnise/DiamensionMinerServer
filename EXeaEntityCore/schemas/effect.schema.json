@@ -1,0 +1,557 @@
+{
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/asnise/EXeaEntityCore/schemas/effect.schema.json",
+  "title": "EXea effect preset",
+  "description": "effects/<id>.json. Spec: docs/FORMATS.md §1.",
+  "required": [
+    "layers"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": 1,
+      "default": 1
+    },
+    "id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "duration": {
+      "$ref": "common.schema.json#/$defs/seconds"
+    },
+    "loop": {
+      "type": "boolean",
+      "default": false
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/layer"
+      }
+    }
+  },
+  "$defs": {
+    "layer": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Built-in: particle, debris, ground_wave, decal, telegraph, model, sound, preset. Others are types registered by plugins.",
+          "examples": [
+            "particle",
+            "debris",
+            "ground_wave",
+            "decal",
+            "telegraph",
+            "model",
+            "sound",
+            "preset"
+          ]
+        },
+        "start": {
+          "$ref": "common.schema.json#/$defs/seconds",
+          "default": 0
+        },
+        "duration": {
+          "$ref": "common.schema.json#/$defs/seconds",
+          "default": 0
+        },
+        "interval": {
+          "type": "number",
+          "minimum": 0.05,
+          "default": 0.05
+        },
+        "anchor": {
+          "$ref": "common.schema.json#/$defs/anchor"
+        },
+        "chance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "when": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "particle"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/particle"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "debris"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/debris"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "ground_wave"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/ground_wave"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "decal"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/decal"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "telegraph"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/telegraph"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "model"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/model"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "sound"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/sound"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "preset"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/preset"
+          }
+        }
+      ]
+    },
+    "particle": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/particle_data"
+        }
+      ],
+      "required": [
+        "particle"
+      ],
+      "properties": {
+        "particle": {
+          "$ref": "common.schema.json#/$defs/key"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 10
+        },
+        "shape": {
+          "$ref": "common.schema.json#/$defs/shape"
+        },
+        "motion": {
+          "enum": [
+            "none",
+            "outward",
+            "up",
+            "forward",
+            "inward",
+            "random"
+          ],
+          "default": "none"
+        },
+        "speed": {
+          "type": "number",
+          "default": 0
+        },
+        "spread": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "force": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "debris": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "$ref": "common.schema.json#/$defs/block",
+          "default": "ground"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 8
+        },
+        "size": {
+          "$ref": "common.schema.json#/$defs/number_or_range",
+          "default": [
+            0.2,
+            0.45
+          ]
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.5
+        },
+        "speed": {
+          "$ref": "common.schema.json#/$defs/number_or_range",
+          "default": [
+            0.3,
+            0.6
+          ]
+        },
+        "angle": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 90,
+          "default": 60
+        },
+        "direction": {
+          "enum": [
+            "outward",
+            "forward",
+            "up"
+          ],
+          "default": "outward"
+        },
+        "cone": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "default": 60
+        },
+        "gravity": {
+          "type": "number",
+          "default": 0.08
+        },
+        "bounce": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.3
+        },
+        "spin": {
+          "type": "number",
+          "minimum": 0,
+          "default": 20
+        },
+        "lifetime": {
+          "$ref": "common.schema.json#/$defs/number_or_range",
+          "default": [
+            1,
+            1.5
+          ]
+        },
+        "glow": {
+          "$ref": "common.schema.json#/$defs/color"
+        }
+      }
+    },
+    "ground_wave": {
+      "type": "object",
+      "properties": {
+        "radius": {
+          "$ref": "common.schema.json#/$defs/number_or_range",
+          "default": [
+            1,
+            5
+          ]
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 0.5
+        },
+        "height": {
+          "type": "number",
+          "default": 0.5
+        },
+        "block": {
+          "$ref": "common.schema.json#/$defs/block",
+          "default": "ground"
+        },
+        "density": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        },
+        "angle": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "default": 360
+        }
+      }
+    },
+    "decal": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "$ref": "common.schema.json#/$defs/block",
+          "default": "black_concrete"
+        },
+        "pattern": {
+          "enum": [
+            "crack",
+            "scorch",
+            "circle"
+          ],
+          "default": "crack"
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 2
+        },
+        "pieces": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 12
+        },
+        "lifetime": {
+          "type": "number",
+          "minimum": 0,
+          "default": 4
+        },
+        "glow": {
+          "$ref": "common.schema.json#/$defs/color"
+        }
+      }
+    },
+    "telegraph": {
+      "type": "object",
+      "required": [
+        "shape",
+        "duration"
+      ],
+      "properties": {
+        "shape": {
+          "$ref": "common.schema.json#/$defs/shape"
+        },
+        "duration": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "style": {
+          "enum": [
+            "particles",
+            "plates"
+          ],
+          "default": "particles"
+        },
+        "color": {
+          "$ref": "common.schema.json#/$defs/color",
+          "default": "#ff3030"
+        },
+        "fill": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "from_to": {
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "common.schema.json#/$defs/vec3"
+        },
+        {
+          "type": "object",
+          "required": [
+            "from",
+            "to"
+          ],
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/from_to_value"
+            },
+            "to": {
+              "$ref": "#/$defs/from_to_value"
+            }
+          }
+        }
+      ]
+    },
+    "from_to_value": {
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "common.schema.json#/$defs/vec3"
+        }
+      ]
+    },
+    "model": {
+      "type": "object",
+      "required": [
+        "item_model"
+      ],
+      "properties": {
+        "item_model": {
+          "$ref": "common.schema.json#/$defs/key"
+        },
+        "lifetime": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0.5
+        },
+        "scale": {
+          "$ref": "#/$defs/from_to",
+          "default": 1
+        },
+        "rotation": {
+          "$ref": "#/$defs/from_to",
+          "default": [
+            0,
+            0,
+            0
+          ]
+        },
+        "billboard": {
+          "enum": [
+            "fixed",
+            "vertical",
+            "horizontal",
+            "center"
+          ],
+          "default": "fixed"
+        },
+        "glow": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "sound": {
+      "type": "object",
+      "required": [
+        "sound"
+      ],
+      "properties": {
+        "sound": {
+          "$ref": "common.schema.json#/$defs/key"
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1
+        },
+        "pitch": {
+          "$ref": "common.schema.json#/$defs/number_or_range",
+          "default": 1
+        },
+        "category": {
+          "enum": [
+            "master",
+            "music",
+            "record",
+            "weather",
+            "block",
+            "hostile",
+            "neutral",
+            "player",
+            "ambient",
+            "voice"
+          ],
+          "default": "hostile"
+        }
+      }
+    },
+    "preset": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        }
+      }
+    }
+  }
+}

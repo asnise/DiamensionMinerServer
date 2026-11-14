@@ -1,6 +1,10 @@
 package com.exea.entity.api;
 
 import com.exea.entity.api.behavior.EXeaBehavior;
+import com.exea.entity.api.effect.EffectHandle;
+import com.exea.entity.api.effect.EffectLayerHandler;
+import com.exea.entity.api.effect.EffectOptions;
+import com.exea.entity.core.effect.EffectManager;
 import com.exea.entity.api.provider.IDamageProvider;
 import com.exea.entity.core.manager.EXActiveEntity;
 import com.exea.entity.core.manager.EntityManager;
@@ -98,9 +102,65 @@ public class EXeaAPI {
         manager().registerBehavior(key, factory);
     }
 
-    /** Reloads models from the jar and {@code plugins/EXeaEntityCore/models/}. Live entities keep their model. */
+    /**
+     * Reloads models from the jar and {@code plugins/EXeaEntityCore/models/}, and effect presets from
+     * {@code effects/}. Live entities keep their model; running effects keep their preset.
+     */
     public void reloadModels() {
         manager().reload(com.exea.entity.EXeaEntityPlugin.getInstance());
+        EffectManager.get().reload();
+        com.exea.entity.core.skill.SkillManager.get().reload();
+    }
+    // #endregion
+
+    // #region [Effects]
+    /**
+     * Plays an effect preset ({@code effects/<id>.json}) at a place. {@code options} may be null.
+     *
+     * @return a handle to stop it, or null for an unknown id
+     */
+    public EffectHandle playEffect(String effectId, Location location, EffectOptions options) {
+        return EffectManager.get().play(effectId, location, options);
+    }
+
+    /** Plays an effect on an entity (its feet); layers with {@code "follow": true} move with it. */
+    public EffectHandle playEffect(String effectId, Entity on, EffectOptions options) {
+        if (on == null) return null;
+        return EffectManager.get().play(effectId, on, options);
+    }
+
+    /** Plays an effect on a bone of an EXea entity (its pivot, following the animation). Null bone = the driver. */
+    public EffectHandle playEffect(String effectId, EXeaEntity on, String bone, EffectOptions options) {
+        if (on == null) return null;
+        EXActiveEntity active = manager().getActiveEntity(on.getDriver());
+        if (active == null || bone == null) return EffectManager.get().play(effectId, on.getDriver(), options);
+        return EffectManager.get().play(effectId, active, bone.toLowerCase(), options);
+    }
+
+    /** Ids of every loaded effect preset, sorted. */
+    public List<String> getEffectIds() {
+        return List.copyOf(EffectManager.get().ids());
+    }
+
+    /**
+     * Adds a layer type: effect files can then use {@code {"type": "<type>", ...}}. Your handler reads its
+     * own keys from {@link com.exea.entity.api.effect.EffectLayerContext#getJson()}. Null removes it.
+     */
+    public void registerEffectLayer(String type, EffectLayerHandler handler) {
+        EffectManager.get().registerLayer(type, handler);
+    }
+
+    /** Model ids that have a moveset file, sorted. */
+    public List<String> getMovesetIds() {
+        return List.copyOf(com.exea.entity.core.skill.SkillManager.get().ids());
+    }
+
+    /**
+     * Adds a moveset action type: actions with {@code "type": "<type>"} call your handler at their
+     * time. Read your keys from {@link com.exea.entity.api.skill.SkillActionContext#getJson()}. Null removes it.
+     */
+    public void registerSkillAction(String type, com.exea.entity.api.skill.SkillActionHandler handler) {
+        com.exea.entity.core.skill.SkillManager.get().registerAction(type, handler);
     }
     // #endregion
 

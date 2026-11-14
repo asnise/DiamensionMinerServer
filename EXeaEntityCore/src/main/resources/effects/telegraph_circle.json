@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "id": "telegraph_circle",
+  "name": "Warning circle",
+  "description": "Red circle that fills over 1 second. Size it with scale (radius 3 at scale 1).",
+  "tags": ["telegraph", "warning"],
+  "layers": [
+    { "type": "telegraph", "anchor": { "ground": true }, "shape": { "type": "circle", "radius": 3 }, "duration": 1.0 },
+    { "type": "sound", "sound": "block.note_block.bass", "volume": 0.8, "pitch": 0.6 }
+  ]
+}

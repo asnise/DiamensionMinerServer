@@ -1,0 +1,68 @@
+{
+  "name": "exea-studio",
+  "productName": "EXea Studio",
+  "version": "0.5.0",
+  "description": "Preview and build animated EXeaEntityCore models, effects and movesets.",
+  "author": "asnise",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.exea.studio",
+    "productName": "EXea Studio",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "mcjar.js",
+      "app/**/*",
+      "node_modules/three/build/three.module.js",
+      "node_modules/three/build/three.core.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable"
+    },
+    "portable": {
+      "artifactName": "EXeaStudio-${version}.exe"
+    },
+    "extraResources": [
+      {
+        "from": "../../src/main/resources/effects",
+        "to": "presets",
+        "filter": [
+          "**/*.json"
+        ]
+      },
+      {
+        "from": "../../schemas",
+        "to": "schemas",
+        "filter": [
+          "*.json"
+        ]
+      },
+      {
+        "from": "../exporter/lib",
+        "to": "exporter",
+        "filter": [
+          "*.js"
+        ]
+      }
+    ]
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0"
+  }
+}

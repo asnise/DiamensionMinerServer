@@ -24,7 +24,8 @@ import java.util.Set;
  * display_name, name_color (ChatColor name), health, attack_damage, movement_speed, hitbox_scale,
  * follow_range, glow_bones [bone...], driver (entity type, e.g. "husk", "zombie", "armor_stand"),
  * behavior (key given to EXeaAPI.registerBehavior), hurt_sound / death_sound (sound key, "" = none),
- * hurt_particle / death_particle (particle key, "" = none), death_ticks (death sequence length)
+ * hurt_particle / death_particle (particle key, "" = none), death_ticks (death sequence length),
+ * moveset (use another model's &lt;id&gt;_moveset.json)
  * </pre>
  *
  * @param driver   null = HUSK with AI, ARMOR_STAND without
@@ -33,7 +34,8 @@ import java.util.Set;
 public record EntityMeta(String displayName, ChatColor nameColor, double health, double attackDamage,
                          double movementSpeed, double hitboxScale, double followRange, Set<String> glowBones,
                          EntityType driver, String behavior, String hurtSound, String deathSound,
-                         Particle hurtParticle, Particle deathParticle, int deathTicks, boolean nameVisible) {
+                         Particle hurtParticle, Particle deathParticle, int deathTicks, boolean nameVisible,
+                         String moveset) {
 
     /**
      * Defaults when a model has no meta file or leaves a key out: name from the id, zombie-like stats,
@@ -48,7 +50,7 @@ public record EntityMeta(String displayName, ChatColor nameColor, double health,
         }
         return new EntityMeta(name.toString(), ChatColor.WHITE, 20.0, 3.0, 0.23, 1.0, 32.0, Set.of(),
                 null, null, "entity.wither.hurt", "entity.wither.death",
-                Particle.PORTAL, Particle.WARPED_SPORE, 60, true);
+                Particle.PORTAL, Particle.WARPED_SPORE, 60, true, null);
     }
 
     public static EntityMeta load(String id, InputStream stream) {
@@ -83,7 +85,8 @@ public record EntityMeta(String displayName, ChatColor nameColor, double health,
                     o.has("hurt_particle") ? particle(o.get("hurt_particle").getAsString()) : d.hurtParticle(),
                     o.has("death_particle") ? particle(o.get("death_particle").getAsString()) : d.deathParticle(),
                     o.has("death_ticks") ? Math.max(1, o.get("death_ticks").getAsInt()) : d.deathTicks(),
-                    d.nameVisible());
+                    d.nameVisible(),
+                    o.has("moveset") ? o.get("moveset").getAsString().toLowerCase(Locale.ROOT) : null);
         } catch (Exception e) {
             return d;
         }
@@ -103,7 +106,8 @@ public record EntityMeta(String displayName, ChatColor nameColor, double health,
                 glowBones,
                 o.driver() != null ? o.driver() : driver,
                 behavior, hurtSound, deathSound, hurtParticle, deathParticle, deathTicks,
-                o.nameVisible() != null ? o.nameVisible() : nameVisible);
+                o.nameVisible() != null ? o.nameVisible() : nameVisible,
+                moveset);
     }
 
     public String healthName(double hp) {

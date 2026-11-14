@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "id": "smoke_trail",
+  "name": "Smoke trail",
+  "description": "Smoke that follows the origin bone or entity. Loops until stopped.",
+  "tags": ["smoke", "trail", "loop"],
+  "duration": 1.0,
+  "loop": true,
+  "layers": [
+    { "type": "particle", "particle": "smoke", "anchor": { "follow": true }, "count": 3,
+      "duration": 1.0, "interval": 0.05, "spread": 0.15, "motion": "up", "speed": 0.02 }
+  ]
+}

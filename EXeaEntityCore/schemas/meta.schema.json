@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/asnise/EXeaEntityCore/schemas/meta.schema.json",
+  "title": "EXea model meta",
+  "description": "models/<id>_meta.json: the driver mob and feedback of a model. Every key is optional. Spec: docs/API.md §2.",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string" },
+    "display_name": { "type": "string", "description": "Name tag above the entity (default: from the id)." },
+    "name_color": {
+      "enum": ["BLACK", "DARK_BLUE", "DARK_GREEN", "DARK_AQUA", "DARK_RED", "DARK_PURPLE", "GOLD", "GRAY", "DARK_GRAY", "BLUE",
+        "GREEN", "AQUA", "RED", "LIGHT_PURPLE", "YELLOW", "WHITE"],
+      "default": "WHITE"
+    },
+    "health": { "type": "number", "exclusiveMinimum": 0, "default": 20 },
+    "attack_damage": { "type": "number", "minimum": 0, "default": 3 },
+    "movement_speed": { "type": "number", "minimum": 0, "default": 0.23 },
+    "follow_range": { "type": "number", "minimum": 0, "default": 32 },
+    "hitbox_scale": { "type": "number", "exclusiveMinimum": 0, "default": 1, "description": "Driver SCALE attribute: hitbox only, the model is not resized." },
+    "driver": { "type": "string", "description": "Any living entity type, e.g. husk, zombie, iron_golem, armor_stand (default husk with AI, armor_stand without).", "examples": ["husk", "zombie", "skeleton", "iron_golem", "ravager", "armor_stand"] },
+    "behavior": { "type": "string", "description": "Key of a behavior a plugin registered with EXeaAPI.registerBehavior." },
+    "moveset": { "type": "string", "description": "Use another model's <id>_moveset.json." },
+    "glow_bones": { "type": "array", "items": { "type": "string" }, "description": "Bones drawn at full brightness." },
+    "hurt_sound": { "type": "string", "default": "entity.wither.hurt", "description": "Sound key; empty = none." },
+    "death_sound": { "type": "string", "default": "entity.wither.death" },
+    "hurt_particle": { "type": "string", "default": "portal", "description": "Particle key; empty = none." },
+    "death_particle": { "type": "string", "default": "warped_spore" },
+    "death_ticks": { "type": "integer", "minimum": 1, "default": 60, "description": "Length of the death sequence in ticks." }
+  }
+}

@@ -52,6 +52,8 @@ public class EXActiveEntity implements EXeaEntity {
     private boolean watched = true;
     // Trackers fill in a tick or two after a spawn: pose for the first second whatever they say.
     private int visibilityCheckIn = 20;
+    /** Moveset skills; null when the model has no moveset. */
+    private com.exea.entity.core.skill.SkillController skills;
     // #endregion
 
     // #region [Properties]
@@ -82,6 +84,21 @@ public class EXActiveEntity implements EXeaEntity {
 
     public AnimationController getAnimController() {
         return animController;
+    }
+
+    /** The moveset controller, or null when the model has no moveset. Set before {@link #init()}. */
+    public com.exea.entity.core.skill.SkillController getSkillController() {
+        return skills;
+    }
+
+    public void setSkillController(com.exea.entity.core.skill.SkillController skills) {
+        this.skills = skills;
+    }
+
+    /** Length in seconds of an animation of this model (0 if it has none by that name). */
+    public float getAnimationLength(String animName) {
+        KeyframeTimeline t = animName == null ? null : animationMap.get(animName.toLowerCase());
+        return t == null ? 0f : t.getLength();
     }
 
     /** False once the entity was removed (the remove event has fired). */
@@ -159,6 +176,58 @@ public class EXActiveEntity implements EXeaEntity {
         return bone == null ? null : animController.boneLocation(bone);
     }
 
+    // #region [Moveset skills]
+    @Override
+    public boolean hasMoveset() {
+        return skills != null;
+    }
+
+    @Override
+    public Set<String> getSkills() {
+        return skills == null ? Set.of() : new TreeSet<>(skills.moveset.skills.keySet());
+    }
+
+    @Override
+    public boolean castSkill(String skillId, LivingEntity target) {
+        return skills != null && skillId != null && skills.cast(skillId.toLowerCase(), target, false, false);
+    }
+
+    @Override
+    public void cancelSkill() {
+        if (skills != null) skills.end(com.exea.entity.api.event.EXeaSkillEndEvent.Reason.CANCELLED);
+    }
+
+    @Override
+    public String getCurrentSkill() {
+        return skills == null ? null : skills.currentSkill();
+    }
+
+    @Override
+    public double getCooldown(String skillId) {
+        return skills == null || skillId == null ? 0 : skills.cooldownLeft(skillId.toLowerCase());
+    }
+
+    @Override
+    public void setCooldown(String skillId, double seconds) {
+        if (skills != null && skillId != null) skills.setCooldown(skillId.toLowerCase(), seconds);
+    }
+
+    @Override
+    public String getPhase() {
+        return skills == null ? null : skills.phaseId();
+    }
+
+    @Override
+    public boolean isAutoSkills() {
+        return skills != null && skills.isAuto();
+    }
+
+    @Override
+    public void setAutoSkills(boolean auto) {
+        if (skills != null) skills.setAuto(auto);
+    }
+    // #endregion
+
     @Override
     public Map<UUID, Double> getDamageByAttacker() {
         return Map.copyOf(damageByAttacker);
@@ -229,6 +298,7 @@ public class EXActiveEntity implements EXeaEntity {
                 rootEntity.setCustomName(m.healthName(newHp));
             }
             safe("onDamaged", () -> behavior.onDamaged(this, attacker, damage));
+            if (skills != null) skills.onDamaged(damage);
         }
     }
 
@@ -253,6 +323,7 @@ public class EXActiveEntity implements EXeaEntity {
         if (rootEntity.isValid() && m.nameVisible()) {
             rootEntity.setCustomName(m.healthName(0));
         }
+        if (skills != null) skills.onDeath();
         Bukkit.getPluginManager().callEvent(new EXeaEntityDeathEvent(rootEntity, k, templateId, damageByAttacker));
         safe("onDeath", () -> behavior.onDeath(this, k));
         deathTicksRemaining = m.deathTicks();
@@ -286,6 +357,7 @@ public class EXActiveEntity implements EXeaEntity {
             deathTicksRemaining--;
             renderer.updatePositions();
             updateVisibility();
+            if (skills != null) skills.tickTasks();
             animController.tick(deltaSeconds);
             if (deathTicksRemaining == 0) {
                 destroy(EXeaEntityRemoveEvent.Reason.DIED);
@@ -306,6 +378,7 @@ public class EXActiveEntity implements EXeaEntity {
         updateVisibility();
         if (!dying) {
             safe("onTick", () -> behavior.onTick(this));
+            if (skills != null) skills.tick();
         }
         animController.tick(deltaSeconds);
     }
@@ -336,6 +409,7 @@ public class EXActiveEntity implements EXeaEntity {
         Bukkit.getPluginManager().callEvent(new EXeaEntityRemoveEvent(rootEntity, templateId, reason));
         safe("onRemove", () -> behavior.onRemove(this, reason));
         removed = true;
+        if (skills != null) skills.shutdown();
         releaseChunkTicket();
         animController.stop();
         renderer.removeAll();

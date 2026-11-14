@@ -1,0 +1,77 @@
+{
+  "$schema": "../../schemas/moveset.schema.json",
+  "format": 1,
+  "ai": { "mode": "auto", "think_interval": 0.25, "global_cooldown": 0.8, "target": "current", "chase_range": 28, "melee": false },
+  "phases": [
+    { "id": "one", "hp_above": 0.5, "skills": ["slash", "double_slash", "slam", "singularity", "void_step"] },
+    { "id": "two", "hp_above": 0, "skills": ["slash", "double_slash", "slam", "singularity", "void_step", "leap_slam"],
+      "speed": 1.2, "on_enter": "roar", "invulnerable_on_enter": 1.5 }
+  ],
+  "skills": {
+    "slash": {
+      "name": "Rift Slash", "animation": "attack_slash", "cooldown": 2.5, "weight": 10,
+      "conditions": { "range": [0, 4.5] },
+      "actions": [
+        { "at": 0.35, "type": "hit", "shape": { "type": "cone", "radius": 4.5, "angle": 130 }, "damage": 10, "knockback": 0.6 },
+        { "at": 0.35, "type": "fx", "id": "impact_spark", "bone": "hand_r" },
+        { "at": 0.3, "type": "sound", "sound": "entity.player.attack.sweep", "volume": 1.2, "pitch": 0.6 }
+      ]
+    },
+    "double_slash": {
+      "name": "Twin Rift", "animation": "attack_double_slash", "cooldown": 6, "weight": 6,
+      "conditions": { "range": [0, 5] },
+      "actions": [
+        { "at": 0.4, "type": "hit", "shape": { "type": "cone", "radius": 5, "angle": 150 }, "damage": 8,
+          "repeat": { "count": 2, "interval": 0.5 } },
+        { "at": 0.4, "type": "fx", "id": "impact_spark", "bone": "hand_l", "repeat": { "count": 2, "interval": 0.5 } }
+      ]
+    },
+    "slam": {
+      "name": "Collapse", "animation": "attack_slam", "cooldown": 8, "weight": 6, "root": true,
+      "conditions": { "range": [0, 6] },
+      "actions": [
+        { "at": 0.0, "type": "telegraph", "shape": { "type": "circle", "radius": 5 }, "duration": 0.85 },
+        { "at": 0.85, "type": "hit", "shape": { "type": "circle", "radius": 5 }, "damage": 18, "knockup": 0.55 },
+        { "at": 0.85, "type": "fx", "id": "ground_slam", "anchor": { "ground": true, "offset": [0, 0, 1.5] } }
+      ]
+    },
+    "singularity": {
+      "name": "Singularity", "animation": "attack_singularity", "cooldown": 7, "weight": 5,
+      "conditions": { "range": [5, 22], "line_of_sight": true },
+      "actions": [
+        { "at": 1.2, "type": "projectile", "bone": "core", "speed": 0.55, "homing": 0.12, "lifetime": 4, "radius": 0.7,
+          "trail": "projectile_trail", "damage": 6,
+          "on_hit": [
+            { "type": "hit", "shape": { "type": "sphere", "radius": 2.5 }, "damage": 10 },
+            { "type": "fx", "id": "void_burst" }
+          ] }
+      ]
+    },
+    "void_step": {
+      "name": "Void Step", "cooldown": 12, "weight": 3,
+      "conditions": { "range": [8, 24] },
+      "actions": [
+        { "at": 0.0, "type": "move", "mode": "teleport", "to": "behind_target", "distance": 2.5, "fx_out": "smoke_puff", "fx_in": "void_burst" }
+      ],
+      "followup": { "skill": "slash", "chance": 0.7 }
+    },
+    "leap_slam": {
+      "name": "Falling Star", "animation": "attack_slam", "cooldown": 14, "weight": 5, "priority": 1,
+      "conditions": { "range": [7, 18] },
+      "actions": [
+        { "at": 0.0, "type": "telegraph", "anchor": { "at": "target" }, "shape": { "type": "circle", "radius": 4 }, "duration": 0.8 },
+        { "at": 0.05, "type": "move", "mode": "leap", "to": "target", "height": 4, "duration": 0.75 },
+        { "at": 0.05, "type": "fx", "id": "dash_trail", "bone": "hips", "follow": true },
+        { "at": 0.8, "type": "preset_skill", "skill": "slam", "from": 0.85 }
+      ]
+    },
+    "roar": {
+      "name": "Awaken", "animation": "hover_ascend", "internal": true, "root": true,
+      "actions": [
+        { "at": 0.3, "type": "fx", "id": "shockwave", "scale": 1.5 },
+        { "at": 0.3, "type": "move", "mode": "push", "radius": 7, "strength": 1.2 },
+        { "at": 0.3, "type": "self", "heal": 0.05 }
+      ]
+    }
+  }
+}

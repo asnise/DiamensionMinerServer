@@ -71,6 +71,78 @@ public interface EXeaEntity {
      */
     Location getBoneLocation(String bone);
 
+    /**
+     * Plays an effect preset on a bone (its pivot, following the animation), or on the driver when
+     * {@code bone} is null. Null for an unknown effect id.
+     */
+    default com.exea.entity.api.effect.EffectHandle playEffect(String effectId, String bone) {
+        return EXeaAPI.getInstance().playEffect(effectId, this, bone, null);
+    }
+
+    /** Same as {@link #playEffect(String, String)} with options (scale, target, yaw, tags). */
+    default com.exea.entity.api.effect.EffectHandle playEffect(String effectId, String bone,
+                                                               com.exea.entity.api.effect.EffectOptions options) {
+        return EXeaAPI.getInstance().playEffect(effectId, this, bone, options);
+    }
+
+    // ---- Moveset skills (docs/FORMATS.md §2). Models without a <id>_moveset.json have none.
+
+    /** True if the model has a moveset. */
+    default boolean hasMoveset() {
+        return false;
+    }
+
+    /** Skill ids of the moveset (internal ones included), sorted. */
+    default Set<String> getSkills() {
+        return Set.of();
+    }
+
+    /**
+     * Starts a skill now: plays its animation and runs its actions on time. Fires the cancellable
+     * {@code EXeaSkillCastEvent}. Ignores the skill's conditions (your plugin decides) but not its cooldown.
+     *
+     * @param target the skill's target, or null for the driver's current target
+     * @return false if unknown, on cooldown, another skill is running, dying, or the event was cancelled
+     */
+    default boolean castSkill(String skillId, LivingEntity target) {
+        return false;
+    }
+
+    default boolean castSkill(String skillId) {
+        return castSkill(skillId, null);
+    }
+
+    /** Stops the running skill (its projectiles keep flying). */
+    default void cancelSkill() {
+    }
+
+    /** The skill running now, or null. */
+    default String getCurrentSkill() {
+        return null;
+    }
+
+    /** Seconds until the skill can be cast again (0 = ready). */
+    default double getCooldown(String skillId) {
+        return 0;
+    }
+
+    /** Sets a skill's remaining cooldown in seconds (0 = ready now). */
+    default void setCooldown(String skillId, double seconds) {
+    }
+
+    /** The current HP phase id, or null when the moveset has no phases. */
+    default String getPhase() {
+        return null;
+    }
+
+    /** Whether EXea's AI picks skills by itself. Off = only {@link #castSkill} runs them. */
+    default boolean isAutoSkills() {
+        return false;
+    }
+
+    default void setAutoSkills(boolean auto) {
+    }
+
     /** HP removed per attacker so far (copy). */
     Map<UUID, Double> getDamageByAttacker();
 

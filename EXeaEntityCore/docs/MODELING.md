@@ -90,6 +90,6 @@ sound and deals no damage.
    Use Catmull-Rom for smooth motion.
 7. **Export and test.**
    ```bash
-   node tools/exea_exporter.js "MyBoss.bbmodel" my_boss --server <server>/plugins/EXeaEntityCore
+   node tools/exporter/exea_exporter.js "MyBoss.bbmodel" my_boss --server <server>/plugins/EXeaEntityCore
    ```
    Read any `[WARN]` or `[SCALE]` lines. Then, in game, run `/exea reload` and `/exea spawn my_boss`.

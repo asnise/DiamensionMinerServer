@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "fire_burst",
+  "name": "Fire burst",
+  "description": "Flame sphere burst with rising smoke.",
+  "tags": ["fire", "impact"],
+  "layers": [
+    { "type": "particle", "particle": "flame", "shape": { "type": "sphere", "radius": 0.5 }, "count": 40,
+      "motion": "outward", "speed": 0.18 },
+    { "type": "particle", "particle": "lava", "shape": { "type": "sphere", "radius": 0.4 }, "count": 6 },
+    { "type": "particle", "particle": "large_smoke", "start": 0.15, "shape": { "type": "sphere", "radius": 1 },
+      "count": 6, "duration": 0.6, "interval": 0.1, "motion": "up", "speed": 0.05 },
+    { "type": "sound", "sound": "item.firecharge.use", "volume": 1.2, "pitch": [0.8, 1.0] }
+  ]
+}

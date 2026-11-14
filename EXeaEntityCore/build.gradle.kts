@@ -35,7 +35,7 @@ tasks {
         filesMatching("plugin.yml") {
             expand(props)
         }
-        // The EXea model pack (written by tools/exea_exporter.js) ships inside the jar and is
+        // The EXea model pack (written by tools/exporter/exea_exporter.js) ships inside the jar and is
         // served to players by PackServer.
         inputs.dir("pack")
         from("pack") {

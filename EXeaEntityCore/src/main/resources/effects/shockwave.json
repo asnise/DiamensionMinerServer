@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "id": "shockwave",
+  "name": "Shockwave",
+  "description": "Expanding ring of particles at ground level.",
+  "tags": ["impact", "area"],
+  "layers": [
+    { "type": "particle", "particle": "cloud", "anchor": { "ground": true, "offset": [0, 0.2, 0] },
+      "shape": { "type": "ring", "radius": 0.5, "radius_end": 6, "width": 0.3 }, "count": 30, "duration": 0.5 },
+    { "type": "particle", "particle": "sweep_attack", "anchor": { "ground": true, "offset": [0, 0.4, 0] },
+      "shape": { "type": "ring", "radius": 1, "radius_end": 6 }, "count": 6, "duration": 0.5, "interval": 0.1 },
+    { "type": "sound", "sound": "entity.warden.sonic_boom", "volume": 0.8, "pitch": 1.4 }
+  ]
+}

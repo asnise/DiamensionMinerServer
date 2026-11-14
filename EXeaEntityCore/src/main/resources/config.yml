@@ -11,3 +11,27 @@ resource_pack:
   # Ticks after join before sending. Keep it later than other plugins that call setResourcePack
   # (that call replaces every pack); EXea adds its pack on top with addResourcePack.
   send_delay_ticks: 40
+
+# Effect presets (effects/*.json, docs/FORMATS.md). Limits keep big effects from hurting the server:
+# when one is reached, layers spawn fewer pieces instead of failing.
+effects:
+  # Display entities (flying blocks, waves, decals, plates, models) alive at once for one effect.
+  max_entities_per_effect: 48
+  # The same, for all effects on the server.
+  max_entities: 600
+  # Particles sent per tick across all effects; above it, bursts are thinned.
+  max_particles_per_tick: 4000
+  # Players further than this (blocks) get no effect particles.
+  view_distance: 48
+
+# Live link: EXea Studio (or another tool) uploads models / movesets / effects and runs test commands
+# (reload, spawn, cast a skill, play an effect) on this running server over HTTP, on the
+# resource_pack.port. Off by default. Every request needs the token.
+live_link:
+  enabled: false
+  # At least 16 characters. Treat it like a password: whoever has it can upload EXea files and reload.
+  token: ""
+  # false = only tools on this same machine may connect. true = from anywhere that can reach the port.
+  allow_remote: false
+  # Largest file one upload may send (MiB).
+  max_upload_mb: 16

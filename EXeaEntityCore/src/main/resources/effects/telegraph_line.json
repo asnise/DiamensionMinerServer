@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "id": "telegraph_line",
+  "name": "Warning line",
+  "description": "Red strip in front that fills over 1 second, for charges and beams (8 x 2 at scale 1).",
+  "tags": ["telegraph", "warning"],
+  "layers": [
+    { "type": "telegraph", "anchor": { "ground": true }, "shape": { "type": "line", "length": 8, "width": 2 }, "duration": 1.0 }
+  ]
+}

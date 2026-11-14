@@ -157,6 +157,11 @@ public class EntityManager {
                 active.registerAnimation(timeline);
             }
         }
+        com.exea.entity.core.skill.Moveset moveset = com.exea.entity.core.skill.SkillManager.get().forModel(templateId, meta.moveset());
+        if (moveset != null) {
+            boolean auto = o.autoSkills() != null ? o.autoSkills() : moveset.ai.auto();
+            active.setSkillController(new com.exea.entity.core.skill.SkillController(active, moveset, auto));
+        }
         active.setBehavior(createBehavior(templateId, meta, o, active));
 
         activeEntities.put(root.getUniqueId(), active);
@@ -174,7 +179,7 @@ public class EntityManager {
         else behaviorFactories.put(key.toLowerCase(), factory);
     }
 
-    /** Order: spawn option, meta "behavior" key, model id key, DefaultBehavior. */
+    /** Order: spawn option, meta "behavior" key, model id key, MovesetBehavior (model has a moveset), DefaultBehavior. */
     private EXeaBehavior createBehavior(String templateId, EntityMeta meta, SpawnOptions o, EXActiveEntity active) {
         if (o.behavior() != null) return o.behavior();
         Function<EXeaEntity, EXeaBehavior> f = null;
@@ -189,6 +194,7 @@ public class EntityManager {
                         "[EXea] Behavior factory for " + templateId + " failed; using the default behavior", t);
             }
         }
+        if (active.getSkillController() != null) return new com.exea.entity.api.behavior.MovesetBehavior();
         return new DefaultBehavior();
     }
 

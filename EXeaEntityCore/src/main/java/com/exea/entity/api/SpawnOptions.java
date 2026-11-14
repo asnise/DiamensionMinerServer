@@ -24,6 +24,7 @@ public final class SpawnOptions {
     private String displayName;
     private Boolean nameVisible;
     private EXeaBehavior behavior;
+    private Boolean autoSkills;
 
     public static SpawnOptions create() {
         return new SpawnOptions();
@@ -86,6 +87,19 @@ public final class SpawnOptions {
     public SpawnOptions behavior(EXeaBehavior behavior) {
         this.behavior = behavior;
         return this;
+    }
+
+    /**
+     * For a model with a moveset: true (default) = EXea's AI picks and casts skills; false = skills run
+     * only when your plugin calls {@link EXeaEntity#castSkill}. Same as {@code "ai": {"mode": "manual"}}.
+     */
+    public SpawnOptions autoSkills(boolean autoSkills) {
+        this.autoSkills = autoSkills;
+        return this;
+    }
+
+    public Boolean autoSkills() {
+        return autoSkills;
     }
 
     public EntityType driver() {

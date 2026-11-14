@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "id": "projectile_trail",
+  "name": "Projectile trail",
+  "description": "Default trail for projectiles that set none. Follows the projectile.",
+  "tags": ["trail", "ranged", "loop"],
+  "duration": 1.0,
+  "loop": true,
+  "layers": [
+    { "type": "particle", "particle": "dust", "color": "#c9a0ff", "size": 1.2, "anchor": { "follow": true },
+      "count": 2, "duration": 1.0, "spread": 0.08 },
+    { "type": "particle", "particle": "end_rod", "anchor": { "follow": true }, "count": 1, "duration": 1.0, "interval": 0.1 }
+  ]
+}

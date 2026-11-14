@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/asnise/EXeaEntityCore/schemas/common.schema.json",
+  "title": "EXea shared definitions",
+  "description": "Types shared by effect and moveset files. Spec: docs/FORMATS.md §0.",
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_\\-/]+$"
+    },
+    "seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "number_or_range": {
+      "description": "A number, or [min, max] rolled uniformly.",
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      ]
+    },
+    "vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "key": {
+      "description": "Namespaced key; the minecraft: namespace may be left out.",
+      "type": "string",
+      "pattern": "^([a-z0-9_.\\-]+:)?[a-z0-9_./\\-]+$"
+    },
+    "block": {
+      "description": "Block key, a list of block keys (random per piece), or \"ground\" (the real block under the anchor).",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/key"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/key"
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "anchor": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "$ref": "#/$defs/vec3",
+          "description": "[right, up, forward] from the origin, blocks.",
+          "default": [
+            0,
+            0,
+            0
+          ]
+        },
+        "ground": {
+          "type": "boolean",
+          "default": false,
+          "description": "Snap down to the first solid block (8 blocks max)."
+        },
+        "follow": {
+          "type": "boolean",
+          "default": false,
+          "description": "Track the origin bone/entity while the layer runs."
+        },
+        "at": {
+          "enum": [
+            "origin",
+            "target"
+          ],
+          "default": "origin"
+        },
+        "yaw": {
+          "type": "number",
+          "default": 0
+        }
+      }
+    },
+    "shape": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "point",
+            "sphere",
+            "circle",
+            "ring",
+            "cone",
+            "line",
+            "box",
+            "column",
+            "spiral"
+          ]
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        },
+        "radius_end": {
+          "type": "number",
+          "minimum": 0
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0
+        },
+        "angle": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "length": {
+          "type": "number",
+          "minimum": 0
+        },
+        "length_end": {
+          "type": "number",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number"
+        },
+        "height_end": {
+          "type": "number"
+        },
+        "size": {
+          "$ref": "#/$defs/vec3"
+        },
+        "hollow": {
+          "type": "boolean",
+          "default": false
+        },
+        "turns": {
+          "type": "number",
+          "default": 1
+        },
+        "arms": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "to": {
+          "enum": [
+            "forward",
+            "target"
+          ],
+          "default": "forward"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "sphere",
+                  "circle",
+                  "ring",
+                  "cone",
+                  "column",
+                  "spiral"
+                ]
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "radius"
+            ]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "cone"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "angle"
+            ]
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "box"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "size"
+            ]
+          }
+        }
+      ]
+    },
+    "particle_data": {
+      "type": "object",
+      "description": "Extra data for particles that need it (dust, block, item…).",
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "to_color": {
+          "$ref": "#/$defs/color"
+        },
+        "size": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 4
+        },
+        "block": {
+          "$ref": "#/$defs/block"
+        },
+        "item": {
+          "$ref": "#/$defs/key"
+        }
+      }
+    }
+  }
+}

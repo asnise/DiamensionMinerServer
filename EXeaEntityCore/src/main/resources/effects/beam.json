@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "beam",
+  "name": "Beam",
+  "description": "A channelled laser from the origin to the target (forward when there is none).",
+  "tags": ["beam", "ranged", "magic"],
+  "duration": 1.0,
+  "layers": [
+    { "type": "particle", "particle": "end_rod", "anchor": { "follow": true },
+      "shape": { "type": "line", "length": 12, "to": "target" }, "count": 24, "duration": 1.0 },
+    { "type": "particle", "particle": "dust", "color": "#9fe8ff", "size": 1.2, "anchor": { "follow": true },
+      "shape": { "type": "line", "length": 12, "width": 0.3, "to": "target" }, "count": 30, "duration": 1.0 },
+    { "type": "sound", "sound": "block.beacon.activate", "volume": 1, "pitch": 1.8 }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "id": "telegraph_cone",
+  "name": "Warning cone",
+  "description": "Red 90 degree cone in front that fills over 1 second (radius 5 at scale 1).",
+  "tags": ["telegraph", "warning"],
+  "layers": [
+    { "type": "telegraph", "anchor": { "ground": true }, "shape": { "type": "cone", "radius": 5, "angle": 90 }, "duration": 1.0 }
+  ]
+}

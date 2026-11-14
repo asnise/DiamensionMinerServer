@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "id": "void_burst",
+  "name": "Void burst",
+  "description": "Dark purple implosion, then a burst.",
+  "tags": ["magic", "impact", "void"],
+  "layers": [
+    { "type": "particle", "particle": "reverse_portal", "shape": { "type": "sphere", "radius": 2.5, "hollow": true },
+      "count": 20, "duration": 0.4, "interval": 0.1, "motion": "inward", "speed": 0.15 },
+    { "type": "particle", "particle": "dust_color_transition", "color": "#7a2cff", "to_color": "#14001f", "size": 1.8,
+      "start": 0.45, "shape": { "type": "sphere", "radius": 0.6 }, "count": 60, "motion": "outward", "speed": 0.5 },
+    { "type": "particle", "particle": "witch", "start": 0.45, "shape": { "type": "sphere", "radius": 1.2 }, "count": 25 },
+    { "type": "sound", "sound": "entity.enderman.teleport", "volume": 1, "pitch": 0.5 },
+    { "type": "sound", "sound": "entity.generic.explode", "start": 0.45, "volume": 0.8, "pitch": 1.4 }
+  ]
+}

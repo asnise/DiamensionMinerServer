@@ -34,7 +34,7 @@ Model in Blockbench (Generic Model format, model faces -Z / north, feet at y = 0
 the server:
 
 ```bash
-node tools/exea_exporter.js "MyBoss.bbmodel" my_boss --server /path/to/server/plugins/EXeaEntityCore
+node tools/exporter/exea_exporter.js "MyBoss.bbmodel" my_boss --server /path/to/server/plugins/EXeaEntityCore
 ```
 
 This writes `models/my_boss_*.json` and `pack/assets/exea/...` into that folder. In game, run
@@ -165,8 +165,13 @@ Use the **Effects** row of an animation. The exporter turns it into an `events` 
 hit radius=3.5 damage=20 cone=120 bone=hand_r knockback=0.5
 sound entity.generic.explode volume=2 pitch=0.8 bone=core
 particle explosion count=3 bone=hand_r
+fx ground_slam bone=hand_r scale=1.5
 shockwave
 ```
+
+`fx <id>` plays an effect preset (§8) at the bone, or at the driver without `bone`. It takes `scale`,
+`follow=false` (stay where it started) and `yaw` (extra turn). The driver's current target becomes the
+effect's target, which beams use.
 
 `hit` damages living entities within `radius` blocks of the bone. With `cone`, only those inside that
 angle in front of the body are hit. It does not hit the entity itself, other EXea entities, armor
@@ -176,18 +181,132 @@ the driver as attacker and the animation name as skill id.
 Every line, including `hit`, fires `EXeaAnimationEventTriggerEvent` with the line as its tag, so your
 plugin can react to lines it defines itself (`shockwave` above).
 
-## 8. Commands (`exea.admin`, op)
+## 8. Effect presets
+
+An effect preset is a JSON file of layers:
+- particles in shapes (fog, smoke, auras, beams)
+- flying blocks taken from the ground
+- ground waves
+- cracks and decals
+- warning areas
+- item-model displays
+- sounds
+- other presets
+
+The format is in [`FORMATS.md`](FORMATS.md#1-effect-presets). The jar ships 16 presets: `fog`, `smoke_puff`,
+`smoke_trail`, `dash_trail`, `ground_slam`, `shockwave`, `impact_spark`, `fire_burst`, `void_burst`,
+`beam`, `aura_loop`, `telegraph_circle`, `telegraph_cone`, `telegraph_line`, `summon_circle` and
+`projectile_trail`. Your own presets go in `plugins/EXeaEntityCore/effects/<id>.json`. Sub-folders make ids
+like `fire/burst`, and a file with the same id as a bundled preset replaces it. `/exea reload` loads
+them again, and any problem is logged with its JSON path.
+
+To play one:
+- **From an animation:** add a Timeline line `fx ground_slam bone=hand_r scale=1.5`.
+- **In game:** `/exea fx ground_slam 1.5` plays it 2 blocks in front of you.
+- **From code:**
+
+```java
+EffectHandle h = exea.playEffect("ground_slam", location, EffectOptions.create().scale(1.5).yaw(player.getYaw()));
+boss.playEffect("aura_loop", null);                       // on the driver, follows it
+boss.playEffect("smoke_trail", "hand_r");                 // on a bone, follows the animation
+exea.playEffect("beam", boss.getDriver(), EffectOptions.create().target(player));
+h.stop();                                                 // looping effects run until stopped
+
+exea.registerEffectLayer("lightning", ctx ->              // a new layer type: {"type": "lightning", ...}
+        ctx.getLocation().getWorld().strikeLightningEffect(ctx.getLocation()));
+```
+
+Effects never change the world. Flying blocks and plates are non-persistent display entities, and they
+are removed when the effect ends or the plugin stops. `config.yml` `effects:` sets the budget
+(entities per effect and in total, particles per tick, view distance). When a limit is reached, effects
+spawn less instead of failing.
+
+## 9. Movesets (skills, AI, phases)
+
+`models/<id>_moveset.json` gives a model skills. Each skill has:
+- an animation
+- conditions: range, HP, number of players, line of sight
+- a cooldown, a weight and a priority
+- actions at set times:
+  - `hit` in a circle, cone, line, box or ring
+  - `telegraph`
+  - `fx`, `sound`
+  - `projectile`: homing, fan, pierce, `on_hit`
+  - `move`: dash, leap, teleport behind, pull, push
+  - `summon`, `self` (heal, invulnerable, speed)
+  - `animation`, `preset_skill`, `event`
+
+HP **phases** change the skill pool and speed, and can cast an entry skill. The format is in
+[`FORMATS.md`](FORMATS.md#2-movesets). A complete example is
+[`examples/void_overseer_moveset.json`](examples/void_overseer_moveset.json).
+
+A model with a moveset gets `MovesetBehavior`. Every `think_interval` it picks a target and a ready
+skill whose conditions pass, and casts it. Between skills it plays idle and move, and keeps
+`keep_distance`. To let your plugin decide instead, set `"ai": {"mode": "manual"}`,
+`SpawnOptions.autoSkills(false)` or `entity.setAutoSkills(false)`:
+
+```java
+EXeaEntity boss = exea.spawn("void_overseer", loc, SpawnOptions.create().autoSkills(false));
+boss.castSkill("slam", player);              // false: unknown, on cooldown, another skill running, or cancelled
+boss.getSkills(); boss.getCooldown("slam"); boss.setCooldown("slam", 0);
+boss.getCurrentSkill(); boss.cancelSkill(); boss.getPhase();
+
+exea.registerSkillAction("chain_lightning", ctx -> { /* ctx.getCaster(), getTarget(), getLocation(), getJson() */ });
+```
+
+| event | when |
+|---|---|
+| `EXeaSkillCastEvent` (cancellable) | before a skill starts. `getSkillId()`, `getTarget()`, `isAutomatic()` |
+| `EXeaSkillEndEvent` | it ended: `FINISHED`, `CANCELLED`, `INTERRUPTED`, `DIED` |
+| `EXeaSkillEvent` | an `event` action fired. `getTag()`, `getLocation()` |
+| `EXeaPhaseChangeEvent` | a new HP phase. `getFrom()`, `getTo()` |
+
+Skill damage goes through `EXeaEntityDamageEvent`, with `getSkillId()` = the skill id, or `<skill>:<tag>`
+when the hit has a `tag`. Extend `MovesetBehavior` and override `pickSkill` to choose skills your way.
+To share one moveset between models, put `"moveset": "<other id>"` in their meta.
+
+## 10. Live link (EXea Studio ↔ a running server)
+
+The live link lets EXea Studio upload a model, its moveset and its effects to a running server, reload,
+and run test commands: spawn, cast a skill, play an effect, play an animation. It runs on the same HTTP
+port as the model pack. It is **off by default**:
+
+```yaml
+live_link:
+  enabled: true
+  token: "a-long-random-secret-16+"   # every request needs it; treat it like a password
+  allow_remote: false                 # true = accept tools on other machines (open the port, keep the token secret)
+  max_upload_mb: 16
+```
+
+| request | does |
+|---|---|
+| `GET /api/status` | version, models, effects, movesets, online players, live entities |
+| `PUT /api/file?path=…` | writes one file into `plugins/EXeaEntityCore`. Only these paths are accepted: `models/<id>_{bones,anims,meta,moveset}.json`, `effects/**.json`, and the model's `pack/assets/exea/...` files |
+| `POST /api/clear?model=<id>` | removes that model's folders from the data-folder pack before an upload |
+| `POST /api/reload` | same as `/exea reload`, and the pack is resent |
+| `POST /api/spawn` `{model, player?, ai?}` | spawns it 3 blocks in front of the player |
+| `POST /api/skill` `{skill, model?, player?}` | the nearest entity with that skill casts it at the player |
+| `POST /api/fx` `{id, player?, scale?}` | plays an effect in front of the player |
+| `POST /api/anim` `{name, model?, player?}` / `POST /api/kill` `{model?}` | plays an animation / removes live entities |
+
+Send the header `Authorization: Bearer <token>`. Without `allow_remote`, only requests from the server
+machine itself are answered. Each command is logged to the console as `[Live] ...`.
+
+## 11. Commands (`exea.admin`, op)
 
 | command | |
 |---|---|
 | `/exea spawn <id> [ai\|noai]` | spawn at you; `noai` = statue |
 | `/exea anim play <name>` / `stop` | nearest entity (20 blocks) |
 | `/exea bone <bone>` | marks a bone's position with particles for 5 s |
+| `/exea fx <id> [scale]` / `fx list` / `fx stop` | play an effect preset in front of you, list them, stop the ones near you |
+| `/exea skill <id>` / `skill list` / `auto` / `manual` / `cancel` | cast a skill of the nearest entity at you, list skills and cooldowns, switch its AI, stop the running skill |
 | `/exea stats` | work per second since the last call (bone updates, carrier moves, poses, hidden ticks) |
 | `/exea kill` | removes all EXea entities |
 | `/exea list`, `/exea pack`, `/exea reload` | count, resend pack to you, reload models + pack |
 
-## 9. Limits
+## 12. Limits
 
 - Each bone that has cubes is one entity. Updates are sent only for bones that move. Keep about 30 such bones for a mob and about 50 for a boss.
 - Cost per tick: all bones ride one invisible carrier display, so a moving model is one teleport. Turning goes into the bone transforms. While no client tracks a model, its pose is not computed or sent (the animation clock and events still run).

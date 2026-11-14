@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "id": "fog",
+  "name": "Fog",
+  "description": "Low, slow, wide cloud that lingers around the origin. Loops until stopped.",
+  "tags": ["ambient", "area", "loop"],
+  "duration": 2.0,
+  "loop": true,
+  "layers": [
+    { "type": "particle", "particle": "campfire_cosy_smoke", "anchor": { "ground": true },
+      "shape": { "type": "circle", "radius": 4 }, "count": 2, "duration": 2.0, "interval": 0.15,
+      "motion": "up", "speed": 0.004 },
+    { "type": "particle", "particle": "white_smoke", "anchor": { "ground": true, "offset": [0, 0.2, 0] },
+      "shape": { "type": "circle", "radius": 5 }, "count": 6, "duration": 2.0, "interval": 0.1, "spread": 0.2 }
+  ]
+}

@@ -158,10 +158,22 @@ public class AnimationController {
             case HIT -> {
                 if (hitHandler != null) hitHandler.hit(animName, event, loc);
             }
+            case FX -> playEffect(event);
             case CUSTOM -> { }
         }
 
         Bukkit.getPluginManager().callEvent(new EXeaAnimationEventTriggerEvent(rootEntity, animName, event.getEventTag(), loc));
+    }
+
+    /** {@code fx <id> [bone=] [scale=] [follow=] [yaw=]}: an effect preset on the bone (or the driver). */
+    private void playEffect(TimelineEvent event) {
+        var active = com.exea.entity.core.manager.EntityManager.getInstance().getActiveEntity(rootEntity);
+        var fx = com.exea.entity.core.effect.EffectManager.get();
+        var opts = com.exea.entity.api.effect.EffectOptions.create().scale(event.getFxScale()).follow(event.isFxFollow());
+        if (event.getFxYaw() != 0f) opts.yaw(rootEntity.getBodyYaw() + event.getFxYaw());
+        if (rootEntity instanceof org.bukkit.entity.Mob mob && mob.getTarget() != null) opts.target(mob.getTarget());
+        if (active != null && event.getBone() != null) fx.play(event.getEffectId(), active, event.getBone(), opts);
+        else fx.play(event.getEffectId(), rootEntity, opts);
     }
 
     /** Receives HIT events (damage around a point); set by the entity. */

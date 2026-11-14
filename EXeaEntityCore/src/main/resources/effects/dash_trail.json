@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "id": "dash_trail",
+  "name": "Dash trail",
+  "description": "Streak and dust behind a moving bone. Play it on the bone that leads the dash.",
+  "tags": ["movement", "trail"],
+  "duration": 0.6,
+  "layers": [
+    { "type": "particle", "particle": "cloud", "anchor": { "follow": true }, "count": 2, "duration": 0.6,
+      "spread": 0.2, "motion": "forward", "speed": -0.08 },
+    { "type": "particle", "particle": "dust", "color": "#d8d8e0", "size": 1.6, "anchor": { "follow": true },
+      "shape": { "type": "column", "radius": 0.4, "height": 1.6 }, "count": 6, "duration": 0.6 },
+    { "type": "particle", "particle": "block", "block": "ground", "anchor": { "follow": true, "ground": true },
+      "count": 4, "duration": 0.6, "spread": 0.3, "motion": "up", "speed": 0.15 },
+    { "type": "sound", "sound": "entity.player.attack.sweep", "volume": 0.8, "pitch": [0.6, 0.8] }
+  ]
+}

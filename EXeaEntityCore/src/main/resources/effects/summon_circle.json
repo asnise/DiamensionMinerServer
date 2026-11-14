@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "id": "summon_circle",
+  "name": "Summon circle",
+  "description": "Glowing circle on the ground with rising particles.",
+  "tags": ["magic", "summon", "ground"],
+  "duration": 2.0,
+  "layers": [
+    { "type": "decal", "anchor": { "ground": true }, "pattern": "circle", "radius": 2, "pieces": 16,
+      "block": "purple_concrete", "glow": "#b45cff", "lifetime": 1.8 },
+    { "type": "particle", "particle": "witch", "anchor": { "ground": true },
+      "shape": { "type": "ring", "radius": 2 }, "count": 6, "duration": 1.8, "interval": 0.1, "motion": "up", "speed": 0.1 },
+    { "type": "particle", "particle": "portal", "anchor": { "ground": true },
+      "shape": { "type": "circle", "radius": 1.8 }, "count": 10, "duration": 1.8, "interval": 0.1 },
+    { "type": "sound", "sound": "entity.evoker.prepare_summon", "volume": 1, "pitch": 1 }
+  ]
+}

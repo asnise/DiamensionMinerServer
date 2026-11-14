@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "id": "smoke_puff",
+  "name": "Smoke puff",
+  "description": "Short burst of smoke.",
+  "tags": ["smoke", "impact"],
+  "layers": [
+    { "type": "particle", "particle": "large_smoke", "shape": { "type": "sphere", "radius": 0.6 },
+      "count": 18, "motion": "outward", "speed": 0.06 },
+    { "type": "particle", "particle": "poof", "shape": { "type": "sphere", "radius": 0.4 }, "count": 10,
+      "motion": "outward", "speed": 0.08 },
+    { "type": "sound", "sound": "entity.generic.extinguish_fire", "volume": 0.6, "pitch": [1.2, 1.5] }
+  ]
+}

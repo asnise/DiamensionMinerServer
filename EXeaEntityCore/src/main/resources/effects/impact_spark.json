@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "id": "impact_spark",
+  "name": "Impact spark",
+  "description": "Small crit and spark flash for a landed hit.",
+  "tags": ["impact", "hit"],
+  "layers": [
+    { "type": "particle", "particle": "crit", "shape": { "type": "sphere", "radius": 0.3 }, "count": 14,
+      "motion": "outward", "speed": 0.4 },
+    { "type": "particle", "particle": "electric_spark", "shape": { "type": "sphere", "radius": 0.2 }, "count": 8,
+      "motion": "outward", "speed": 0.3 },
+    { "type": "sound", "sound": "entity.player.attack.crit", "volume": 0.9, "pitch": [0.9, 1.1] }
+  ]
+}

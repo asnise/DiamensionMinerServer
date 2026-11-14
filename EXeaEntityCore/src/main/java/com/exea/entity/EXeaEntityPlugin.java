@@ -20,6 +20,7 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
     // #region [Variables/Fields]
     private static EXeaEntityPlugin instance;
     private com.exea.entity.core.pack.PackServer packServer;
+    private com.exea.entity.core.live.LiveLink liveLink;
     // #endregion
 
     // #region [Properties]
@@ -51,12 +52,18 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
         packServer = new com.exea.entity.core.pack.PackServer(this);
         getServer().getPluginManager().registerEvents(packServer, this);
         packServer.start(getFile());
+        com.exea.entity.core.effect.EffectManager.get().start(this);
+        com.exea.entity.core.skill.SkillManager.get().start(this);
+        liveLink = new com.exea.entity.core.live.LiveLink(this);
+        liveLink.start();
 
         getLogger().info("EXeaEntityCore v" + getDescription().getVersion() + " initialized successfully!");
     }
 
     @Override
     public void onDisable() {
+        if (liveLink != null) liveLink.stop();
+        com.exea.entity.core.effect.EffectManager.get().shutdown();
         EntityManager.getInstance().stopTicking();
         if (packServer != null) packServer.stop();
         getLogger().info("EXeaEntityCore disabled cleanly.");
@@ -91,6 +98,15 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
         if (customEvent.isCancelled()) {
             event.setCancelled(true);
             return;
+        }
+
+        // Moveset "ai": {"melee": false}: the driver's own melee hits do nothing, only skills deal damage.
+        if (isEXeaAttacker && skill == null) {
+            EXActiveEntity a = EntityManager.getInstance().getActiveEntity(attacker);
+            if (a != null && a.getSkillController() != null && !a.getSkillController().moveset.ai.melee()) {
+                event.setCancelled(true);
+                return;
+            }
         }
 
         IDamageProvider provider = EXeaAPI.getInstance().getDamageProvider();
@@ -176,7 +192,7 @@ public class EXeaEntityPlugin extends JavaPlugin implements Listener {
     public void onEntitiesLoad(org.bukkit.event.world.EntitiesLoadEvent event) {
         for (org.bukkit.entity.Entity e : event.getEntities()) {
             java.util.Set<String> tags = e.getScoreboardTags();
-            if (tags.contains("exea_bone") || tags.contains("exea_entity")) {
+            if (tags.contains("exea_bone") || tags.contains("exea_entity") || tags.contains(com.exea.entity.core.effect.EffectManager.TAG)) {
                 e.remove();
             }
         }

@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "id": "aura_loop",
+  "name": "Aura",
+  "description": "Slow spiral around the body. Loops until stopped; play it on the entity.",
+  "tags": ["aura", "loop", "buff"],
+  "duration": 2.0,
+  "loop": true,
+  "layers": [
+    { "type": "particle", "particle": "dust", "color": "#ffd34d", "size": 1.0, "anchor": { "follow": true },
+      "shape": { "type": "spiral", "radius": 0.9, "height": 2.2, "turns": 2, "arms": 2 }, "count": 6, "duration": 2.0 },
+    { "type": "particle", "particle": "enchant", "anchor": { "follow": true },
+      "shape": { "type": "column", "radius": 1.1, "height": 2.2, "hollow": true }, "count": 3, "duration": 2.0, "interval": 0.15 }
+  ]
+}

@@ -1,0 +1,776 @@
+{
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/asnise/EXeaEntityCore/schemas/moveset.schema.json",
+  "title": "EXea moveset",
+  "description": "models/<model_id>_moveset.json. Spec: docs/FORMATS.md §2.",
+  "required": [
+    "skills"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": 1,
+      "default": 1
+    },
+    "ai": {
+      "$ref": "#/$defs/ai"
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/phase"
+      }
+    },
+    "skills": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "common.schema.json#/$defs/id"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/skill"
+      }
+    }
+  },
+  "$defs": {
+    "target_mode": {
+      "enum": [
+        "current",
+        "nearest",
+        "farthest",
+        "random",
+        "lowest_hp"
+      ]
+    },
+    "ai": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "default": "auto"
+        },
+        "think_interval": {
+          "type": "number",
+          "minimum": 0.05,
+          "default": 0.25
+        },
+        "global_cooldown": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1
+        },
+        "target": {
+          "$ref": "#/$defs/target_mode",
+          "default": "current"
+        },
+        "chase_range": {
+          "type": "number",
+          "minimum": 0
+        },
+        "keep_distance": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "idle_animation": {
+          "type": "string",
+          "default": "idle"
+        },
+        "move_animation": {
+          "type": "string",
+          "default": "move"
+        },
+        "melee": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "phase": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "hp_above": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/id"
+          }
+        },
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        },
+        "on_enter": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "invulnerable_on_enter": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+    "range": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "skill": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "animation": {
+          "type": "string"
+        },
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cooldown": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1
+        },
+        "priority": {
+          "type": "integer",
+          "default": 0
+        },
+        "internal": {
+          "type": "boolean",
+          "default": false
+        },
+        "conditions": {
+          "type": "object",
+          "properties": {
+            "range": {
+              "$ref": "#/$defs/range"
+            },
+            "hp": {
+              "$ref": "#/$defs/range"
+            },
+            "targets_min": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "targets_radius": {
+              "type": "number",
+              "minimum": 0,
+              "default": 6
+            },
+            "line_of_sight": {
+              "type": "boolean"
+            },
+            "chance": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "target_airborne": {
+              "type": "boolean"
+            }
+          }
+        },
+        "target": {
+          "$ref": "#/$defs/target_mode"
+        },
+        "face": {
+          "enum": [
+            "start",
+            "track",
+            "none"
+          ],
+          "default": "start"
+        },
+        "root": {
+          "type": "boolean",
+          "default": false
+        },
+        "interruptible": {
+          "type": "boolean",
+          "default": false
+        },
+        "interrupt_damage": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          },
+          "default": []
+        },
+        "followup": {
+          "type": "object",
+          "required": [
+            "skill"
+          ],
+          "properties": {
+            "skill": {
+              "$ref": "common.schema.json#/$defs/id"
+            },
+            "chance": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 1
+            }
+          }
+        }
+      }
+    },
+    "potion": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "$ref": "common.schema.json#/$defs/key"
+        },
+        "seconds": {
+          "type": "number",
+          "minimum": 0,
+          "default": 3
+        },
+        "amplifier": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "at": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "type": {
+          "type": "string",
+          "description": "Built-in: hit, telegraph, fx, sound, projectile, move, summon, self, animation, preset_skill, event. Others are types registered by plugins.",
+          "examples": [
+            "hit",
+            "telegraph",
+            "fx",
+            "sound",
+            "projectile",
+            "move",
+            "summon",
+            "self",
+            "animation",
+            "preset_skill",
+            "event"
+          ]
+        },
+        "repeat": {
+          "type": "object",
+          "required": [
+            "count"
+          ],
+          "properties": {
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "interval": {
+              "type": "number",
+              "minimum": 0.05,
+              "default": 0.25
+            }
+          }
+        },
+        "bone": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "common.schema.json#/$defs/anchor"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "hit"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/hit"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "telegraph"
+              }
+            }
+          },
+          "then": {
+            "$ref": "effect.schema.json#/$defs/telegraph"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "fx"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/fx"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "sound"
+              }
+            }
+          },
+          "then": {
+            "$ref": "effect.schema.json#/$defs/sound"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "projectile"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/projectile"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "move"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/move"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "summon"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/summon"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "self"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/self"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "animation"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/animation"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "preset_skill"
+              }
+            }
+          },
+          "then": {
+            "$ref": "#/$defs/preset_skill"
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "event"
+              }
+            }
+          },
+          "then": {
+            "type": "object",
+            "required": [
+              "tag"
+            ],
+            "properties": {
+              "tag": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "hit": {
+      "type": "object",
+      "required": [
+        "shape"
+      ],
+      "properties": {
+        "shape": {
+          "$ref": "common.schema.json#/$defs/shape"
+        },
+        "damage": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "knockback": {
+          "type": "number",
+          "default": 0
+        },
+        "knockup": {
+          "type": "number",
+          "default": 0
+        },
+        "max_targets": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "potions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/potion"
+          }
+        },
+        "tag": {
+          "type": "string"
+        },
+        "once": {
+          "type": "boolean",
+          "default": false
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0,
+          "default": 3,
+          "description": "Flat shapes: bodies within this many blocks above or below count."
+        }
+      }
+    },
+    "fx": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        },
+        "follow": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "projectile": {
+      "type": "object",
+      "properties": {
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 0.8
+        },
+        "gravity": {
+          "type": "number",
+          "default": 0
+        },
+        "lifetime": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 3
+        },
+        "radius": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 0.5
+        },
+        "aim": {
+          "enum": [
+            "target",
+            "forward",
+            "target_ground"
+          ],
+          "default": "target"
+        },
+        "homing": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "spread": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "default": 0
+        },
+        "pierce": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "item_model": {
+          "$ref": "common.schema.json#/$defs/key"
+        },
+        "trail": {
+          "$ref": "common.schema.json#/$defs/id",
+          "default": "projectile_trail"
+        },
+        "damage": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "on_hit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          },
+          "default": []
+        }
+      }
+    },
+    "move": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "dash",
+            "leap",
+            "teleport",
+            "pull",
+            "push"
+          ]
+        },
+        "distance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration": {
+          "type": "number",
+          "minimum": 0
+        },
+        "direction": {
+          "enum": [
+            "forward",
+            "target",
+            "back"
+          ],
+          "default": "forward"
+        },
+        "through": {
+          "type": "boolean",
+          "default": false
+        },
+        "to": {
+          "enum": [
+            "target",
+            "forward",
+            "behind_target",
+            "random"
+          ]
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fx_out": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "fx_in": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        },
+        "strength": {
+          "type": "number"
+        },
+        "shape": {
+          "$ref": "common.schema.json#/$defs/shape"
+        }
+      }
+    },
+    "summon": {
+      "type": "object",
+      "required": [
+        "model"
+      ],
+      "properties": {
+        "model": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 3
+        },
+        "max_alive": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bound": {
+          "type": "boolean",
+          "default": true
+        },
+        "options": {
+          "type": "object",
+          "description": "SpawnOptions keys: driver, ai, health, attack_damage, movement_speed, hitbox_scale, follow_range, display_name, name_visible, behavior, auto_skills."
+        }
+      }
+    },
+    "self": {
+      "type": "object",
+      "properties": {
+        "heal": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "invulnerable": {
+          "type": "number",
+          "minimum": 0
+        },
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "seconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "animation": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        }
+      }
+    },
+    "preset_skill": {
+      "type": "object",
+      "required": [
+        "skill"
+      ],
+      "properties": {
+        "skill": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "from": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    }
+  }
+}

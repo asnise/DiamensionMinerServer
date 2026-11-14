@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "id": "ground_slam",
+  "name": "Ground slam",
+  "description": "Rocks burst out of the ground with a dust ring, a ground wave and cracks.",
+  "tags": ["impact", "ground"],
+  "layers": [
+    { "type": "debris", "anchor": { "ground": true }, "count": 14, "block": "ground",
+      "size": [0.25, 0.55], "speed": [0.35, 0.7], "angle": 70, "gravity": 0.08, "lifetime": [1.0, 1.6] },
+    { "type": "particle", "anchor": { "ground": true }, "particle": "block", "block": "ground",
+      "shape": { "type": "ring", "radius": 0.5, "radius_end": 4 }, "count": 40, "duration": 0.4 },
+    { "type": "particle", "anchor": { "ground": true }, "particle": "explosion", "count": 2, "spread": 0.6 },
+    { "type": "ground_wave", "start": 0.05, "radius": [1, 5], "duration": 0.5, "height": 0.6 },
+    { "type": "decal", "anchor": { "ground": true }, "pattern": "crack", "radius": 2.5, "pieces": 14,
+      "block": "black_concrete", "lifetime": 3 },
+    { "type": "sound", "sound": "entity.generic.explode", "volume": 1.5, "pitch": [0.7, 0.9] },
+    { "type": "sound", "sound": "block.anvil.land", "volume": 0.8, "pitch": [0.5, 0.6] }
+  ]
+}

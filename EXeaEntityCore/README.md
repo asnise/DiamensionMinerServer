@@ -34,6 +34,20 @@ a bone (a hand, a weapon tip) is, react to deaths, and write their own AI.
 - **Effect keyframes.** The Blockbench *Effects* row plays sounds and particles at a bone, and deals
   area damage (`hit radius=3 damage=20 cone=120 bone=hand_r`). Any other line in a timeline script
   becomes an event your plugin can listen for.
+- **Effect presets.** JSON layers can make:
+  - fog, smoke, auras and beams
+  - ground slams with flying blocks, ground waves and cracks
+  - warning circles, cones and lines
+  - summon circles and item-model slashes
+
+  16 presets ship in the jar. Play them from an animation (`fx ground_slam bone=hand_r`), with
+  `/exea fx`, or from code. Other plugins can add their own layer types.
+- **Movesets.** A JSON file gives a model:
+  - skills with conditions and cooldowns
+  - timed hits in shapes, warnings, projectiles, dashes, leaps and teleports, summons, effects
+  - HP phases
+
+  EXea's AI casts them by itself, or your plugin calls `castSkill` in manual mode.
 - **Lifecycle events.** Spawn, damage (cancellable, with a skill id), death (once, with the killer
   and damage per attacker) and remove (with a reason).
 - **Behaviors.** Each entity gets its own AI object. Extend `DefaultBehavior` to change only part of
@@ -69,7 +83,7 @@ y = 0. Name the animations `idle`, `move`, `attack_*` and `death` for the defaul
 export the model with Node.js 18+:
 
 ```bash
-node tools/exea_exporter.js "MyBoss.bbmodel" my_boss --server /path/to/server/plugins/EXeaEntityCore
+node tools/exporter/exea_exporter.js "MyBoss.bbmodel" my_boss --server /path/to/server/plugins/EXeaEntityCore
 ```
 
 Run `/exea reload` in game, then `/exea spawn my_boss`.
@@ -78,7 +92,7 @@ An optional `my_boss_meta.json` next to the `.bbmodel` sets the name, health, da
 glowing bones, sounds and particles. The full key list is in [docs/API.md](docs/API.md#2-add-a-model-no-rebuild).
 
 There is also a Blockbench plugin that exports from the File menu:
-[`tools/blockbench_plugin/exea_entity_exporter.js`](tools/blockbench_plugin/exea_entity_exporter.js).
+[`tools/exporter/blockbench_plugin/exea_entity_exporter.js`](tools/exporter/blockbench_plugin/exea_entity_exporter.js).
 Load it with *File → Plugins → Load Plugin from File*.
 
 Model rules (bone budget, the mesh size limit, unsupported animation features):
@@ -160,8 +174,9 @@ src/main/java/com/exea/entity/
   core/           engine (not API): model loading, animation, rendering, pack server, commands
 src/main/resources/models/   models bundled in the jar (<id>_bones.json, <id>_anims.json)
 pack/            resource pack bundled in the jar (served by the pack server)
-tools/           exea_exporter.js, Blockbench plugin, model inspectors
-docs/            API reference, Thai guide, modeling rules
+tools/exporter/  exea_exporter.js (CLI) and the Blockbench plugin
+docs/            API reference, Thai guide, modeling rules, effect/moveset formats
+schemas/         JSON Schemas for effect presets and movesets
 ```
 
 Only `com.exea.entity.api` is a stable API. Classes in `core` can change in any release.

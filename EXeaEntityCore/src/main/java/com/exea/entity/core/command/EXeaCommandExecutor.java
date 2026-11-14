@@ -38,10 +38,16 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
             case "pack" -> handlePack(sender, args);
             case "bone" -> handleBone(sender, args);
             case "stats" -> handleStats(sender);
+            case "fx" -> handleFx(sender, args);
+            case "skill" -> handleSkill(sender, args);
             case "reload" -> {
                 var plugin = com.exea.entity.EXeaEntityPlugin.getInstance();
                 EntityManager.getInstance().reload(plugin);
                 sender.sendMessage(ChatColor.GREEN + "[EXea] Models reloaded: " + String.join(", ", EntityManager.getInstance().getTemplateIds()));
+                com.exea.entity.core.effect.EffectManager.get().reload();
+                com.exea.entity.core.skill.SkillManager.get().reload();
+                sender.sendMessage(ChatColor.GREEN + "[EXea] Effects reloaded: " + com.exea.entity.core.effect.EffectManager.get().ids().size()
+                        + ChatColor.GRAY + " (problems are in the server log)");
                 if (plugin.getPackServer() != null) {
                     sender.sendMessage(ChatColor.GREEN + "[EXea] Resource pack: " + plugin.getPackServer().rebuild());
                 }
@@ -56,7 +62,7 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
-            List<String> subs = Arrays.asList("spawn", "kill", "anim", "bone", "stats", "list", "pack", "reload");
+            List<String> subs = Arrays.asList("spawn", "kill", "anim", "bone", "fx", "skill", "stats", "list", "pack", "reload");
             for (String s : subs) {
                 if (s.startsWith(args[0].toLowerCase())) {
                     completions.add(s);
@@ -75,6 +81,17 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
                     if (b.startsWith(args[1].toLowerCase())) completions.add(b);
                 }
             }
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("skill") && sender instanceof Player p) {
+            List<String> opts = new ArrayList<>(List.of("list", "auto", "manual", "cancel"));
+            EXActiveEntity near = findNearest(p);
+            if (near != null) opts.addAll(near.getSkills());
+            for (String s : opts) if (s.startsWith(args[1].toLowerCase())) completions.add(s);
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("fx")) {
+            List<String> opts = new ArrayList<>(List.of("list", "stop"));
+            opts.addAll(com.exea.entity.core.effect.EffectManager.get().ids());
+            for (String s : opts) if (s.startsWith(args[1].toLowerCase())) completions.add(s);
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("fx") && !args[1].equalsIgnoreCase("list")) {
+            completions.addAll(Arrays.asList("0.5", "1", "1.5", "2"));
         } else if (args.length == 2 && args[0].equalsIgnoreCase("anim")) {
             completions.addAll(Arrays.asList("play", "stop"));
         } else if (args.length == 3 && args[0].equalsIgnoreCase("anim") && args[1].equalsIgnoreCase("play")) {
@@ -101,6 +118,8 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea anim play <anim>" + ChatColor.GRAY + " - Plays animation on nearest entity");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea anim stop" + ChatColor.GRAY + " - Stops animation on nearest entity");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea bone <bone>" + ChatColor.GRAY + " - Marks a bone of the nearest entity with particles for 5 s");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea fx <id> [scale] | list | stop" + ChatColor.GRAY + " - Plays an effect preset at you (facing your way)");
+        sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea skill <id> | list | auto | manual | cancel" + ChatColor.GRAY + " - Moveset skills of the nearest entity (you are the target)");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea stats" + ChatColor.GRAY + " - Work per second since the last /exea stats");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea list" + ChatColor.GRAY + " - Shows active custom entities");
         sender.sendMessage(ChatColor.LIGHT_PURPLE + "/exea pack" + ChatColor.GRAY + " - Sends the model pack to you again");
@@ -193,6 +212,121 @@ public class EXeaCommandExecutor implements CommandExecutor, TabCompleter {
             loc.getWorld().spawnParticle(org.bukkit.Particle.END_ROD, loc, 1, 0, 0, 0, 0);
         }, 0L, 1L);
         player.sendMessage(ChatColor.GREEN + "[EXea] Marking bone " + bone + " for 5 s.");
+    }
+
+    /** /exea fx &lt;id&gt; [scale] plays at the player, facing their way; list; stop (within 32 blocks). */
+    private void handleFx(CommandSender sender, String[] args) {
+        var fx = com.exea.entity.core.effect.EffectManager.get();
+        if (args.length < 2 || args[1].equalsIgnoreCase("list")) {
+            sender.sendMessage(ChatColor.DARK_PURPLE + "=== EXea effects (" + fx.ids().size() + ") ===");
+            sender.sendMessage(ChatColor.GRAY + String.join(", ", fx.ids()));
+            sender.sendMessage(ChatColor.GRAY + "Playing: " + fx.activeCount() + "  display entities: " + fx.entityCount());
+            return;
+        }
+        if (!(sender instanceof Player player)) {
+            // Console: /exea fx <id> [scale] [world] plays at the world's spawn point (testing without a player).
+            org.bukkit.World w = args.length >= 4 ? org.bukkit.Bukkit.getWorld(args[3]) : org.bukkit.Bukkit.getWorlds().get(0);
+            if (w == null) {
+                sender.sendMessage(ChatColor.RED + "Unknown world.");
+                return;
+            }
+            double s = 1;
+            try {
+                if (args.length >= 3) s = Double.parseDouble(args[2]);
+            } catch (NumberFormatException ignored) {
+                // keep 1
+            }
+            var h = fx.play(args[1].toLowerCase(), w.getSpawnLocation(), com.exea.entity.api.effect.EffectOptions.create().scale(s));
+            sender.sendMessage(h == null ? "[EXea] Unknown effect: " + args[1]
+                    : "[EXea] Playing " + args[1] + " at the spawn of " + w.getName() + "; playing now: " + fx.activeCount());
+            return;
+        }
+        if (args[1].equalsIgnoreCase("stop")) {
+            sender.sendMessage(ChatColor.YELLOW + "[EXea] Stopped " + fx.stopNear(player.getLocation(), 32) + " effect(s) near you.");
+            return;
+        }
+        double scale = 1;
+        if (args.length >= 3) {
+            try {
+                scale = Double.parseDouble(args[2]);
+            } catch (NumberFormatException e) {
+                sender.sendMessage(ChatColor.RED + "Scale must be a number.");
+                return;
+            }
+        }
+        // Played 2 blocks in front of the player, facing the same way, so it is easy to watch.
+        org.bukkit.Location at = player.getLocation();
+        at.add(at.getDirection().setY(0).normalize().multiply(2));
+        at.setPitch(0);
+        var opts = com.exea.entity.api.effect.EffectOptions.create().scale(scale).yaw(player.getLocation().getYaw()).target(player);
+        if (fx.play(args[1].toLowerCase(), at, opts) == null) {
+            sender.sendMessage(ChatColor.RED + "[EXea] Unknown effect: " + args[1] + ChatColor.GRAY + " (/exea fx list)");
+        } else {
+            sender.sendMessage(ChatColor.GREEN + "[EXea] Playing " + args[1] + (scale != 1 ? " ×" + scale : ""));
+        }
+    }
+
+    /** /exea skill: cast a skill of the nearest entity at you, list its skills, switch its AI, cancel. */
+    private void handleSkill(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            // Console: /exea skill <id> casts it on every live entity that has it (testing without a player).
+            if (args.length >= 2) {
+                int n = 0;
+                for (EXActiveEntity e : EntityManager.getInstance().getActiveEntities().values()) {
+                    if (e.isValid() && e.getSkills().contains(args[1].toLowerCase())) {
+                        e.setCooldown(args[1].toLowerCase(), 0);
+                        String running = e.getCurrentSkill();
+                        if (e.castSkill(args[1].toLowerCase())) n++;
+                        else sender.sendMessage("[EXea]   not cast on " + e.getModelId() + " in " + e.getDriver().getWorld().getName()
+                                + (running != null ? ": " + running + " is running" : e.isDying() ? ": dying" : !e.getDriver().isValid() ? ": driver not loaded" : ""));
+                    }
+                }
+                sender.sendMessage("[EXea] Cast " + args[1] + " on " + n + " entit" + (n == 1 ? "y" : "ies"));
+                return;
+            }
+            sender.sendMessage(ChatColor.GRAY + "[EXea] Movesets: " + String.join(", ", com.exea.entity.core.skill.SkillManager.get().ids()));
+            for (EXActiveEntity e : EntityManager.getInstance().getActiveEntities().values()) {
+                if (!e.isValid() || !e.hasMoveset()) continue;
+                sender.sendMessage("[EXea]   " + e.getModelId() + " in " + e.getDriver().getWorld().getName() + ": hp "
+                        + (int) e.getDriver().getHealth() + ", phase " + e.getPhase() + ", running " + e.getCurrentSkill()
+                        + (e.getDriver().isInvulnerable() ? ", invulnerable" : "") + (e.isAutoSkills() ? ", auto" : ", manual"));
+            }
+            return;
+        }
+        EXActiveEntity e = findNearest(player);
+        if (e == null || !e.hasMoveset()) {
+            player.sendMessage(ChatColor.RED + "[EXea] No EXea entity with a moveset within 20 blocks.");
+            return;
+        }
+        String sub = args.length < 2 ? "list" : args[1].toLowerCase();
+        switch (sub) {
+            case "list" -> {
+                player.sendMessage(ChatColor.DARK_PURPLE + "=== " + e.getModelId() + " skills"
+                        + (e.getPhase() != null ? " (phase " + e.getPhase() + ")" : "") + (e.isAutoSkills() ? " [auto]" : " [manual]") + " ===");
+                for (String s : e.getSkills()) {
+                    double cd = e.getCooldown(s);
+                    player.sendMessage(ChatColor.LIGHT_PURPLE + s + ChatColor.GRAY + (cd > 0 ? "  cooldown " + String.format("%.1f", cd) + " s" : "  ready")
+                            + (s.equals(e.getCurrentSkill()) ? ChatColor.GOLD + "  (running)" : ""));
+                }
+            }
+            case "auto", "manual" -> {
+                e.setAutoSkills(sub.equals("auto"));
+                player.sendMessage(ChatColor.GREEN + "[EXea] " + e.getModelId() + " skills: " + sub);
+            }
+            case "cancel" -> {
+                e.cancelSkill();
+                player.sendMessage(ChatColor.YELLOW + "[EXea] Skill cancelled.");
+            }
+            default -> {
+                if (!e.getSkills().contains(sub)) {
+                    player.sendMessage(ChatColor.RED + "[EXea] Unknown skill " + sub + ChatColor.GRAY + " (/exea skill list)");
+                    return;
+                }
+                e.setCooldown(sub, 0);
+                boolean ok = e.castSkill(sub, player);
+                player.sendMessage(ok ? ChatColor.GREEN + "[EXea] Casting " + sub : ChatColor.RED + "[EXea] Could not cast " + sub + " (another skill is running, or a plugin cancelled it)");
+            }
+        }
     }
 
     private long statsAt = System.nanoTime();

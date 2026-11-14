@@ -66,17 +66,17 @@
 4. **UV per-face, density เท่ากัน** — ตั้ง texture 256² (บอสใหญ่ 512²) ให้ 1 px = 1 texel
 5. **วาด texture** — สีพื้น → เงา/AO ที่รอยต่อและใต้ท้อง → highlight ด้านบน/ขอบ → ลาย → สีเน้น/จุดเรืองแสง (เป้าหมาย: หลักพันสีขึ้นไป ไม่ใช่สีเรียบ)
 6. **Animation** — idle (หายใจ + ชิ้นลอยขยับเบาๆ), move, attack 2–3 ท่า, death (hold) ใช้ catmullrom ให้ลื่น ระวังมุมเกิน 180° ต่อ keyframe
-7. **Export** — บันทึก `.bbmodel` → `node EXeaEntityCore/tools/exea_exporter.js "<file>.bbmodel" <id>` → อ่าน `[WARN]` / `[SCALE]` → build jar → `/exea spawn <id>`
+7. **Export** — บันทึก `.bbmodel` → `node EXeaEntityCore/tools/exporter/exea_exporter.js "<file>.bbmodel" <id>` → อ่าน `[WARN]` / `[SCALE]` → build jar → `/exea spawn <id>`
 
 ## 5. บทเรียนจากการสร้าง Vaelith (2026-11-13) — อ่านก่อนสร้างตัวใหม่
 
 ### 5.1 ขั้นตอนที่ได้ผล (ทำตามลำดับนี้)
-1. **Generator ก่อน, Blockbench ทีหลัง** — เขียน geometry + texture + ท่าพื้นฐานเป็นสคริปต์ (`EXeaEntityCore/tools/models/<id>_gen.mjs`, ดู `vaelith_gen.mjs` เป็นแม่แบบ) แก้ตัวเลขแล้วสร้างใหม่ได้ทันที ไม่ต้องลากทีละ cube
-2. **เปิดใน Blockbench ผ่าน MCP** — `node tools/bbreload.mjs "<file>.bbmodel" "<ชื่อโปรเจกต์>"` (ปิดแท็บเดิม เปิดใหม่)
-3. **ดูผลจากหลายมุมเอง** — `node tools/bbshots.mjs <prefix> [anim] [time]` (offscreen view ไม่ขยับกล้องผู้ใช้), หน้าใกล้ๆ `node tools/bbface.mjs <prefix> x y z dist`
-4. **พอ geometry นิ่ง → ทำ IK ใน Blockbench → ทำท่า → bake** (`set_ik_controller` แล้ว `node tools/bbbake.mjs`) → **save จาก Blockbench** — ตั้งแต่ตรงนี้ไฟล์ `.bbmodel` คือต้นฉบับ (ห้ามรัน generator ทับ ไม่งั้น IK/ท่าที่แก้ใน Blockbench หาย)
+1. **Generator ก่อน, Blockbench ทีหลัง** — เขียน geometry + texture + ท่าพื้นฐานเป็นสคริปต์ (`EXeaEntityCore/tools/dev/models/<id>_gen.mjs`, ดู `vaelith_gen.mjs` เป็นแม่แบบ) แก้ตัวเลขแล้วสร้างใหม่ได้ทันที ไม่ต้องลากทีละ cube
+2. **เปิดใน Blockbench ผ่าน MCP** — `node tools/dev/bbreload.mjs "<file>.bbmodel" "<ชื่อโปรเจกต์>"` (ปิดแท็บเดิม เปิดใหม่)
+3. **ดูผลจากหลายมุมเอง** — `node tools/dev/bbshots.mjs <prefix> [anim] [time]` (offscreen view ไม่ขยับกล้องผู้ใช้), หน้าใกล้ๆ `node tools/bbface.mjs <prefix> x y z dist`
+4. **พอ geometry นิ่ง → ทำ IK ใน Blockbench → ทำท่า → bake** (`set_ik_controller` แล้ว `node tools/dev/bbbake.mjs`) → **save จาก Blockbench** — ตั้งแต่ตรงนี้ไฟล์ `.bbmodel` คือต้นฉบับ (ห้ามรัน generator ทับ ไม่งั้น IK/ท่าที่แก้ใน Blockbench หาย)
 5. **วัดค่าจริงใน Blockbench เมื่อสงสัย** (`risky_eval` อ่าน `group.mesh.position/rotation` ที่เวลาหนึ่ง) — อย่าเดาจากภาพ
-6. Export: `node EXeaEntityCore/tools/exea_exporter.js "<file>.bbmodel" <id>` + `<id>_meta.json` ข้าง .bbmodel → `gradlew jar` (เซิร์ฟปิด) → `/exea spawn <id>`
+6. Export: `node EXeaEntityCore/tools/exporter/exea_exporter.js "<file>.bbmodel" <id>` + `<id>_meta.json` ข้าง .bbmodel → `gradlew jar` (เซิร์ฟปิด) → `/exea spawn <id>`
 
 ### 5.2 ข้อเท็จจริงที่วัดแล้ว (อย่าเสียเวลาหาใหม่)
 - **Keyframe ใน .bbmodel ไม่ต้องกลับเครื่องหมาย** — Blockbench 5.2 บวกค่าตรงๆ ทุก format, Euler `ZYX` (ดู `Format.euler_order`)
@@ -101,7 +101,7 @@
 
 ### 5.3c Rig / ท่า
 - **มี bone `hips` เป็นรากของตัวละคร** (body → hips → torso/legs/skirt) — ท่าตาย "ล้มลงพื้น" = หมุน hips ~82° + เลื่อนลงถึงพื้น ชิ้นลอย (มือยักษ์/อาวุธ) เป็นลูกของ body จึงร่วงแยกได้
-- IK: เขียนเป็นสคริปต์ (`tools/models/vaelith_rig.mjs`) รันหลัง generator ทุกครั้ง → IK + pole + key + bake + save อัตโนมัติ ไม่ต้องทำมือซ้ำ
+- IK: เขียนเป็นสคริปต์ (`tools/dev/models/vaelith_rig.mjs`) รันหลัง generator ทุกครั้ง → IK + pole + key + bake + save อัตโนมัติ ไม่ต้องทำมือซ้ำ
 - **ใส่ pole target ทุก IK chain** (null หลัง/นอกศอก) ไม่งั้นศอกพับผิดทิศ
 - IK เฉพาะส่วนที่มีเป้าหมายจริง (มือ) · ขาที่ลอยไม่แตะพื้นใช้ FK — IK ที่ไม่มี key ใน animation ไหนจะทำให้ Blockbench แสดงไม่ตรงกับในเกม (bake ทำเฉพาะ animation ที่มี key ของ null)
 - ท่าหมุนอาวุธหน้าตัว: เลื่อนวงหมุนไปหน้า (z −26) และยกมือยักษ์ออก/ถอยหลัง/ชี้นิ้วขึ้น — เช็คจากมุมข้าง (side) ว่าไม่ทะลุกัน
@@ -116,7 +116,7 @@
 - มุมกล้องจากด้านบนทำให้ชิ้นที่อยู่ไกลดูสูงกว่า → ตรวจท่าด้วยมุมหน้าตรงก่อนสรุปว่าผิด
 - Exporter รุ่นเก่าเขียน pack แยกต่อโมเดล → zip ทับกัน (แก้แล้ว: รวมใน `EXeaEntityCore/pack`)
 - IK: ต้องมี bone ปลายสายว่างๆ (`hand_l`) เป็น end effector ถึงจะได้ข้อต่อ 2 ข้อ (ไหล่+ศอก); bone ว่างไม่เสีย entity
-- Blockbench MCP ใช้ port 3010 (3000 ชนกับ web console); เรียกผ่าน `tools/bbmcp.mjs` ได้แม้ session ยังไม่โหลด MCP; บน Windows ใช้ PowerShell ห้าม `cmd`
+- Blockbench MCP ใช้ port 3010 (3000 ชนกับ web console); เรียกผ่าน `tools/dev/bbmcp.mjs` ได้แม้ session ยังไม่โหลด MCP; บน Windows ใช้ PowerShell ห้าม `cmd`
 
 ### 5.5 Item model (Java Block/Item) — บทเรียนจาก Ember Blade (2026-11-13)
 - **สร้างดาบเอียง 45° ในตัวโมเดลเลย** (หมุนทุก element รอบ (8,8,8) แกน z −45°) → ใช้ display ของ vanilla `item/handheld` ได้ตรงๆ ไม่ต้องจูน; element ที่มีมุมของตัวเองอยู่แล้ว ให้รวมมุมแล้วพับเข้า −45..45 (หมุน 90° = สลับด้านกว้าง/สูง) ตัวอย่าง: ปลายดาบ diamond (45° ในกรอบดาบ) กลายเป็นกล่องตรงไม่ต้องหมุน → `tools/resourcepack/items/ember_blade_gen.mjs` (ใช้สร้างครั้งแรกเท่านั้น: แก้ทีหลังให้แก้ไฟล์ model/png ตัวล่าสุดบนดิสก์ ห้ามรัน generator ทับงานที่ผู้ใช้แก้มือ)
@@ -148,7 +148,7 @@
 
 ### 5.5 บทเรียนจาก Void Overseer (แก้ท่า + IK, 2026-11-13)
 - **กฎสูงสุด: แก้ไฟล์ล่าสุดเสมอ** — ผู้ใช้แก้โมเดล/ท่าเองระหว่างคำขอ → อ่าน `.bbmodel` จาก disk ใหม่ทุกครั้ง ห้ามสร้างใหม่จาก generator/rig script/export เก่า/git · rig script ที่ล้าง key ของ bone ที่ตัวเองเป็นเจ้าของจะทับท่าที่ผู้ใช้แก้เอง → ถ้าไฟล์เปลี่ยนหลังรันครั้งล่าสุด ให้ backup + เทียบท่าก่อน แล้วนำการแก้ของผู้ใช้เข้าไปในสคริปต์ (หรือถามก่อน)
-- **โมเดลที่ไม่มี generator: `.bbmodel` คือต้นฉบับ** → rig script (`tools/models/void_overseer_rig.mjs`) ทำทุกอย่างบนไฟล์นั้นแบบรันซ้ำได้: แยก bone (`forearm_*`, `hips`) ถ้ายังไม่มี, ล้าง key ของ bone ที่สคริปต์ "เป็นเจ้าของ" (`OWNED`) ทุกท่าก่อนใส่ใหม่, IK + pole, bake, save · ทดสอบด้วย `--no-save` ก่อน แล้วรันเต็ม (reload จากไฟล์เดิม) เพื่อพิสูจน์ว่าสร้างซ้ำได้
+- **โมเดลที่ไม่มี generator: `.bbmodel` คือต้นฉบับ** → rig script (`tools/dev/models/void_overseer_rig.mjs`) ทำทุกอย่างบนไฟล์นั้นแบบรันซ้ำได้: แยก bone (`forearm_*`, `hips`) ถ้ายังไม่มี, ล้าง key ของ bone ที่สคริปต์ "เป็นเจ้าของ" (`OWNED`) ทุกท่าก่อนใส่ใหม่, IK + pole, bake, save · ทดสอบด้วย `--no-save` ก่อน แล้วรันเต็ม (reload จากไฟล์เดิม) เพื่อพิสูจน์ว่าสร้างซ้ำได้
 - **แขนท่อนเดียว (ไม่มีศอก) ทำ IK ไม่ได้** → แยกแขนท่อนล่างเป็น bone ใหม่ที่ pivot ศอก แล้ว chain = `arm_*` → `forearm_*` → `hand_*` (pivot ของ hand = ข้อมือ = end effector, ไม่ต้องเพิ่ม bone ว่าง เพราะ IK ไม่หมุนตัว target; การหมุนของมือ/นิ้วยังเป็น FK)
 - **อย่าเดาตำแหน่งข้อมือตอนพักจาก origin ของ bone** — rest rotation ของไหล่/แขน (z −10/−5) ดึงข้อมือจาก x 13 เข้ามาที่ x 8.1 → เป้า IK ที่คิดจาก origin เข้าในไป 5 px ชนซี่โครง/แกนกลาง/มืออีกข้าง · วิธีที่ใช้: เขียน key IK เป็น **ตำแหน่งข้อมือแบบ absolute** (torso space) แล้วให้สคริปต์ลบด้วย `null.position` (null ที่ `set_ik_controller` สร้างอยู่ที่ข้อมือจริง)
 - **ระยะเอื้อม** = ต้นแขน + แขนล่าง (ที่นี่ 9.5 + 6.5 = 16 จากข้อไหล่ (±12.2, 34.4, 0)) — เป้าที่ไกลกว่านั้นแขนจะเหยียดตรงเอง; แขนล่างหนา 7 px → เวลาผ่านหน้าลำตัวต้องให้ z ≤ −10
@@ -159,6 +159,7 @@
 - **pole อยู่ใน torso space** → ตอนนอนหงาย pole ที่อยู่ข้างหลัง (z +9) กลายเป็นใต้พื้น ศอกพับลงดิน → key ตำแหน่ง pole ในท่าตายให้มาอยู่ระดับพื้น/ด้านข้าง (bake อ่านตำแหน่ง pole ทุกเฟรม)
 - **Blockbench ใช้ร่วมกันหลาย session**: ทุก MCP call ทำงานกับ project ที่ active → ตั้ง `BBMCP_PROJECT=<ชื่อโปรเจกต์>`; `bbmcp.mjs` มี `inProject(code)` ที่เลือกโปรเจกต์ → รัน → คืนโปรเจกต์เดิม (eval หนึ่งครั้งไม่ถูกแทรก) · `bbshots` อาจได้ภาพไม่ครบ ("Unknown view") หรือภาพจากเฟรมที่ถูกเปลี่ยนเวลา → รันซ้ำเฉพาะภาพที่ขาด และเชื่อตัวเลขที่วัดมากกว่าภาพ
 - `risky_eval` ห้ามมี `//` comment หรือ `console.` ในโค้ด
+- **bone ที่เพิ่มทีหลังแล้วย้ายของเข้าไป (forearm/hips) → เช็ค `parent` ใน `<id>_bones.json` หลัง export** (ต้องมี root เดียวคือ `body`) · exporter รุ่นเก่าหาชื่อ parent ระหว่างวนลูป `groups` ซึ่งเรียงตามลำดับที่สร้าง → ลูกที่อยู่ก่อน parent ได้ `parent: null` → ในเกมมือหลุดอยู่ข้างตัว (แขนขยับปกติ) แก้แล้วใน `exea_exporter.js`
 
 ## 6. ไอเดียที่เหมาะกับ EXea เป็นพิเศษ
 

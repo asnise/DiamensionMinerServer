@@ -131,6 +131,11 @@ public final class PackServer implements Listener {
         server = null;
     }
 
+    /** The running HTTP server (the live link adds its /api/ paths to it), or null when the pack is off. */
+    public HttpServer httpServer() {
+        return server;
+    }
+
     public void send(Player player) {
         if (zip == null || !player.isOnline()) return;
         player.addResourcePack(PACK_ID, url, sha1, "EXea 3D models (bosses and creatures)", required);
